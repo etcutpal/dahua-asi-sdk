@@ -22,7 +22,8 @@
       "Bash(select-string *)",
       "Bash(select-object *)",
       "Bash(start *)",
-      "Bash(npx *)"
+      "Bash(npx *)",
+      "Bash(node *)"
     ]
   },
   "$version": 3

@@ -1,4 +1,5 @@
 # Dependencies
+.qwen/
 node_modules/
 packages/
 vendor/
