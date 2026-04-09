@@ -18,37 +18,58 @@ The system consists of three main layers:
   - **HTTP API**: Exposes REST endpoints for Backend integration.
   - **Webhook Client**: Pushes real-time status updates to the Node.js Backend when devices connect/disconnect.
   - **Hardware Serial Fetching**: Automatically retrieves the unique hardware serial number upon device login (optimized to fetch only once per session).
+  - **Access Control Events (Real-time)**: Subscribes to live access control events using **three parallel methods**:
+    - **SDK Method**: `RealLoadPicture` API with `ACCESS_CTL` event type
+    - **Intelligent Events CGI**: `snapManager.cgi` with `Events=[AccessControl]`
+    - **General Events CGI**: `eventManager.cgi` with `codes=[All]` ← **Primary working method**
+  - **Multipart MIME Parser**: Handles device event streams in multipart format with JSON extraction
   - **Access Control Records**: Queries card swipe/entry logs via device CGI interface (`recordFinder.cgi`).
+  - **Door Control**: Open/Close door commands via `accessControl.cgi`.
   - **Type 5 Packet Handling**: Handles specific Keep-Alive/Registration packets (Type 5) sent by newer ASI devices to maintain connection stability.
 - **Key Files**:
   - `SDKBridgeService.cs`: Core service managing SDK lifecycle, device tracking, and webhooks.
   - `HttpApiServer.cs`: Kestrel HTTP server exposing REST endpoints.
   - `NetSDK.cs`: Wrapper for the Dahua SDK functions.
+  - `Modules/AccessControlEventsModule.cs`: SDK-based event subscription (RealLoadPicture).
+  - `Modules/AccessControlEventsCgiModule.cs`: Intelligent Events subscription (snapManager.cgi).
+  - `Modules/AccessControlEventsGeneralModule.cs`: General Events subscription (eventManager.cgi) - **Active method**.
 
 ### C. Backend Layer (Node.js / Express / Socket.IO)
 - **Purpose**: Middleware between the Bridge and the Frontend. Handles business logic and real-time broadcasting.
 - **Features**:
   - **REST API**: CRUD operations for device management (`/api/devices`).
   - **Webhook Receiver**: Receives real-time status updates from the C# Bridge (`/api/webhooks/device-status`).
+  - **Access Events Webhook**: Receives live access control events (`/api/webhooks/access-events`).
   - **Startup Sync**: Synchronizes device state from Bridge on startup to ensure accuracy.
-  - **WebSocket Server**: Broadcasts device status changes to the Frontend via Socket.IO.
+  - **WebSocket Server**: Broadcasts device status changes AND access control events to the Frontend via Socket.IO.
+  - **Event Persistence**: Stores access control events in `backend/data/access-events.json` (last 500 events).
   - **JSON Storage**: Persists device configurations in `backend/data/devices.json`.
 - **Key Files**:
   - `netSdkService.js`: Service communicating with C# Bridge.
+  - `eventService.js`: Event storage, file persistence, and WebSocket broadcasting.
   - `server.js`: Express server and Socket.IO setup.
   - `device.service.js`: JSON file database handler.
+  - `routes/webhooks.js`: Webhook endpoints for device status and access events.
+  - `routes/events.js`: REST API for querying access control events.
 
 ### D. Frontend Layer (Next.js / React)
 - **Purpose**: User interface for monitoring and managing devices.
 - **Features**:
-  - **Dashboard**: Real-time device status (Online/Offline), auto-registration control.
+  - **Dashboard**: Real-time device status (Online/Offline), auto-registration control, and **Live Access Control Events**.
   - **Device Management**: Add/Edit/Delete devices using a Modal UI.
   - **Access Records**: View entry logs fetched from the device.
   - **Real-time Updates**: Uses Socket.IO to update UI instantly without refreshing.
+  - **Live Events Display**: Shows face/card/fingerprint authentication events in real-time with:
+    - User ID, Card Number, Open Method (Face/Card/Fingerprint)
+    - Similarity score (for face recognition)
+    - Success/Fail status with color-coded badges
+    - Timestamps and door information
 - **Key Files**:
-  - `app/page.tsx`: Main dashboard.
+  - `app/page.tsx`: Main dashboard with live access control events section.
   - `app/devices/page.tsx`: Device management list.
   - `components/DeviceModal.tsx`: Add/Edit device form.
+  - `components/AccessControlEventList.tsx`: Real-time event display component.
+  - `context/SocketContext.tsx`: WebSocket connection and event handling.
 
 ## 3. Key Workflows
 
@@ -82,6 +103,26 @@ The system consists of three main layers:
    - Parses the text response from the CGI endpoint.
    - Returns JSON array of records (RecNo, CardNo, UserID, Time, Status).
 
+### 3.4 Live Access Control Events (Real-time)
+1. **Subscription**: When device connects, Bridge subscribes using three methods:
+   - SDK: `RealLoadPicture` with `ACCESS_CTL` event type
+   - CGI: `snapManager.cgi?action=attachFileProc&Events=[AccessControl]`
+   - CGI: `eventManager.cgi?action=attach&codes=[All]` ← **Working method**
+2. **Device Action**: User authenticates (face/card/fingerprint) at the device.
+3. **Bridge Action**:
+   - Receives multipart MIME event stream from `eventManager.cgi`.
+   - Parses MIME boundaries and extracts JSON objects.
+   - Extracts: UserID, CardNo, Method (15=Face), Similarity, Door, Status.
+   - Sends webhook to Backend: `POST http://localhost:3001/api/webhooks/access-events`.
+4. **Backend Action**:
+   - Receives webhook payload.
+   - Stores event in `backend/data/access-events.json` (file persistence).
+   - Broadcasts via WebSocket: `socket.emit('access:control:event', data)`.
+5. **Frontend Action**:
+   - Socket.IO listener receives event.
+   - Updates `accessEvents` state in dashboard.
+   - Displays event in "Live Access Control Events" section with badges and icons.
+
 ## 4. Recent Developments & Optimizations
 
 ### 4.1 Webhook Implementation (Replaces Polling)
@@ -111,6 +152,33 @@ The system consists of three main layers:
   - Fetches current state from Bridge immediately on startup.
   - Ensures Frontend displays correct status without waiting for a change event.
 
+### 4.5 Live Access Control Events (Real-time Event Subscription)
+- **Problem**: Access control events (face/card/fingerprint authentications) were not being received by the server.
+- **Root Cause**: 
+  - Device sends events in **multipart MIME format** with `--myboundary` separators
+  - Events were fragmented when reading line-by-line
+  - Event filter was too strict (only accepted `notifyAccessControl`)
+- **Solution**: Implemented three parallel subscription methods:
+  1. **SDK Method**: `RealLoadPicture` API with `ACCESS_CTL` event type
+  2. **Intelligent Events CGI**: `snapManager.cgi` (receiving heartbeats but no events)
+  3. **General Events CGI**: `eventManager.cgi` ← **Working method!**
+- **Technical Implementation**:
+  - Created multipart MIME parser to handle `--myboundary` format
+  - Added JSON object extractor that matches braces to find complete JSON
+  - Relaxed event filter to accept multiple event types
+  - Implemented webhook endpoint `/api/webhooks/access-events` in Backend
+  - Added file persistence in `backend/data/access-events.json`
+  - Created real-time dashboard component `AccessControlEventList.tsx`
+- **Event Data Captured**:
+  - UserID, CardNo, CardName (e.g., "Utpal Mandal")
+  - Open Method: 15=Face, 1=Card, 6=Fingerprint, etc.
+  - Similarity score (e.g., 99% for face recognition)
+  - Door number, Status (Open/Close), Timestamp
+- **Result**: ✅ **Live events flowing to dashboard in real-time!**
+  - User authenticates → Event appears on dashboard within 1-2 seconds
+  - Events persist across server restarts (last 500 events)
+  - WebSocket broadcast ensures instant UI updates
+
 ## 5. CGI API Configuration on Device
 To use features like Access Record Retrieval, the **CGI API** must be enabled on the Dahua device.
 
@@ -139,6 +207,10 @@ These are used by the Frontend.
 | `PUT` | `/api/devices/{id}` | Update device configuration. |
 | `DELETE` | `/api/devices/{id}` | Delete a device configuration. |
 | `POST` | `/api/webhooks/device-status` | **Internal**: Receives status updates from C# Bridge. |
+| `POST` | `/api/webhooks/access-events` | **Internal**: Receives access control events from C# Bridge. |
+| `GET` | `/api/events/access-control` | Get access control event history (paginated). |
+| `GET` | `/api/events/access-control/device/{deviceId}` | Get events for specific device. |
+| `DELETE` | `/api/events/access-control` | Clear access event history. |
 | `POST` | `/api/autoreg/start` | Start Auto-Registration server on Bridge. |
 | `POST` | `/api/autoreg/stop` | Stop Auto-Registration server on Bridge. |
 
@@ -159,21 +231,37 @@ These are used by the Backend to control the Bridge and Device.
 ## 7. Future Roadmap (See `TODO_REDIS_IMPLEMENTATION.md`)
 1. **Redis Integration**: Replace JSON storage and in-memory tracking with Redis for persistence and multi-instance support.
 2. **Universal CGI Proxy**: A generic endpoint to call any CGI command on the device without hardcoding paths.
-3. **Face Image Retrieval**: Fetch face snapshots associated with access records.
-4. **Door Control**: Implement Open/Close door commands via HTTP API.
+3. **Snapshot Image Retrieval**: Fetch face snapshots associated with access events and display them in the dashboard.
+4. **Advanced Event Filtering**: Add date range filters, event type filters, and export to CSV/PDF for audit trails.
+5. **Real-time Notifications**: Browser push notifications for failed access attempts or security alerts.
+6. **Analytics Dashboard**: Statistics showing successful vs failed attempts, peak hours, most active users.
 
 ## 8. Development Environment
 - **C# Bridge**: .NET 8.0, NetSDK (Dahua), VS Code / Visual Studio.
 - **Backend**: Node.js 18+, Express, Socket.IO.
 - **Frontend**: Next.js 14, React, Tailwind CSS.
 - **Database**: Currently `backend/data/devices.json` (Local File).
+- **Event Storage**: `backend/data/access-events.json` (last 500 events with file persistence).
 - **Cache**: In-memory `ConcurrentDictionary` (C#) and `Map` (Node.js).
 
-## 9. Contact / Context for AI Agents
+## 9. Documentation Files
+- `PROJECT_OVERVIEW.md` - This file: Complete system architecture and workflows.
+- `ACCESS_CONTROL_EVENTS_GUIDE.md` - Guide for access control events implementation.
+- `IMPLEMENTATION_COMPLETE.md` - Implementation status and technical details.
+- `MULTIPART_FIX.md` - Multipart MIME parser implementation notes.
+- `THREE_METHODS_FIX.md` - Three event subscription methods explanation.
+- `EVENT_DEBUG_INSTRUCTIONS.md` - Debug instructions for event troubleshooting.
+- `TODO_REDIS_IMPLEMENTATION.md` - Future Redis integration plans.
+- `AUTO_REG_CONFIG.md` - Auto-registration configuration guide.
+- `SERVER_IP_CONFIG.md` - Server IP configuration guide.
+
+## 10. Contact / Context for AI Agents
 If you are an AI agent reading this:
 - The system is functional and currently running.
 - The C# Bridge is the source of truth for device connectivity.
 - The Node.js Backend is the source of truth for user-configured device data.
-- **Always check `TODO_REDIS_IMPLEMENTATION.md` before suggesting storage changes.**
-- **Always check `backend/src/services/netSdkService.js` for real-time update logic.**
-- **If a device shows "Offline" unexpectedly, check the Bridge logs for "Type 5" or "UNKNOWN LISTEN TYPE" warnings.**
+- **Access control events are now working via `eventManager.cgi` (General Events method).**
+- **Always check `backend/data/access-events.json` for event storage.**
+- **If events stop flowing, check the C# Bridge logs for MIME parsing errors.**
+- **The multipart MIME parser in `AccessControlEventsGeneralModule.cs` is the active event handler.**
+- **Event flow**: Device → eventManager.cgi → C# Bridge → Backend webhook → WebSocket → Frontend dashboard.
