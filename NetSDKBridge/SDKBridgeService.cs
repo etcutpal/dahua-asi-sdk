@@ -20,6 +20,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NetSDKCS;
+using NetSDKBridge.Modules;
 
 #nullable disable
 
@@ -29,6 +30,7 @@ namespace NetSDKBridge
     {
         private static SDKBridgeService _instance;
         private readonly ILogger<SDKBridgeService> _logger;
+        private readonly ILoggerFactory _loggerFactory;
         
         // Device storage - KEYED BY REGISTRATION ID (serial number), NOT GUID
         private readonly ConcurrentDictionary<string, DeviceInfo> _devices = new();
@@ -115,10 +117,57 @@ namespace NetSDKBridge
         private readonly System.Net.Http.HttpClient _httpClient = new System.Net.Http.HttpClient();
         private string _backendWebhookUrl = "";
 
+        // Access Control Events Module - SDK Method (RealLoadPicture)
+        private AccessControlEventsModule _accessControlEventsModule;
+
+        // Access Control Events Module - HTTP CGI Method (snapManager.cgi)
+        private AccessControlEventsCgiModule _accessControlEventsCgiModule;
+
+        // Access Control Events Module - General Events Method (eventManager.cgi)
+        private AccessControlEventsGeneralModule _accessControlEventsGeneralModule;
+
         public void SetBackendWebhookUrl(string url)
         {
             _backendWebhookUrl = url;
             _logger.LogInformation($"Backend Webhook URL configured: {_backendWebhookUrl}");
+
+            // Initialize Access Control Events Module - SDK Method
+            if (_accessControlEventsModule == null)
+            {
+                _accessControlEventsModule = new AccessControlEventsModule(
+                    _loggerFactory.CreateLogger<AccessControlEventsModule>(),
+                    _httpClient,
+                    url
+                );
+                _logger.LogInformation("✅ Access Control Events Module (SDK) initialized");
+            }
+            
+            // Initialize Access Control Events Module - HTTP CGI Method
+            if (_accessControlEventsCgiModule == null)
+            {
+                // Create HTTP client factory for CGI module
+                var serviceCollection = new ServiceCollection();
+                serviceCollection.AddHttpClient();
+                var serviceProvider = serviceCollection.BuildServiceProvider();
+                var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+
+                _accessControlEventsCgiModule = new AccessControlEventsCgiModule(
+                    _loggerFactory.CreateLogger<AccessControlEventsCgiModule>(),
+                    httpClientFactory,
+                    url
+                );
+                _logger.LogInformation("✅ Access Control Events Module (HTTP CGI) initialized");
+            }
+
+            // Initialize Access Control Events Module - General Events Method (eventManager.cgi)
+            if (_accessControlEventsGeneralModule == null)
+            {
+                _accessControlEventsGeneralModule = new AccessControlEventsGeneralModule(
+                    _loggerFactory.CreateLogger<AccessControlEventsGeneralModule>(),
+                    url
+                );
+                _logger.LogInformation("✅ Access Control Events Module (General Events - eventManager.cgi) initialized");
+            }
         }
 
         public static SDKBridgeService Instance => _instance;
@@ -126,9 +175,10 @@ namespace NetSDKBridge
         public event EventHandler<DeviceStatusChangedEventArgs> DeviceStatusChanged;
         public event EventHandler<DeviceEventEventArgs> DeviceEventReceived;
 
-        public SDKBridgeService(ILogger<SDKBridgeService> logger)
+        public SDKBridgeService(ILogger<SDKBridgeService> logger, ILoggerFactory loggerFactory)
         {
             _logger = logger;
+            _loggerFactory = loggerFactory;
             _instance = this;
 
             // Subscribe to device status changes to send webhooks
@@ -690,6 +740,11 @@ namespace NetSDKBridge
 
                             _logger.LogInformation($"✅ Device marked as OFFLINE");
 
+                            // Unsubscribe from events (all three methods)
+                            _accessControlEventsModule?.UnsubscribeFromDeviceEvents(registrationID);
+                            _accessControlEventsCgiModule?.UnsubscribeFromDeviceEvents(registrationID);
+                            _accessControlEventsGeneralModule?.UnsubscribeFromDeviceEvents(registrationID);
+
                             DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
                             {
                                 DeviceID = registrationID,
@@ -970,6 +1025,37 @@ namespace NetSDKBridge
                 _logger.LogInformation($"   Status: Online");
                 _logger.LogInformation($"   Events will flow through global callback");
                 _logger.LogInformation("");
+
+                // Subscribe to real-time access control events (face/card/fingerprint)
+                // Method 1: SDK RealLoadPicture
+                if (_accessControlEventsModule != null)
+                {
+                    await _accessControlEventsModule.SubscribeToDeviceEvents(registrationID, loginID.ToInt64(), ip);
+                }
+
+                // Method 2: HTTP CGI Subscription (snapManager.cgi)
+                if (_accessControlEventsCgiModule != null)
+                {
+                    _logger.LogInformation($"📡 [CGI] Attempting HTTP CGI subscription for device: {registrationID}");
+                    await _accessControlEventsCgiModule.SubscribeToDeviceEvents(
+                        registrationID,
+                        ip,
+                        _platformUsername,
+                        _platformPassword
+                    );
+                }
+
+                // Method 3: General Events Subscription (eventManager.cgi) - NEW!
+                if (_accessControlEventsGeneralModule != null)
+                {
+                    _logger.LogInformation($"📡 [GENERAL] Attempting General Events subscription for device: {registrationID}");
+                    await _accessControlEventsGeneralModule.SubscribeToDeviceEvents(
+                        registrationID,
+                        ip,
+                        _platformUsername,
+                        _platformPassword
+                    );
+                }
             }
             catch (Exception ex)
             {
@@ -1404,6 +1490,14 @@ namespace NetSDKBridge
             try
             {
                 _logger.LogInformation("Cleaning up NetSDK...");
+
+                // Unsubscribe from all access control events (all three methods)
+                _accessControlEventsModule?.UnsubscribeAll();
+                _accessControlEventsModule?.Dispose();
+                _accessControlEventsCgiModule?.UnsubscribeAll();
+                _accessControlEventsCgiModule?.Dispose();
+                _accessControlEventsGeneralModule?.UnsubscribeAll();
+                _accessControlEventsGeneralModule?.Dispose();
 
                 foreach (var deviceId in _devices.Keys.ToList())
                 {

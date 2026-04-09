@@ -17,7 +17,10 @@
       "Bash(powershell *)",
       "Bash(npm run *)",
       "Bash(npm start)",
-      "Bash(type *)"
+      "Bash(type *)",
+      "Bash(start-all.bat)",
+      "Bash(select-string *)",
+      "Bash(select-object *)"
     ]
   },
   "$version": 3

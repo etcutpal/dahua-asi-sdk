@@ -1,4 +1,9 @@
 
+git add .
+git commit -m "Updated SDK connection logic for better stability"
+git push
+
+
 Expected behavior! When you run commands manually, the SERVER_IP environment variable doesn’t exist in your terminal session.
 
 Why It Works With start-all.bat
@@ -36,3 +41,52 @@ cd NetSDKBridge && dotenv -e ../backend/.env -- dotnet run
 cd backend && npm run dev
 Summary: start-all.bat works because it reads .env and sets the variable for you. Manual runs need you to set it yourself.
 
+
+
+Method 1: HTTP CGI Subscription (Documented in 4.11)
+Pros: Clean JSON format, easy to parse, includes snapshot URLs
+Cons: Requires maintaining HTTP long-poll connection per device
+URL: http://{device_ip}/cgi-bin/snapManager.cgi?action=attachFileProc&Flags[0]=Event&Events=[AccessControl]&heartbeat=5
+
+
+📋 Summary: What’s Done & What’s Next
+✅ What We’ve Built:
+Component	Status	Description
+SDK Module	✅ Working	AccessControlEventsModule.cs - Uses RealLoadPicture SDK callback
+CGI Module	🔧 Built	AccessControlEventsCgiModule.cs - Uses HTTP CGI subscription
+Integration	✅ Done	Both modules integrated into SDKBridgeService.cs
+Build	✅ Passes	No compilation errors
+🔍 Current Issue:
+Neither module is receiving events from the device. Reasons:
+
+SDK Method: RealLoadPicture subscribed successfully but no callbacks received
+CGI Method: HTTP stream connection failing (likely authentication/URL format issue)
+📌 What to Tell Me Later:
+When you return, please provide:
+
+Device Details:
+
+Device model/brand (Dahua? Hikvision? Other?)
+Firmware version
+Does the device support “Intelligent Events” or “Access Control Events” subscription?
+Test Results:
+
+Did you try punching the device (face/card/fingerprint) while services were running?
+Check device web interface: Is there a setting for “Event Push” or “Server Push”?
+Device Configuration:
+
+Screenshot of device’s network/event settings page (if available)
+Does the device have an option to “Upload Events to Server”?
+What You Want to Try Next:
+
+Option A: Debug CGI module with proper authentication (Digest auth)
+Option B: Try HTTP polling method (periodically fetch events instead of streaming)
+Option C: Check if device requires a different CGI endpoint
+Option D: Something else?
+📁 Files Created/Modified:
+File	Action
+NetSDKBridge/Modules/AccessControlEventsModule.cs	✅ Created (SDK method)
+NetSDKBridge/Modules/AccessControlEventsCgiModule.cs	✅ Created (CGI method)
+NetSDKBridge/Modules/ACCESS_CONTROL_EVENTS_MODULE.md	✅ Documentation
+NetSDKBridge/SDKBridgeService.cs	✏️ Modified (integrated both modules)
+NetSDKBridge/SDKBridgeService.cs	✏️ Modified (added .env reader)

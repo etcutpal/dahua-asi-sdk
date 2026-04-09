@@ -6,6 +6,7 @@ import DeviceList from '@/components/DeviceList';
 import EventLog from '@/components/EventLog';
 import DeviceLoginDialog from '@/components/DeviceLoginDialog';
 import AutoRegControl from '@/components/AutoRegControl';
+import AccessControlEventList from '@/components/AccessControlEventList';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,7 @@ import {
   Settings,
   Bell,
   HardDrive,
+  DoorOpen,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -41,6 +43,39 @@ export default function Home() {
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRegStatus, setAutoRegStatus] = useState(false);
+  const [accessEvents, setAccessEvents] = useState<any[]>([]);
+
+  // Listen for access control events via WebSocket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleAccessEvent = (event: any) => {
+      console.log('🚪 Access control event received:', event);
+      setAccessEvents((prev) => [event, ...prev].slice(0, 50)); // Keep last 50
+    };
+
+    socket.on('access:control:event', handleAccessEvent);
+
+    // Fetch initial access events from API
+    fetchAccessEvents();
+
+    return () => {
+      socket.off('access:control:event', handleAccessEvent);
+    };
+  }, [socket]);
+
+  const fetchAccessEvents = async () => {
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${API_URL}/api/events/access-control?limit=20`);
+      const data = await response.json();
+      if (data.success) {
+        setAccessEvents(data.events || []);
+      }
+    } catch (error) {
+      console.error('Error fetching access events:', error);
+    }
+  };
 
   const onlineDevices = devices.filter((d: Device) => d.status === 'Online');
 
@@ -181,6 +216,35 @@ export default function Home() {
             <EventLog events={events} />
           </div>
         </div>
+
+        {/* Access Control Events */}
+        {accessEvents.length > 0 && (
+          <div className="mt-8">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div className="flex items-center space-x-3">
+                  <DoorOpen className="h-5 w-5 text-blue-600" />
+                  <CardTitle className="text-lg font-medium">Live Access Control Events</CardTitle>
+                  <Badge variant="outline" className="text-xs">
+                    {accessEvents.length} events
+                  </Badge>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchAccessEvents}
+                  className="flex items-center space-x-2"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                  <span>Refresh</span>
+                </Button>
+              </CardHeader>
+              <CardContent>
+                <AccessControlEventList events={accessEvents} />
+              </CardContent>
+            </Card>
+          </div>
+        )}
       </main>
 
       {/* Login Dialog */}

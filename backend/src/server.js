@@ -86,11 +86,18 @@ eventService.on('device:status:changed', (data) => {
 
 eventService.on('device:event:received', (data) => {
   io.emit('device:event:received', data);
-  
+
   // Also emit to specific device room
   if (data.deviceId) {
     io.to(`device:${data.deviceId}`).emit('device:event', data);
   }
+});
+
+// Broadcast access control events to all clients
+eventService.on('access:control:event', (data) => {
+  io.emit('access:control:event', data);
+  
+  logger.info(`📡 WebSocket broadcast: access control event for device ${data.deviceId}`);
 });
 
 // Error handling middleware
