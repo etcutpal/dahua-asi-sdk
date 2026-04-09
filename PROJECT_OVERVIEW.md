@@ -361,15 +361,44 @@ The frontend includes an **API Tester** page at `/api-tester` that allows you to
 
 ## 11. Contact / Context for AI Agents
 If you are an AI agent reading this:
+
+### System Status
 - The system is functional and currently running.
 - The C# Bridge is the source of truth for device connectivity.
 - The Node.js Backend is the source of truth for user-configured device data.
-- **Access control events are now working via `eventManager.cgi` (General Events method).**
-- **Access records retrieval uses NetSDK `FindRecord()` API over TCP (NAT traversal).** No direct device IP needed.
-- **Always check `backend/data/access-events.json` for event storage.**
-- **If events stop flowing, check the C# Bridge logs for MIME parsing errors.**
-- **The multipart MIME parser in `AccessControlEventsGeneralModule.cs` is the active event handler.**
-- **Event flow**: Device → eventManager.cgi → C# Bridge → Backend webhook → WebSocket → Frontend dashboard.
-- **Access records flow**: Server → FindRecord() via TCP → Device → Records via TCP → Server → Backend → Frontend.
-- **Use the `/api-tester` page to debug and understand any endpoint.**
-- **All endpoints work over NAT/firewall** — device only needs outbound internet to server's public IP.
+
+### Access Control Events (Real-time)
+- **Working method**: `eventManager.cgi` (General Events) via multipart MIME streaming.
+- Events flow: Device → `eventManager.cgi` → C# Bridge MIME parser → Backend webhook → WebSocket → Frontend dashboard.
+- Event storage: `backend/data/access-events.json` (last 500 events).
+- If events stop flowing, check C# Bridge logs for MIME parsing errors.
+- The MIME parser is in `AccessControlEventsGeneralModule.cs`.
+
+### Access Records (Historical Queries)
+- **Primary method**: NetSDK `FindRecord()` / `FindNextRecord()` APIs over the existing auto-registration TCP connection (port 9500).
+- **Works over NAT/firewall** — no direct device HTTP access or port forwarding needed.
+- Query flow: Server → `FindRecord()` via TCP → Device → Records via TCP → Server → Backend → Frontend.
+- Endpoint: `GET /api/devices/{id}/access-records-sdk` (Bridge) or `GET /api/access-records/sdk/{deviceId}` (Backend).
+- Supports `startTime`, `endTime`, `cardNumber`, `maxRecords` query params. Defaults to last 7 days.
+- **CGI fallback**: `recordFinder.cgi` (needs direct device IP, LAN only) — at `/api/devices/{id}/access-records`.
+
+### NAT Traversal Architecture
+- Device initiates outbound TCP connection to server on port 9500 (auto-registration).
+- All primary features work through this single connection: live events, access records, device status.
+- **Device only needs outbound internet to server's public IP** — no inbound ports open on device side.
+- Endpoints requiring direct device IP (CGI): door control, CGI access records fallback.
+
+### Key Files
+- `SDKBridgeService.cs`: Core service — device tracking, SDK lifecycle, `QueryAccessRecordsBySDK()`, `QueryAccessRecords()`.
+- `HttpApiServer.cs`: Kestrel HTTP server exposing Bridge REST endpoints.
+- `NetSDK.cs`: SDK wrapper — `FindRecord()`, `FindNextRecord()`, `QueryRecordCount()`.
+- `Modules/AccessControlEventsGeneralModule.cs`: Multipart MIME parser for live events.
+- `backend/src/services/netSdkService.js`: Backend ↔ Bridge communication.
+- `backend/src/routes/access-records.js`: Backend access records route.
+- `frontend/src/app/api-tester/page.tsx`: API testing UI with grouped endpoints (NAT vs Local IP).
+
+### Development Tips
+- Use `/api-tester` page (port 3000) to debug any endpoint. It groups endpoints by network mode (NAT traversal vs Local IP).
+- Before rebuilding C# Bridge, always stop the running process: `taskkill /F /IM NetSDKBridge.exe`.
+- Bridge logs are at: `NetSDKBridge/bin/Debug/net8.0/logs/netsdk-bridge.log`.
+- All API calls through the Backend (port 3001) are preferred over direct Bridge calls (port 5000).
