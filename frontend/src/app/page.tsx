@@ -21,6 +21,7 @@ import {
   Bell,
   HardDrive,
   DoorOpen,
+  Code,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
@@ -120,7 +121,7 @@ export default function Home() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
@@ -179,7 +180,7 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card 
+          <Card
             className="cursor-pointer hover:shadow-lg transition-shadow"
             onClick={() => router.push('/devices')}
             role="button"
@@ -199,6 +200,30 @@ export default function Home() {
               <div className="text-2xl font-bold text-primary-600">Manage</div>
               <p className="text-xs text-muted-foreground">
                 Configure devices
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card
+            className="cursor-pointer hover:shadow-lg transition-shadow"
+            onClick={() => router.push('/api-tester')}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                router.push('/api-tester');
+              }
+            }}
+          >
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">API Tester</CardTitle>
+              <Code className="h-4 w-4 text-purple-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-purple-600">Test</div>
+              <p className="text-xs text-muted-foreground">
+                Call all endpoints
               </p>
             </CardContent>
           </Card>

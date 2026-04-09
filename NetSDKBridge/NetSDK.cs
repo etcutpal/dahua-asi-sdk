@@ -2223,11 +2223,25 @@ namespace NetSDKCS
                 stuOutParam.dwSize = (uint)Marshal.SizeOf(stuOutParam);
                 stuOutParam.nMaxRecordNum = nMaxNum;
 
-                pRecordList = Marshal.AllocHGlobal(Marshal.SizeOf(tyRecord) * nMaxNum);
+                int recordSize = Marshal.SizeOf(tyRecord);
+                pRecordList = Marshal.AllocHGlobal(recordSize * nMaxNum);
+
+                // Initialize each record structure with dwSize before calling SDK
                 for (int i = 0; i < nMaxNum; i++)
                 {
-                    Marshal.StructureToPtr(ls[i], IntPtr.Add(pRecordList, Marshal.SizeOf(tyRecord) * i), true);
+                    IntPtr ptr = IntPtr.Add(pRecordList, recordSize * i);
+                    object record = Activator.CreateInstance(tyRecord);
+                    
+                    // If structure has dwSize field, set it
+                    var dwSizeField = tyRecord.GetField("dwSize");
+                    if (dwSizeField != null)
+                    {
+                        dwSizeField.SetValue(record, (uint)recordSize);
+                    }
+                    
+                    Marshal.StructureToPtr(record, ptr, false);
                 }
+
                 stuOutParam.pRecordList = pRecordList;
 
                 result = OriginalSDK.CLIENT_FindNextRecord(ref stuInParam, ref stuOutParam, waittime);
@@ -2238,7 +2252,12 @@ namespace NetSDKCS
                     ls.Clear();
                     for (int i = 0; i < nRetNum; i++)
                     {
-                        ls.Add(Marshal.PtrToStructure(IntPtr.Add(pRecordList, Marshal.SizeOf(tyRecord) * i), tyRecord));
+                        IntPtr ptr = IntPtr.Add(pRecordList, recordSize * i);
+                        object obj = Marshal.PtrToStructure(ptr, tyRecord);
+                        if (obj != null)
+                        {
+                            ls.Add(obj);
+                        }
                     }
                 }
                 else
@@ -2248,7 +2267,10 @@ namespace NetSDKCS
             }
             finally
             {
-                Marshal.FreeHGlobal(pRecordList);
+                if (pRecordList != IntPtr.Zero)
+                {
+                    Marshal.FreeHGlobal(pRecordList);
+                }
             }
 
             return result;

@@ -235,7 +235,7 @@ namespace NetSDKBridge
                 await context.Response.WriteAsJsonAsync(capabilities);
             });
 
-            // Query access records
+            // Query access records via CGI (LAN only - requires direct HTTP access to device)
             _app.MapGet("/api/devices/{deviceId}/access-records", async context =>
             {
                 try
@@ -265,6 +265,45 @@ namespace NetSDKBridge
                         maxRecords = mr;
 
                     var records = await _sdkService.QueryAccessRecords(deviceId, startTime, endTime, cardNumber, maxRecords);
+                    await context.Response.WriteAsJsonAsync(new { success = true, count = records.Count, records });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
+            // Query access records via NetSDK (Works over Internet/NAT - uses existing TCP connection)
+            _app.MapGet("/api/devices/{deviceId}/access-records-sdk", async context =>
+            {
+                try
+                {
+                    var deviceId = context.Request.RouteValues["deviceId"]?.ToString();
+                    if (string.IsNullOrEmpty(deviceId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { error = "Device ID required" });
+                        return;
+                    }
+
+                    var startTimeStr = context.Request.Query["startTime"];
+                    var endTimeStr = context.Request.Query["endTime"];
+                    var cardNumber = context.Request.Query["cardNumber"];
+                    var maxRecordsStr = context.Request.Query["maxRecords"];
+
+                    DateTime? startTime = null;
+                    DateTime? endTime = null;
+                    int maxRecords = 100;
+
+                    if (!string.IsNullOrEmpty(startTimeStr) && DateTime.TryParse(startTimeStr, out var st))
+                        startTime = st;
+                    if (!string.IsNullOrEmpty(endTimeStr) && DateTime.TryParse(endTimeStr, out var et))
+                        endTime = et;
+                    if (!string.IsNullOrEmpty(maxRecordsStr) && int.TryParse(maxRecordsStr, out var mr))
+                        maxRecords = mr;
+
+                    var records = await _sdkService.QueryAccessRecordsBySDK(deviceId, startTime, endTime, cardNumber, maxRecords);
                     await context.Response.WriteAsJsonAsync(new { success = true, count = records.Count, records });
                 }
                 catch (Exception ex)

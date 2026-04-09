@@ -38,6 +38,7 @@ app.use('/api/devices', require('./routes/devices'));
 app.use('/api/autoreg', require('./routes/autoreg'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/webhooks', require('./routes/webhooks'));
+app.use('/api/access-records', require('./routes/access-records'));
 
 // Health check
 app.get('/api/health', (req, res) => {

@@ -20,7 +20,9 @@
       "Bash(type *)",
       "Bash(start-all.bat)",
       "Bash(select-string *)",
-      "Bash(select-object *)"
+      "Bash(select-object *)",
+      "Bash(start *)",
+      "Bash(npx *)"
     ]
   },
   "$version": 3

@@ -9,7 +9,13 @@ The system consists of three main layers:
 ### A. Device Layer (Dahua ASI)
 - **Hardware**: Dahua ASI Face Recognition Terminals (e.g., ASI11, ASI12).
 - **Communication**: Connects to the NetSDK Bridge via **Auto-Registration** (TCP/9500).
-- **Protocols**: Dahua NetSDK (for connection/status) and CGI (for data retrieval like access records).
+- **Protocols**: 
+  - **Dahua NetSDK**: Primary protocol for all communication (connection, events, access records).
+  - **CGI**: Secondary/fallback for access records if SDK method fails.
+- **Network Model**: 
+  - Device initiates connection to server (outbound TCP to port 9500).
+  - Works through NAT/firewall — no port forwarding needed.
+  - Server and device can be in completely different locations.
 
 ### B. NetSDK Bridge Layer (C# / .NET 8.0)
 - **Purpose**: Wraps the unmanaged Dahua C++ SDK (`dhnetsdk.dll`) into a safe C# service.
@@ -23,7 +29,10 @@ The system consists of three main layers:
     - **Intelligent Events CGI**: `snapManager.cgi` with `Events=[AccessControl]`
     - **General Events CGI**: `eventManager.cgi` with `codes=[All]` ← **Primary working method**
   - **Multipart MIME Parser**: Handles device event streams in multipart format with JSON extraction
-  - **Access Control Records**: Queries card swipe/entry logs via device CGI interface (`recordFinder.cgi`).
+  - **Access Control Records (NAT Traversal)**: Queries card swipe/entry logs via **NetSDK FindRecord API** over the existing TCP connection.
+    - **Primary Method**: `FindRecord()` / `FindNextRecord()` SDK APIs (works through NAT/firewall)
+    - **Fallback Method**: `recordFinder.cgi` HTTP endpoint (requires direct device IP)
+    - No port forwarding or direct device HTTP access needed.
   - **Door Control**: Open/Close door commands via `accessControl.cgi`.
   - **Type 5 Packet Handling**: Handles specific Keep-Alive/Registration packets (Type 5) sent by newer ASI devices to maintain connection stability.
 - **Key Files**:
@@ -95,13 +104,21 @@ The system consists of three main layers:
    - Bridge clears the "Hardware Serial Fetched" cache for this device.
    - Bridge sends **Webhook** to Backend.
 
-### 3.3 Access Record Retrieval
-1. **Request**: Frontend calls `GET /api/devices/{deviceId}/access-records`.
-2. **Bridge Action**:
+### 3.3 Access Record Retrieval (NAT Traversal)
+1. **Request**: Frontend calls `GET /api/access-records/sdk/{deviceId}`.
+2. **Backend Action**: Forwards request to Bridge: `GET /api/devices/{deviceId}/access-records-sdk`.
+3. **Bridge Action (Primary - SDK TCP Method)**:
+   - Uses existing auto-registration TCP connection (port 9500).
+   - Calls `FindRecord()` API with `ACCESSCTLCARDREC_EX` type.
+   - Calls `QueryRecordCount()` to get total record count.
+   - Calls `FindNextRecord()` in batches to retrieve records.
+   - Calls `FindRecordClose()` to clean up.
+   - **No direct HTTP access to device IP needed** — works through NAT/firewall.
+4. **Bridge Action (Fallback - CGI Method)**:
    - Constructs CGI URL: `http://{device_ip}/cgi-bin/recordFinder.cgi?action=find&name=AccessControlCardRec`.
    - Authenticates using device credentials.
    - Parses the text response from the CGI endpoint.
-   - Returns JSON array of records (RecNo, CardNo, UserID, Time, Status).
+5. **Response**: Returns JSON array of records (RecNo, CardNo, UserID, Time, Status, CardType, DoorNumber).
 
 ### 3.4 Live Access Control Events (Real-time)
 1. **Subscription**: When device connects, Bridge subscribes using three methods:
@@ -213,20 +230,98 @@ These are used by the Frontend.
 | `DELETE` | `/api/events/access-control` | Clear access event history. |
 | `POST` | `/api/autoreg/start` | Start Auto-Registration server on Bridge. |
 | `POST` | `/api/autoreg/stop` | Stop Auto-Registration server on Bridge. |
+| `GET` | `/api/access-records/sdk/{deviceId}` | **Query access records via SDK TCP** (NAT traversal). Uses `FindRecord()` API over auto-registration connection. Supports `startTime`, `endTime`, `cardNumber`, `maxRecords` query params. Defaults to last 7 days. |
 
 ### B. Bridge APIs (C# - Port 5000)
 These are used by the Backend to control the Bridge and Device.
 
+#### B1. NAT Traversal Endpoints (Work over Internet)
+These endpoints use the existing auto-registration TCP connection (port 9500). **No direct device IP or port forwarding needed.**
+
 | Method | Endpoint | Description |
 |--------|----------|-------------|
+| `GET` | `/api/devices` | Get list of connected devices from Bridge. |
+| `GET` | `/api/devices/{id}/access-records-sdk` | **Access Records via SDK TCP** (primary). Uses `FindRecord()` API over auto-registration connection. Supports `startTime`, `endTime`, `cardNumber`, `maxRecords`. |
 | `POST` | `/api/sdk/init` | Initialize the Dahua SDK. |
 | `POST` | `/api/autoreg/start` | Start listening for devices on Port 9500. |
 | `POST` | `/api/autoreg/stop` | Stop listening for devices. |
-| `GET` | `/api/devices` | Get list of connected devices from Bridge. |
 | `POST` | `/api/devices/login` | Manually login to a device (not auto-reg). |
 | `POST` | `/api/devices/{id}/logout` | Logout from a device. |
-| `GET` | `/api/devices/{id}/access-records` | **Fetch Access Records** via CGI. |
 | `POST` | `/api/devices/{id}/simulate-event` | Test event handling (Development). |
+
+#### B2. Local IP Endpoints (LAN Only)
+These endpoints make HTTP requests directly to the device IP. **Device must be on the same network or have port forwarding configured.**
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/devices/{id}/access-records` | Access Records via CGI (`recordFinder.cgi`). Fallback method. |
+| `GET` | `/api/devices/{id}/door-status` | Get current door status via CGI. |
+| `POST` | `/api/devices/{id}/open-door` | Open a door remotely via CGI. |
+| `POST` | `/api/devices/{id}/close-door` | Close a door remotely via CGI. |
+
+### C. Access Records API Detail
+
+**Endpoint**: `GET /api/access-records/sdk/{deviceId}`
+
+**Query Parameters**:
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `startTime` | ISO DateTime | No | 7 days ago | Filter from timestamp |
+| `endTime` | ISO DateTime | No | Now | Filter to timestamp |
+| `cardNumber` | String | No | - | Filter by card number |
+| `maxRecords` | Integer | No | 100 | Maximum records to return |
+
+**Example Requests**:
+```bash
+# Last 7 days (default)
+curl "http://localhost:3001/api/access-records/sdk/ASI12?maxRecords=100"
+
+# Specific date range
+curl "http://localhost:3001/api/access-records/sdk/ASI12?startTime=2026-04-01T00:00:00&endTime=2026-04-10T23:59:59&maxRecords=500"
+
+# Filter by card number
+curl "http://localhost:3001/api/access-records/sdk/ASI12?cardNumber=448008&maxRecords=50"
+```
+
+**Example Response**:
+```json
+{
+  "success": true,
+  "count": 254,
+  "records": [
+    {
+      "recordNumber": 12,
+      "cardNumber": "448008",
+      "userID": "448008",
+      "userName": "",
+      "swipeTime": "2026-04-01T10:40:46Z",
+      "doorNumber": 0,
+      "readerNo": "",
+      "cardType": "Normal",
+      "status": "1"
+    }
+  ]
+}
+```
+
+**How It Works (NAT Traversal)**:
+```
+Your Server (Public IP)          Device (Behind NAT/Firewall)
+     │                               │
+     │◄──── Auto-Reg TCP ───────────►│  ← Device initiates this connection
+     │     (port 9500)               │
+     │                               │
+     │── FindRecord() ──────────────►│  ← Server queries via existing TCP
+     │◄─── Records ─────────────────│  ← Data flows back through same socket
+     │                               │
+```
+
+**Key Advantages**:
+- ✅ Works when device is behind NAT/firewall
+- ✅ No port forwarding needed on device side
+- ✅ Server and device can be in completely different locations
+- ✅ Only needs outbound internet from device → server public IP
+- ✅ Uses existing auto-registration TCP connection
 
 ## 7. Future Roadmap (See `TODO_REDIS_IMPLEMENTATION.md`)
 1. **Redis Integration**: Replace JSON storage and in-memory tracking with Redis for persistence and multi-instance support.
@@ -255,13 +350,26 @@ These are used by the Backend to control the Bridge and Device.
 - `AUTO_REG_CONFIG.md` - Auto-registration configuration guide.
 - `SERVER_IP_CONFIG.md` - Server IP configuration guide.
 
-## 10. Contact / Context for AI Agents
+## 10. API Tester Page
+The frontend includes an **API Tester** page at `/api-tester` that allows you to:
+- Call every available API endpoint from the UI
+- Configure method, URL, headers, and body
+- View raw JSON responses in a formatted textarea
+- Understand endpoint behavior without external tools
+
+**Access**: Navigate to `http://localhost:3000/api-tester` (Next.js frontend)
+
+## 11. Contact / Context for AI Agents
 If you are an AI agent reading this:
 - The system is functional and currently running.
 - The C# Bridge is the source of truth for device connectivity.
 - The Node.js Backend is the source of truth for user-configured device data.
 - **Access control events are now working via `eventManager.cgi` (General Events method).**
+- **Access records retrieval uses NetSDK `FindRecord()` API over TCP (NAT traversal).** No direct device IP needed.
 - **Always check `backend/data/access-events.json` for event storage.**
 - **If events stop flowing, check the C# Bridge logs for MIME parsing errors.**
 - **The multipart MIME parser in `AccessControlEventsGeneralModule.cs` is the active event handler.**
 - **Event flow**: Device → eventManager.cgi → C# Bridge → Backend webhook → WebSocket → Frontend dashboard.
+- **Access records flow**: Server → FindRecord() via TCP → Device → Records via TCP → Server → Backend → Frontend.
+- **Use the `/api-tester` page to debug and understand any endpoint.**
+- **All endpoints work over NAT/firewall** — device only needs outbound internet to server's public IP.

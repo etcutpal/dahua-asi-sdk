@@ -1,10 +1,10 @@
 {
   "events": [
     {
-      "id": "1775756528883-ksl1hp5rs",
+      "id": "1775769724482-r2d76ywjh",
       "type": "access_control_event",
       "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:42:05",
+      "timestamp": "2026-04-09 21:21:59",
       "data": {
         "eventType": "Unknown",
         "userId": "",
@@ -12,17 +12,71 @@
         "isSuccess": false,
         "similarity": 0,
         "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:42:05",
-        "rawJson": "{\n   \"RealUTC\" : 1775756525,\n   \"Success\" : false\n}",
+        "timestamp": "2026-04-09 21:21:59",
+        "rawJson": "{\n   \"RealUTC\" : 1775769719,\n   \"Success\" : false\n}",
         "source": "GENERAL_EVENT_MANAGER"
       },
-      "storedAt": "2026-04-09T17:42:08.883Z"
+      "storedAt": "2026-04-09T21:22:04.482Z"
     },
     {
-      "id": "1775756530991-u0i0qh3zc",
+      "id": "1775769778121-b39au3ew7",
       "type": "access_control_event",
       "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:42:09",
+      "timestamp": "2026-04-09 21:22:57",
+      "data": {
+        "eventType": "Unknown",
+        "userId": "",
+        "cardNumber": "",
+        "isSuccess": false,
+        "similarity": 0,
+        "openMethod": "Unknown",
+        "timestamp": "2026-04-09 21:22:57",
+        "rawJson": "{\n   \"RealUTC\" : 1775769777,\n   \"Success\" : false\n}",
+        "source": "GENERAL_EVENT_MANAGER"
+      },
+      "storedAt": "2026-04-09T21:22:58.121Z"
+    },
+    {
+      "id": "1775769780183-1i2d1hl2a",
+      "type": "access_control_event",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-09 21:22:57",
+      "data": {
+        "eventType": "Unknown",
+        "userId": "",
+        "cardNumber": "",
+        "isSuccess": false,
+        "similarity": 0,
+        "openMethod": "Unknown",
+        "timestamp": "2026-04-09 21:22:57",
+        "rawJson": "{\n   \"RealUTC\" : 1775769777,\n   \"Type\" : \"WebLogin\"\n}",
+        "source": "GENERAL_EVENT_MANAGER"
+      },
+      "storedAt": "2026-04-09T21:23:00.183Z"
+    },
+    {
+      "id": "1775769794276-8af2aajbg",
+      "type": "access_control_event",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-09 21:23:11",
+      "data": {
+        "eventType": "Unknown",
+        "userId": "",
+        "cardNumber": "",
+        "isSuccess": false,
+        "similarity": 0,
+        "openMethod": "Unknown",
+        "timestamp": "2026-04-09 21:23:11",
+        "rawJson": "{\n   \"RealUTC\" : 1775769791,\n   \"ScreenOff\" : false\n}",
+        "source": "GENERAL_EVENT_MANAGER"
+      },
+      "storedAt": "2026-04-09T21:23:14.276Z"
+    },
+    {
+      "id": "1775769796397-jbl4ff6b1",
+      "type": "access_control_event",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-09 21:23:14",
       "data": {
         "eventType": "Unknown",
         "userId": "448008",
@@ -30,17 +84,17 @@
         "isSuccess": true,
         "similarity": 99,
         "openMethod": "Face",
-        "timestamp": "2026-04-09 17:42:09",
-        "rawJson": "{\n   \"Alive\" : 100,\n   \"BlockId\" : 344,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775756529,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"FaceIndex\" : 0,\n   \"FeatureId\" : 1,\n   \"HatColor\" : \"Other\",\n   \"HatType\" : 0,\n   \"Method\" : 15,\n   \"Name\" : \"Door1\",\n   \"ObjectProperties\" : {\n      \"HatInfo\" : {\n         \"HatColor\" : \"Other\",\n         \"HatType\" : 0\n      }\n   },\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756529,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775756529,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
+        "timestamp": "2026-04-09 21:23:14",
+        "rawJson": "{\n   \"Alive\" : 100,\n   \"BlockId\" : 360,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775769794,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"FaceIndex\" : 0,\n   \"FeatureId\" : 1,\n   \"HatColor\" : \"Other\",\n   \"HatType\" : 0,\n   \"Method\" : 15,\n   \"Name\" : \"Door1\",\n   \"ObjectProperties\" : {\n      \"HatInfo\" : {\n         \"HatColor\" : \"Other\",\n         \"HatType\" : 0\n      }\n   },\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775769794,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775769794,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
         "source": "GENERAL_EVENT_MANAGER"
       },
-      "storedAt": "2026-04-09T17:42:10.991Z"
+      "storedAt": "2026-04-09T21:23:16.397Z"
     },
     {
-      "id": "1775756533265-x64267j7x",
+      "id": "1775769798461-qr8i4zjx9",
       "type": "access_control_event",
       "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:42:09",
+      "timestamp": "2026-04-09 21:23:14",
       "data": {
         "eventType": "Unknown",
         "userId": "448008",
@@ -48,17 +102,17 @@
         "isSuccess": true,
         "similarity": 99,
         "openMethod": "Face",
-        "timestamp": "2026-04-09 17:42:09",
-        "rawJson": "{\n   \"Alive\" : 100,\n   \"Door\" : 0,\n   \"FeatureId\" : 1,\n   \"HatColor\" : [ 0, 0, 0, 255 ],\n   \"HatType\" : 0,\n   \"OpenDoorMethod\" : 3,\n   \"PartInfo\" : {\n      \"FeatureId\" : 1,\n      \"ObjectID\" : 320,\n      \"Region\" : [ 531, 471, 862, 685 ],\n      \"Sequence\" : 62952\n   },\n   \"RealUTC\" : 1775756529,\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"UserID\" : \"448008\",\n   \"readID\" : 1\n}",
+        "timestamp": "2026-04-09 21:23:14",
+        "rawJson": "{\n   \"Alive\" : 100,\n   \"Door\" : 0,\n   \"FeatureId\" : 1,\n   \"HatColor\" : [ 0, 0, 0, 255 ],\n   \"HatType\" : 0,\n   \"OpenDoorMethod\" : 3,\n   \"PartInfo\" : {\n      \"FeatureId\" : 1,\n      \"ObjectID\" : 6,\n      \"Region\" : [ 423, 381, 784, 673 ],\n      \"Sequence\" : 40245\n   },\n   \"RealUTC\" : 1775769794,\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"UserID\" : \"448008\",\n   \"readID\" : 1\n}",
         "source": "GENERAL_EVENT_MANAGER"
       },
-      "storedAt": "2026-04-09T17:42:13.265Z"
+      "storedAt": "2026-04-09T21:23:18.461Z"
     },
     {
-      "id": "1775756875783-thzeli884",
+      "id": "1775769839471-wvvv0ubm5",
       "type": "access_control_event",
       "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:47:53",
+      "timestamp": "2026-04-09 21:23:55",
       "data": {
         "eventType": "Unknown",
         "userId": "",
@@ -66,606 +120,12 @@
         "isSuccess": false,
         "similarity": 0,
         "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:47:53",
-        "rawJson": "{\n   \"RealUTC\" : 1775756873,\n   \"Success\" : false\n}",
+        "timestamp": "2026-04-09 21:23:55",
+        "rawJson": "{\n   \"RealUTC\" : 1775769835,\n   \"Success\" : false\n}",
         "source": "GENERAL_EVENT_MANAGER"
       },
-      "storedAt": "2026-04-09T17:47:55.783Z"
-    },
-    {
-      "id": "1775756909162-6zmn28ub3",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:48:25",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:48:25",
-        "rawJson": "{\n   \"RealUTC\" : 1775756905,\n   \"ScreenOff\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:48:29.162Z"
-    },
-    {
-      "id": "1775756911323-yrww2xz7r",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:48:28",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 99,
-        "openMethod": "Face",
-        "timestamp": "2026-04-09 17:48:28",
-        "rawJson": "{\n   \"Alive\" : 100,\n   \"BlockId\" : 345,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775756908,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"FaceIndex\" : 0,\n   \"FeatureId\" : 1,\n   \"HatColor\" : \"Other\",\n   \"HatType\" : 0,\n   \"Method\" : 15,\n   \"Name\" : \"Door1\",\n   \"ObjectProperties\" : {\n      \"HatInfo\" : {\n         \"HatColor\" : \"Other\",\n         \"HatType\" : 0\n      }\n   },\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756908,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775756908,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:48:31.323Z"
-    },
-    {
-      "id": "1775756913415-7rs50d15f",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:48:28",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 99,
-        "openMethod": "Face",
-        "timestamp": "2026-04-09 17:48:28",
-        "rawJson": "{\n   \"Alive\" : 100,\n   \"Door\" : 0,\n   \"FeatureId\" : 1,\n   \"HatColor\" : [ 0, 0, 0, 255 ],\n   \"HatType\" : 0,\n   \"OpenDoorMethod\" : 3,\n   \"PartInfo\" : {\n      \"FeatureId\" : 1,\n      \"ObjectID\" : 324,\n      \"Region\" : [ 510, 315, 866, 596 ],\n      \"Sequence\" : 65212\n   },\n   \"RealUTC\" : 1775756908,\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"UserID\" : \"448008\",\n   \"readID\" : 1\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:48:33.415Z"
-    },
-    {
-      "id": "1775756921167-83to4y74g",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:48:40",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 99,
-        "openMethod": "Face",
-        "timestamp": "2026-04-09 17:48:40",
-        "rawJson": "{\n   \"Alive\" : 100,\n   \"BlockId\" : 346,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775756920,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"FaceIndex\" : 0,\n   \"FeatureId\" : 1,\n   \"HatColor\" : \"Other\",\n   \"HatType\" : 0,\n   \"Method\" : 15,\n   \"Name\" : \"Door1\",\n   \"ObjectProperties\" : {\n      \"HatInfo\" : {\n         \"HatColor\" : \"Other\",\n         \"HatType\" : 0\n      }\n   },\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756920,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775756920,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:48:41.167Z"
-    },
-    {
-      "id": "1775756924087-cawo1glgd",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:48:40",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 99,
-        "openMethod": "Face",
-        "timestamp": "2026-04-09 17:48:40",
-        "rawJson": "{\n   \"Alive\" : 100,\n   \"Door\" : 0,\n   \"FeatureId\" : 1,\n   \"HatColor\" : [ 0, 0, 0, 255 ],\n   \"HatType\" : 0,\n   \"OpenDoorMethod\" : 3,\n   \"PartInfo\" : {\n      \"FeatureId\" : 1,\n      \"ObjectID\" : 326,\n      \"Region\" : [ 676, 335, 1013, 613 ],\n      \"Sequence\" : 65279\n   },\n   \"RealUTC\" : 1775756920,\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"UserID\" : \"448008\",\n   \"readID\" : 1\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:48:44.087Z"
-    },
-    {
-      "id": "1775756935765-2r2v03jyo",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:48:51",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:48:51",
-        "rawJson": "{\n   \"RealUTC\" : 1775756931,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:48:55.765Z"
-    },
-    {
-      "id": "1775756951202-1kdq6zd2j",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:10",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:10",
-        "rawJson": "{\n   \"RealUTC\" : 1775756950\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:11.202Z"
-    },
-    {
-      "id": "1775756953282-k98c2xz4p",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:10",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:10",
-        "rawJson": "{\n   \"BlockId\" : 347,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775756950,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"Method\" : 6,\n   \"Name\" : \"Door1\",\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756950,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775756950,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:13.282Z"
-    },
-    {
-      "id": "1775756955353-fxnyaskeb",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:10",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:10",
-        "rawJson": "{\n   \"FingerPrintID\" : 0,\n   \"Local\" : true,\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756950,\n   \"Type\" : \"Finger\"\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:15.353Z"
-    },
-    {
-      "id": "1775756965614-0sr7r7pcw",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:25",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:25",
-        "rawJson": "{\n   \"RealUTC\" : 1775756965\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:25.614Z"
-    },
-    {
-      "id": "1775756967694-8bt83xtf2",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:25",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:25",
-        "rawJson": "{\n   \"BlockId\" : 348,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775756965,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"Method\" : 6,\n   \"Name\" : \"Door1\",\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756965,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775756965,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:27.694Z"
-    },
-    {
-      "id": "1775756969789-ha1lb0bqs",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:25",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:25",
-        "rawJson": "{\n   \"FingerPrintID\" : 0,\n   \"Local\" : true,\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756965,\n   \"Type\" : \"Finger\"\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:29.789Z"
-    },
-    {
-      "id": "1775756990759-3d9zqg2vk",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:49",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:49",
-        "rawJson": "{\n   \"RealUTC\" : 1775756989,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:50.759Z"
-    },
-    {
-      "id": "1775756992814-jptheo34e",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:51",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:51",
-        "rawJson": "{\n   \"RealUTC\" : 1775756991\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:52.814Z"
-    },
-    {
-      "id": "1775756994917-grd9xu1m4",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:52",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:52",
-        "rawJson": "{\n   \"BlockId\" : 349,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775756992,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"Method\" : 6,\n   \"Name\" : \"Door1\",\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756992,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775756992,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:54.917Z"
-    },
-    {
-      "id": "1775756996993-irmir49cw",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:49:52",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:49:52",
-        "rawJson": "{\n   \"FingerPrintID\" : 0,\n   \"Local\" : true,\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775756992,\n   \"Type\" : \"Finger\"\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:49:56.993Z"
-    },
-    {
-      "id": "1775757012672-kvailpx8t",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:50:12",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:50:12",
-        "rawJson": "{\n   \"RealUTC\" : 1775757012\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:50:12.672Z"
-    },
-    {
-      "id": "1775757014741-xgg32vr42",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:50:12",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:50:12",
-        "rawJson": "{\n   \"BlockId\" : 350,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775757012,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"Method\" : 6,\n   \"Name\" : \"Door1\",\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775757012,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775757012,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:50:14.741Z"
-    },
-    {
-      "id": "1775757016823-9mfktwz7w",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:50:12",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:50:12",
-        "rawJson": "{\n   \"FingerPrintID\" : 0,\n   \"Local\" : true,\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775757012,\n   \"Type\" : \"Finger\"\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:50:16.823Z"
-    },
-    {
-      "id": "1775757342673-abjd06ube",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:55:37",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:55:37",
-        "rawJson": "{\n   \"RealUTC\" : 1775757337,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:55:42.673Z"
-    },
-    {
-      "id": "1775757397667-g8qaqbbck",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:56:35",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:56:35",
-        "rawJson": "{\n   \"RealUTC\" : 1775757395,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:56:37.667Z"
-    },
-    {
-      "id": "1775757457667-6bd1yqcea",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:57:33",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:57:33",
-        "rawJson": "{\n   \"RealUTC\" : 1775757453,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:57:37.667Z"
-    },
-    {
-      "id": "1775757512641-av4r2wu16",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:58:31",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:58:31",
-        "rawJson": "{\n   \"RealUTC\" : 1775757511,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:58:32.641Z"
-    },
-    {
-      "id": "1775757572643-h6oayse2r",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 17:59:29",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 17:59:29",
-        "rawJson": "{\n   \"RealUTC\" : 1775757569,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T17:59:32.643Z"
-    },
-    {
-      "id": "1775757632680-gp26cgz24",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:00:27",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:00:27",
-        "rawJson": "{\n   \"RealUTC\" : 1775757627,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:00:32.680Z"
-    },
-    {
-      "id": "1775757687659-mi2hn9nux",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:01:25",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:01:25",
-        "rawJson": "{\n   \"RealUTC\" : 1775757685,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:01:27.659Z"
-    },
-    {
-      "id": "1775757747647-uq06kcc19",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:02:23",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:02:23",
-        "rawJson": "{\n   \"RealUTC\" : 1775757743,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:02:27.647Z"
-    },
-    {
-      "id": "1775757750886-5les2xht9",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:02:27",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:02:27",
-        "rawJson": "{\n   \"RealUTC\" : 1775757747,\n   \"ScreenOff\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:02:30.886Z"
-    },
-    {
-      "id": "1775757752951-yqg9l98x0",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:02:30",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:02:30",
-        "rawJson": "{\n   \"RealUTC\" : 1775757750\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:02:32.951Z"
-    },
-    {
-      "id": "1775757755086-g8klsxmix",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:02:30",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:02:30",
-        "rawJson": "{\n   \"BlockId\" : 351,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1775757750,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"Method\" : 6,\n   \"Name\" : \"Door1\",\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775757750,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1775757750,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:02:35.086Z"
-    },
-    {
-      "id": "1775757757155-chtwknzg0",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:02:30",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:02:30",
-        "rawJson": "{\n   \"FingerPrintID\" : 0,\n   \"Local\" : true,\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1775757750,\n   \"Type\" : \"Finger\"\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:02:37.155Z"
-    },
-    {
-      "id": "1775757802670-hi8b4std3",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:03:21",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:03:21",
-        "rawJson": "{\n   \"RealUTC\" : 1775757801,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:03:22.670Z"
-    },
-    {
-      "id": "1775757812640-yywbt4d3b",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-09 18:03:31",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-09 18:03:31",
-        "rawJson": "{\n   \"RealUTC\" : 1775757811,\n   \"ScreenOff\" : true\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-09T18:03:32.640Z"
+      "storedAt": "2026-04-09T21:23:59.471Z"
     }
   ],
-  "lastUpdated": "2026-04-09T18:03:32.640Z"
+  "lastUpdated": "2026-04-09T21:23:59.471Z"
 }

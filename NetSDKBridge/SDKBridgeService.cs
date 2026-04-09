@@ -1097,8 +1097,221 @@ namespace NetSDKBridge
         #region Access Control Record APIs
 
         /// <summary>
+        /// Query access control records using NetSDK FindRecord API
+        /// Works through the auto-registration TCP connection (NAT traversal).
+        /// No direct HTTP access to device IP needed.
+        /// </summary>
+        public async Task<List<AccessRecordResult>> QueryAccessRecordsBySDK(string deviceId, DateTime? startTime = null, DateTime? endTime = null, string cardNumber = null, int maxRecords = 100)
+        {
+            try
+            {
+                var device = GetDevice(deviceId);
+                if (device == null)
+                {
+                    _logger.LogWarning($"Device not found: {deviceId}");
+                    return new List<AccessRecordResult>();
+                }
+
+                if (device.LoginHandle == 0)
+                {
+                    _logger.LogWarning($"Device {deviceId} is not logged in");
+                    return new List<AccessRecordResult>();
+                }
+
+                _logger.LogInformation($"Querying access records via NetSDK (TCP) for device: {deviceId}");
+                _logger.LogInformation($"   Start: {startTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "7 days ago"}");
+                _logger.LogInformation($"   End: {endTime?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Now"}");
+                _logger.LogInformation($"   Max Records: {maxRecords}");
+
+                // Default to last 7 days if no time range specified
+                DateTime effectiveStart = startTime ?? DateTime.UtcNow.AddDays(-7);
+                DateTime effectiveEnd = endTime ?? DateTime.UtcNow;
+
+                var results = new List<AccessRecordResult>();
+                var seenRecordNos = new HashSet<string>();
+
+                // Build query condition
+                var condition = new NET_FIND_RECORD_ACCESSCTLCARDREC_CONDITION_EX
+                {
+                    dwSize = (uint)Marshal.SizeOf(typeof(NET_FIND_RECORD_ACCESSCTLCARDREC_CONDITION_EX)),
+                    bCardNoEnable = !string.IsNullOrEmpty(cardNumber),
+                    szCardNo = cardNumber ?? "",
+                    bTimeEnable = true,
+                    bRealUTCTimeEnable = false,
+                    nOrderNum = 0
+                };
+
+                // Initialize orders array
+                condition.stuOrders = new NET_FIND_RECORD_ACCESSCTLCARDREC_ORDER[6];
+
+                // Set time range
+                var startDate = effectiveStart.ToUniversalTime();
+                condition.stStartTime.dwYear = (uint)startDate.Year;
+                condition.stStartTime.dwMonth = (uint)startDate.Month;
+                condition.stStartTime.dwDay = (uint)startDate.Day;
+                condition.stStartTime.dwHour = (uint)startDate.Hour;
+                condition.stStartTime.dwMinute = (uint)startDate.Minute;
+                condition.stStartTime.dwSecond = (uint)startDate.Second;
+
+                var endDate = effectiveEnd.ToUniversalTime();
+                condition.stEndTime.dwYear = (uint)endDate.Year;
+                condition.stEndTime.dwMonth = (uint)endDate.Month;
+                condition.stEndTime.dwDay = (uint)endDate.Day;
+                condition.stEndTime.dwHour = (uint)endDate.Hour;
+                condition.stEndTime.dwMinute = (uint)endDate.Minute;
+                condition.stEndTime.dwSecond = (uint)endDate.Second;
+
+                // Step 1: Open query handle via TCP (works over NAT)
+                IntPtr findHandle = IntPtr.Zero;
+                IntPtr loginHandle = new IntPtr(device.LoginHandle);
+
+                _logger.LogInformation($"Opening FindRecord handle via TCP connection...");
+
+                bool findResult = NETClient.FindRecord(
+                    loginHandle,
+                    EM_NET_RECORD_TYPE.ACCESSCTLCARDREC_EX,
+                    condition,
+                    typeof(NET_FIND_RECORD_ACCESSCTLCARDREC_CONDITION_EX),
+                    ref findHandle,
+                    10000
+                );
+
+                if (!findResult || findHandle == IntPtr.Zero)
+                {
+                    var errorCode = NETClient.GetLastError();
+                    _logger.LogError($"FindRecord failed: {errorCode}");
+                    return new List<AccessRecordResult>();
+                }
+
+                _logger.LogInformation($"FindRecord handle opened: {findHandle}");
+
+                try
+                {
+                    // Step 2: Get record count
+                    int recordCount = 0;
+                    bool countResult = NETClient.QueryRecordCount(findHandle, ref recordCount, 10000);
+
+                    if (countResult)
+                    {
+                        _logger.LogInformation($"Total records found: {recordCount}");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"Could not get record count, will try fetching anyway");
+                    }
+
+                    // Step 3: Fetch records in batches
+                    int totalFetched = 0;
+                    int batchSize = Math.Min(100, maxRecords);
+
+                    while (totalFetched < maxRecords)
+                    {
+                        int retNum = 0;
+                        var recordList = new List<object>();
+
+                        int nextResult = NETClient.FindNextRecord(
+                            findHandle,
+                            batchSize,
+                            ref retNum,
+                            ref recordList,
+                            typeof(NET_RECORDSET_ACCESS_CTL_CARDREC),
+                            10000
+                        );
+
+                        if (nextResult <= 0 || retNum == 0)
+                        {
+                            if (nextResult <= 0)
+                            {
+                                var fetchError = NETClient.GetLastError();
+                                _logger.LogWarning($"FindNextRecord error: {fetchError}");
+                            }
+                            _logger.LogInformation($"No more records to fetch (fetched {totalFetched} total)");
+                            break;
+                        }
+
+                        _logger.LogInformation($"Fetched {retNum} records in batch");
+
+                        // Process each record
+                        foreach (var recordObj in recordList)
+                        {
+                            if (totalFetched >= maxRecords) break;
+
+                            if (recordObj is NET_RECORDSET_ACCESS_CTL_CARDREC record)
+                            {
+                                // Use composite key for deduplication
+                                string dedupKey = $"{record.nRecNo}_{record.szCardNo}_{record.szUserID}_{record.stuTime.ToDateTime():yyyyMMddHHmmss}";
+                                if (seenRecordNos.Contains(dedupKey))
+                                {
+                                    continue;
+                                }
+                                seenRecordNos.Add(dedupKey);
+
+                                // Convert record to result
+                                var result = new AccessRecordResult
+                                {
+                                    RecordNumber = record.nRecNo,
+                                    CardNumber = record.szCardNo?.Trim() ?? "",
+                                    UserID = record.szUserID?.Trim() ?? "",
+                                    UserName = "",
+                                    SwipeTime = record.stuTime.ToDateTime(),
+                                    DoorNumber = record.nDoor,
+                                    ReaderNo = record.szReaderID?.Trim() ?? "",
+                                    CardType = GetCardTypeString(record.emCardType),
+                                    Status = record.bStatus ? "Success" : "Failed"
+                                };
+
+                                results.Add(result);
+                                totalFetched++;
+                            }
+                        }
+
+                        // If we got fewer records than batch size, we're done
+                        if (retNum < batchSize)
+                        {
+                            break;
+                        }
+                    }
+
+                    _logger.LogInformation($"Total access records retrieved via TCP for device {deviceId}: {results.Count}");
+                    return results;
+                }
+                finally
+                {
+                    // Step 4: Close query handle
+                    if (findHandle != IntPtr.Zero)
+                    {
+                        NETClient.FindRecordClose(findHandle);
+                        _logger.LogDebug($"FindRecord handle closed: {findHandle}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error querying access records via SDK for device {deviceId}");
+                return new List<AccessRecordResult>();
+            }
+        }
+
+        private string GetCardTypeString(EM_A_NET_ACCESSCTLCARD_TYPE cardType)
+        {
+            return cardType switch
+            {
+                EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_GENERAL => "Normal",
+                EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_VIP => "VIP",
+                EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_GUEST => "Guest",
+                EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_PATROL => "Patrol",
+                EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_BLACKLIST => "Blacklisted",
+                EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_CORCE => "Coercion",
+                EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_UNKNOWN => "Unknown",
+                _ => cardType.ToString()
+            };
+        }
+
+        /// <summary>
         /// Query access control card swipe records using device CGI API (recordFinder.cgi)
         /// Based on Access Control API Guide v2.4 Section 4.3.1.2
+        /// NOTE: This method requires direct HTTP access to the device (works on LAN only).
+        /// For devices behind NAT/firewall, use QueryAccessRecordsBySDK() instead.
         /// </summary>
         public async Task<List<AccessRecordResult>> QueryAccessRecords(string deviceId, DateTime? startTime = null, DateTime? endTime = null, string cardNumber = null, int maxRecords = 100)
         {
@@ -1111,9 +1324,13 @@ namespace NetSDKBridge
                     return new List<AccessRecordResult>();
                 }
 
+                // Default to last 7 days if no time range specified
+                DateTime effectiveStart = startTime ?? DateTime.UtcNow.AddDays(-7);
+                DateTime effectiveEnd = endTime ?? DateTime.UtcNow;
+                
                 // Convert DateTime to UTC Unix timestamps
-                long startTimestamp = startTime.HasValue ? new DateTimeOffset(startTime.Value.ToUniversalTime()).ToUnixTimeSeconds() : 0;
-                long endTimestamp = endTime.HasValue ? new DateTimeOffset(endTime.Value.ToUniversalTime()).ToUnixTimeSeconds() : 0xFFFFFFFF; // Default max value
+                long startTimestamp = new DateTimeOffset(effectiveStart.ToUniversalTime()).ToUnixTimeSeconds();
+                long endTimestamp = new DateTimeOffset(effectiveEnd.ToUniversalTime()).ToUnixTimeSeconds();
 
                 var results = new List<AccessRecordResult>();
                 var seenRecordNos = new HashSet<string>();

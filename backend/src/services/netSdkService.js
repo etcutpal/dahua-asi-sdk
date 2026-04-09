@@ -167,6 +167,34 @@ class NetSdkService {
   }
 
   /**
+   * Query access control records via NetSDK (Works over Internet/NAT)
+   * Uses the existing TCP connection, so it works even when device is behind NAT/firewall.
+   */
+  async queryAccessRecordsBySDK(deviceId, startTime, endTime, cardNumber, maxRecords = 100) {
+    try {
+      const params = new URLSearchParams();
+      if (startTime) params.append('startTime', startTime);
+      if (endTime) params.append('endTime', endTime);
+      if (cardNumber) params.append('cardNumber', cardNumber);
+      if (maxRecords) params.append('maxRecords', maxRecords);
+
+      const response = await axios.get(
+        `${this.bridgeUrl}/api/devices/${deviceId}/access-records-sdk?${params.toString()}`
+      );
+
+      if (response.data.success) {
+        logger.info(`Retrieved ${response.data.count} access records via NetSDK for device: ${deviceId}`);
+        return response.data.records;
+      } else {
+        throw new Error(response.data.error || 'Failed to query access records via SDK');
+      }
+    } catch (error) {
+      logger.error(`Failed to query access records via SDK for device ${deviceId}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Called by the C# Bridge via Webhook when device status changes.
    * Replaces the polling mechanism.
    */
