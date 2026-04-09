@@ -1,0 +1,32 @@
+{
+  "name": "device-monitor-backend",
+  "version": "1.0.0",
+  "description": "Express.js backend for NetSDK device monitoring",
+  "main": "src/server.js",
+  "scripts": {
+    "dev": "nodemon src/server.js",
+    "start": "node src/server.js",
+    "lint": "eslint src/"
+  },
+  "keywords": [
+    "netsdk",
+    "device-monitoring",
+    "express",
+    "auto-registration"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "http-proxy-middleware": "^2.0.6",
+    "socket.io": "^4.7.2",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "eslint": "^9.20.0"
+  }
+}

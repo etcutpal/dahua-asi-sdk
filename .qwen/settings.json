@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(d:\\Experimental Data\\NODE\\learning/**)",
+      "Bash(npm install)",
+      "Bash(npm ls *)",
+      "Bash(rmdir *)",
+      "Bash(del *)",
+      "Bash(dir *)",
+      "Bash(copy *)",
+      "Bash(dotnet *)",
+      "Bash(taskkill *)",
+      "Bash(timeout *)",
+      "Bash(netstat *)",
+      "Bash(findstr *)",
+      "Bash(curl *)",
+      "Bash(powershell *)",
+      "Bash(npm run *)",
+      "Bash(npm start)",
+      "Bash(type *)"
+    ]
+  },
+  "$version": 3
+}

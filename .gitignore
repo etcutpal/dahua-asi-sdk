@@ -1,0 +1,52 @@
+# Dependencies
+node_modules/
+packages/
+vendor/
+General_NetSDK_Eng_CSharp_Win64_IS_V3.060.0000003.0.R.251202/
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+# *.dll
+*.exe
+*.pdb
+bin/
+obj/
+
+# Environment files
+# .env
+# .env.local
+# .env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Publish
+publish/
