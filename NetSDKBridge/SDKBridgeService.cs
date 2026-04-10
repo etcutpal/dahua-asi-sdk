@@ -1124,28 +1124,28 @@ namespace NetSDKBridge
                 _logger.LogInformation($"   Max Records: {maxRecords}");
 
                 // Default to last 7 days if no time range specified
-                DateTime effectiveStart = startTime ?? DateTime.UtcNow.AddDays(-7);
-                DateTime effectiveEnd = endTime ?? DateTime.UtcNow;
+                DateTime effectiveStart = startTime ?? DateTime.Now.AddDays(-7);
+                DateTime effectiveEnd = endTime ?? DateTime.Now;
 
                 var results = new List<AccessRecordResult>();
                 var seenRecordNos = new HashSet<string>();
 
-                // Build query condition
+                // Build query condition - use bRealUTCTimeEnable = false so device interprets times as-is
                 var condition = new NET_FIND_RECORD_ACCESSCTLCARDREC_CONDITION_EX
                 {
                     dwSize = (uint)Marshal.SizeOf(typeof(NET_FIND_RECORD_ACCESSCTLCARDREC_CONDITION_EX)),
                     bCardNoEnable = !string.IsNullOrEmpty(cardNumber),
                     szCardNo = cardNumber ?? "",
                     bTimeEnable = true,
-                    bRealUTCTimeEnable = false,
+                    bRealUTCTimeEnable = false,  // Device interprets times as provided (no UTC conversion)
                     nOrderNum = 0
                 };
 
                 // Initialize orders array
                 condition.stuOrders = new NET_FIND_RECORD_ACCESSCTLCARDREC_ORDER[6];
 
-                // Set time range
-                var startDate = effectiveStart.ToUniversalTime();
+                // Set time range (use as-is, device stores in local timezone)
+                var startDate = effectiveStart;
                 condition.stStartTime.dwYear = (uint)startDate.Year;
                 condition.stStartTime.dwMonth = (uint)startDate.Month;
                 condition.stStartTime.dwDay = (uint)startDate.Day;
@@ -1153,13 +1153,15 @@ namespace NetSDKBridge
                 condition.stStartTime.dwMinute = (uint)startDate.Minute;
                 condition.stStartTime.dwSecond = (uint)startDate.Second;
 
-                var endDate = effectiveEnd.ToUniversalTime();
+                var endDate = effectiveEnd;
                 condition.stEndTime.dwYear = (uint)endDate.Year;
                 condition.stEndTime.dwMonth = (uint)endDate.Month;
                 condition.stEndTime.dwDay = (uint)endDate.Day;
                 condition.stEndTime.dwHour = (uint)endDate.Hour;
                 condition.stEndTime.dwMinute = (uint)endDate.Minute;
                 condition.stEndTime.dwSecond = (uint)endDate.Second;
+
+                _logger.LogInformation($"Sending to device - Start: {startDate:yyyy-MM-dd HH:mm:ss}, End: {endDate:yyyy-MM-dd HH:mm:ss}");
 
                 // Step 1: Open query handle via TCP (works over NAT)
                 IntPtr findHandle = IntPtr.Zero;
@@ -1247,13 +1249,16 @@ namespace NetSDKBridge
                                 seenRecordNos.Add(dedupKey);
 
                                 // Convert record to result
+                                // Device returns time as-is (no UTC conversion)
+                                var swipeTimeString = record.stuTime.ToDateTime().ToString("yyyy-MM-ddTHH:mm:ssZ");
+
                                 var result = new AccessRecordResult
                                 {
                                     RecordNumber = record.nRecNo,
                                     CardNumber = record.szCardNo?.Trim() ?? "",
                                     UserID = record.szUserID?.Trim() ?? "",
                                     UserName = "",
-                                    SwipeTime = record.stuTime.ToDateTime(),
+                                    SwipeTime = swipeTimeString,
                                     DoorNumber = record.nDoor,
                                     ReaderNo = record.szReaderID?.Trim() ?? "",
                                     CardType = GetCardTypeString(record.emCardType),
@@ -1475,11 +1480,13 @@ namespace NetSDKBridge
                 seenRecordNos.Add(recNo);
             }
 
-            // Convert Unix timestamp to DateTime
-            DateTime swipeTime = DateTime.MinValue;
+            // Convert Unix timestamp to local time
+            string swipeTimeString = "";
             if (record.TryGetValue("CreateTime", out var createTimeStr) && long.TryParse(createTimeStr, out var createTime))
             {
-                swipeTime = DateTimeOffset.FromUnixTimeSeconds(createTime).UtcDateTime;
+                var swipeTimeUtc = DateTimeOffset.FromUnixTimeSeconds(createTime).UtcDateTime;
+                var swipeTimeLocal = TimeZoneInfo.ConvertTimeFromUtc(swipeTimeUtc, TimeZoneInfo.Local);
+                swipeTimeString = swipeTimeLocal.ToString("yyyy-MM-dd HH:mm:ss");
             }
 
             var result = new AccessRecordResult
@@ -1488,7 +1495,7 @@ namespace NetSDKBridge
                 CardNumber = record.GetValueOrDefault("CardNo", ""),
                 UserID = record.GetValueOrDefault("UserID", ""),
                 UserName = record.GetValueOrDefault("CardName", ""),
-                SwipeTime = swipeTime,
+                SwipeTime = swipeTimeString,
                 DoorNumber = record.TryGetValue("DoorNo", out var doorStr) && int.TryParse(doorStr, out var door) ? door : 0,
                 ReaderNo = record.GetValueOrDefault("ReaderNo", ""),
                 CardType = record.GetValueOrDefault("Type", ""),
@@ -1776,7 +1783,7 @@ namespace NetSDKBridge
         public string CardNumber { get; set; }
         public string UserID { get; set; }
         public string UserName { get; set; }
-        public DateTime SwipeTime { get; set; }
+        public string SwipeTime { get; set; }  // Changed to string to preserve exact time without timezone conversion
         public int DoorNumber { get; set; }
         public string ReaderNo { get; set; }
         public string CardType { get; set; }

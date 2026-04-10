@@ -353,7 +353,7 @@ namespace NetSDKBridge.Modules
                 {
                     var utcTime = createTime.GetInt64();
                     eventData.Timestamp = DateTimeOffset.FromUnixTimeSeconds(utcTime)
-                        .ToString("yyyy-MM-dd HH:mm:ss");
+                        .ToString("yyyy-MM-ddTHH:mm:ssZ");
                 }
 
                 // Temperature (if device supports it)

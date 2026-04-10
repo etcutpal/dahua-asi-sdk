@@ -250,7 +250,7 @@ namespace NetSDKBridge.Modules
         {
             var eventData = new AccessControlEventData
             {
-                Timestamp = info.UTC.ToDateTime().ToString("yyyy-MM-dd HH:mm:ss"),
+                Timestamp = info.UTC.ToDateTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
                 UserID = info.szUserID ?? "",
                 CardNumber = info.szCardNo ?? "",
                 CardName = info.szCardName ?? "",

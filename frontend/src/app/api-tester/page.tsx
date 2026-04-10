@@ -65,6 +65,19 @@ const endpoints: EndpointDef[] = [
 
   // ── Access Records (SDK TCP - NAT Traversal) ──
   {
+    label: 'Access Records (Latest 10)',
+    method: 'GET',
+    path: '/api/devices/ASI12/access-records-sdk',
+    description: 'Latest 10 access records via SDK TCP. Uses local device time (no UTC conversion).',
+    params: [
+      { key: 'startTime', value: '2026-04-10T00:00:00' },
+      { key: 'endTime', value: '2026-04-10T23:59:59' },
+      { key: 'maxRecords', value: '10' },
+    ],
+    group: 'nat',
+    baseUrl: BRIDGE_URL,
+  },
+  {
     label: 'Access Records (7 days)',
     method: 'GET',
     path: '/api/devices/ASI12/access-records-sdk',

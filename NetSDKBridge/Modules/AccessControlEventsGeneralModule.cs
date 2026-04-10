@@ -373,13 +373,13 @@ namespace NetSDKBridge.Modules
                 }
 
                 // Extract timestamp
-                string timestamp = DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm:ss");
+                string timestamp = DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
                 if (root.TryGetProperty("RealUTC", out var utcElem))
                 {
                     try
                     {
                         var unixTime = utcElem.GetInt64();
-                        timestamp = DateTimeOffset.FromUnixTimeSeconds(unixTime).ToString("yyyy-MM-dd HH:mm:ss");
+                        timestamp = DateTimeOffset.FromUnixTimeSeconds(unixTime).ToString("yyyy-MM-ddTHH:mm:ssZ");
                     }
                     catch
                     {
