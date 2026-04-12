@@ -36,7 +36,7 @@ namespace NetSDKBridge
             services.AddLogging(builder =>
             {
                 builder.AddConsole();
-                builder.AddFile(Path.Combine(logDirectory, "netsdk-bridge.log"));
+                builder.AddFile(Path.Combine(logDirectory, "netsdk-bridge.log"), dailyRotation: true);
                 builder.SetMinimumLevel(LogLevel.Debug); // Set to Debug for detailed logging
             });
             
