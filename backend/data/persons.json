@@ -1,0 +1,15 @@
+{
+  "persons": [
+    {
+      "personId": "P005",
+      "name": "NAME4",
+      "faceImagePath": "person_images\\person_1776021661370.png",
+      "fingerprints": [],
+      "cardNumbers": [
+        "8989"
+      ],
+      "createdAt": "2026-04-12T19:20:01.409Z",
+      "updatedAt": "2026-04-12T19:21:01.372Z"
+    }
+  ]
+}

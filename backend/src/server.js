@@ -7,6 +7,7 @@ require('dotenv').config();
 const logger = require('./utils/logger');
 const netSdkService = require('./services/netSdkService');
 const eventService = require('./services/eventService');
+const personService = require('./services/person.service');
 
 const app = express();
 const server = http.createServer(app);
@@ -39,6 +40,7 @@ app.use('/api/autoreg', require('./routes/autoreg'));
 app.use('/api/events', require('./routes/events'));
 app.use('/api/webhooks', require('./routes/webhooks'));
 app.use('/api/access-records', require('./routes/access-records'));
+app.use('/api/persons', require('./routes/persons'));
 
 // Health check
 app.get('/api/health', (req, res) => {
@@ -117,6 +119,9 @@ async function startServer() {
   try {
     // Initialize NetSDK Service
     await netSdkService.initialize();
+
+    // Initialize Person Service
+    await personService.initialize();
 
     server.listen(PORT, HOST, () => {
       logger.info(`Express server running on ${HOST}:${PORT}`);

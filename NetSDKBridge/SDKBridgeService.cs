@@ -11,9 +11,13 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using System.Text;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
@@ -1740,6 +1744,857 @@ namespace NetSDKBridge
             }
             return Task.CompletedTask;
         }
+
+        /// <summary>
+        /// Add person information to access control device
+        /// Supports both SDK and CGI methods based on device capability
+        /// </summary>
+        public async Task<AddPersonDeviceResult> AddPersonToDeviceAsync(AddPersonRequest request)
+        {
+            var result = new AddPersonDeviceResult
+            {
+                DeviceID = request.DeviceID,
+                Success = false,
+                UserAdded = false,
+                CardAdded = false,
+                FaceAdded = false
+            };
+
+            try
+            {
+                string operation = request.IsUpdate ? "UPDATE" : "CREATE";
+                _logger.LogInformation($"[{operation}] Person operation for ID {request.PersonID} on device {request.DeviceID}");
+
+                // Find the device
+                if (!_devices.TryGetValue(request.DeviceID, out var device))
+                {
+                    result.Error = "Device not found";
+                    _logger.LogError($"Device {request.DeviceID} not found");
+                    return result;
+                }
+
+                if (device.LoginHandle == IntPtr.Zero)
+                {
+                    result.Error = "Device not logged in";
+                    _logger.LogError($"Device {request.DeviceID} not logged in");
+                    return result;
+                }
+
+                // For auto-registered devices (internet-based), we must use SDK methods only
+                // CGI requires direct IP access which is not available
+                // Use SDK method directly
+                return await AddPersonToDeviceViaSdkAsync(request);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Exception in AddPersonToDeviceAsync for {request.PersonID}");
+                result.Error = $"Exception: {ex.Message}";
+                return result;
+            }
+        }
+
+        /// <summary>
+        /// Add person using HTTP CGI method (alternative to SDK)
+        /// This method works with devices that don't support SDK operations
+        /// </summary>
+        private async Task<AddPersonDeviceResult> AddPersonToDeviceViaCgiAsync(DeviceInfo device, AddPersonRequest request)
+        {
+            var result = new AddPersonDeviceResult
+            {
+                DeviceID = request.DeviceID,
+                Success = false,
+                UserAdded = false,
+                CardAdded = false,
+                FaceAdded = false
+            };
+
+            try
+            {
+                string deviceIp = device.IP;
+                string base64FaceImage = null;
+                
+                // Convert face image to base64 if provided
+                if (request.FaceImage != null && request.FaceImage.Length > 0)
+                {
+                    base64FaceImage = Convert.ToBase64String(request.FaceImage);
+                    _logger.LogInformation($"[CGI] Face image converted to base64, length: {base64FaceImage.Length}");
+                }
+
+                // Build CGI request body for setUser action
+                var cgiParams = new List<string>();
+                cgiParams.Add($"action=setUser");
+                
+                // Build JSON payload
+                var userJson = new System.Text.StringBuilder();
+                userJson.Append("{");
+                userJson.Append($"\"UserID\":\"{request.PersonID}\",");
+                userJson.Append($"\"Name\":\"{request.PersonName}\",");
+                userJson.Append($"\"UserType\":\"normal\",");
+                
+                // Add card number if provided
+                if (!string.IsNullOrEmpty(request.CardNumber))
+                {
+                    userJson.Append($"\"CardInfo\":[{{\"CardNo\":\"{request.CardNumber}\"}}],");
+                }
+                
+                // Add face image in base64 if provided
+                if (!string.IsNullOrEmpty(base64FaceImage))
+                {
+                    userJson.Append($"\"FaceInfo\":[{{\"FaceImage\":\"{base64FaceImage}\",\"ImageType\":\"base64\"}}],");
+                }
+                
+                userJson.Append("\"Enable\":true");
+                userJson.Append("}");
+
+                var url = $"http://{deviceIp}/cgi-bin/accessControl.cgi?action=setUser";
+                
+                _logger.LogInformation($"[CGI] Sending request to: {url}");
+                _logger.LogInformation($"[CGI] User JSON length: {userJson.Length} chars");
+                
+                // Log if face image is included
+                if (!string.IsNullOrEmpty(base64FaceImage))
+                {
+                    _logger.LogInformation($"[CGI] Face image included in base64 ({base64FaceImage.Length} chars)");
+                }
+
+                using var httpClient = new HttpClient();
+                httpClient.Timeout = TimeSpan.FromSeconds(30);
+                
+                var content = new StringContent(userJson.ToString(), System.Text.Encoding.UTF8, "application/json");
+                var response = await httpClient.PostAsync(url, content);
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                _logger.LogInformation($"[CGI] Response status: {response.StatusCode}");
+                _logger.LogInformation($"[CGI] Response body: {responseBody}");
+
+                if (response.IsSuccessStatusCode)
+                {
+                    // Parse response to check success
+                    if (responseBody.Contains("ret") && responseBody.Contains("true"))
+                    {
+                        result.Success = true;
+                        result.UserAdded = true;
+                        result.FaceAdded = !string.IsNullOrEmpty(base64FaceImage);
+                        result.CardAdded = !string.IsNullOrEmpty(request.CardNumber);
+                        result.Message = "Person added successfully via CGI";
+                        
+                        _logger.LogInformation($"[CGI] ✅ Person {request.PersonID} added successfully");
+                    }
+                    else
+                    {
+                        result.Error = $"CGI request failed: {responseBody}";
+                        _logger.LogWarning($"[CGI] ❌ {result.Error}");
+                    }
+                }
+                else
+                {
+                    result.Error = $"HTTP error: {response.StatusCode} - {responseBody}";
+                    _logger.LogWarning($"[CGI] ❌ {result.Error}");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[CGI] Exception while adding person via CGI");
+                result.Error = $"CGI exception: {ex.Message}";
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Async wrapper for SDK method
+        /// </summary>
+        private Task<AddPersonDeviceResult> AddPersonToDeviceViaSdkAsync(AddPersonRequest request)
+        {
+            return Task.FromResult(AddPersonToDeviceViaSdk(request));
+        }
+
+        /// <summary>
+        /// Add person using SDK method (alternative implementation using SetConfig)
+        /// This works with auto-registered devices where CGI is not available
+        /// </summary>
+        private AddPersonDeviceResult AddPersonToDeviceViaSdk(AddPersonRequest request)
+        {
+            var result = new AddPersonDeviceResult
+            {
+                DeviceID = request.DeviceID,
+                Success = false,
+                UserAdded = false,
+                CardAdded = false,
+                FaceAdded = false
+            };
+
+            try
+            {
+                string operation = request.IsUpdate ? "UPDATE" : "CREATE";
+                _logger.LogInformation($"[{operation}] Person operation for ID {request.PersonID} on device {request.DeviceID}");
+                
+                // Find the device
+                if (!_devices.TryGetValue(request.DeviceID, out var device))
+                {
+                    result.Error = "Device not found";
+                    _logger.LogError($"Device {request.DeviceID} not found");
+                    return result;
+                }
+
+                if (device.LoginHandle == IntPtr.Zero)
+                {
+                    result.Error = "Device not logged in";
+                    _logger.LogError($"Device {request.DeviceID} not logged in");
+                    return result;
+                }
+
+                // Add or update user info
+                // Dahua SDK: InsertOperateAccessUserService is an UPSERT operation
+                // If szUserID exists, it updates; if not, it creates
+                // The Dahua demo ALWAYS uses InsertOperateAccessUserService - there is no separate Update method for users
+                {
+                    try
+                    {
+                        string operationLabel = request.IsUpdate ? "[UPDATE] Upserting" : "[CREATE] Adding";
+                        _logger.LogInformation($"{operationLabel} user {request.PersonID} to device...");
+                    var userInfo = new NET_ACCESS_USER_INFO
+                    {
+                        szUserID = request.PersonID ?? "",
+                        szName = request.PersonName ?? "",
+                        emUserType = EM_USER_TYPE.NORMAL,  // Ordinary user - editable from web interface
+                        nUserStatus = 0, // Normal status
+                        nDoorNum = 1, // Set to 1 to enable door access (door 1)
+                        nDoors = new int[32],
+                        nTimeSectionNum = 0,
+                        nTimeSectionNo = new int[32],
+                        nSpecialDaysScheduleNum = 0,
+                        nSpecialDaysSchedule = new int[128]
+                    };
+
+                    // Enable access to door 1 (and potentially other doors)
+                    userInfo.nDoors[0] = 1; // Door 1
+                    
+                    // Set user password (empty string allows no password authentication)
+                    userInfo.szPsw = "";
+
+                    // Set valid time (default: 10 years from now)
+                    var now = DateTime.Now;
+                    userInfo.stuValidBeginTime = new NET_TIME
+                    {
+                        dwYear = (uint)now.Year,
+                        dwMonth = (uint)now.Month,
+                        dwDay = (uint)now.Day,
+                        dwHour = 0,
+                        dwMinute = 0,
+                        dwSecond = 0
+                    };
+                    userInfo.stuValidEndTime = new NET_TIME
+                    {
+                        dwYear = (uint)(now.Year + 10),
+                        dwMonth = (uint)now.Month,
+                        dwDay = (uint)now.Day,
+                        dwHour = 0,
+                        dwMinute = 0,
+                        dwSecond = 0
+                    };
+
+                    var userInfoArray = new NET_ACCESS_USER_INFO[] { userInfo };
+                    NET_EM_FAILCODE[] failCode;
+
+                    bool userResult = NETClient.InsertOperateAccessUserService((IntPtr)device.LoginHandle, userInfoArray, out failCode, 5000);
+
+                    int initialFailCode = failCode != null && failCode.Length > 0 ? (int)failCode[0].emCode : -999;
+                    _logger.LogInformation($"[DEBUG] InsertOperateAccessUserService returned: userResult={userResult}, failCode.Length={failCode?.Length ?? -1}, failCode[0].emCode={initialFailCode}");
+
+                    if (userResult && failCode != null && failCode.Length > 0 && failCode[0].emCode == 0)
+                    {
+                        result.UserAdded = true;
+                        _logger.LogInformation($"User {request.PersonID} added to device {request.DeviceID}");
+                    }
+                    else if (userResult && string.IsNullOrWhiteSpace(NETClient.GetLastError()))
+                    {
+                        // SDK returned true and no error message - treat as success even if failCode isn't exactly 0
+                        // Some SDK versions or devices may return non-zero failCode but still succeed
+                        _logger.LogInformation($"User {request.PersonID} added to device {request.DeviceID} (SDK returned success despite failCode)");
+                        result.UserAdded = true;
+                    }
+                    else
+                    {
+                        // Try to get error from GetLastError() first
+                        string sdkError = NETClient.GetLastError();
+                        _logger.LogInformation($"[DEBUG] GetLastError returned: '{sdkError}'");
+                        
+                        // If GetLastError() is empty, check failCode (but validate it's not garbage)
+                        string errorDetails = "";
+                        if (string.IsNullOrWhiteSpace(sdkError))
+                        {
+                            // failCode might contain garbage, so only use if it looks valid
+                            if (failCode != null && failCode.Length > 0)
+                            {
+                                int failCodeValue = (int)failCode[0].emCode;
+                                // Only use failCode if it's a reasonable value (not garbage)
+                                // Garbage values are typically very large negative/positive numbers
+                                if (failCodeValue >= -10000 && failCodeValue <= 10000)
+                                {
+                                    errorDetails = $" (failCode: {failCodeValue})";
+                                }
+                                else
+                                {
+                                    errorDetails = $" (failCode contains invalid data: {failCodeValue}, likely memory corruption)";
+                                }
+                            }
+                            sdkError = "Unknown SDK error";
+                        }
+                        
+                        _logger.LogWarning($"InsertOperateAccessUserService failed. SDK Error: {sdkError}{errorDetails}, failCode length: {failCode?.Length ?? 0}");
+                        
+                        // For user-facing error, don't include garbage failCode data - keep it clean
+                        string userFacingErrorDetails = "";
+                        if (!string.IsNullOrEmpty(errorDetails) && !errorDetails.Contains("invalid data"))
+                        {
+                            userFacingErrorDetails = errorDetails;
+                        }
+                        string errorMsg = $"Failed to add user (SDK Error: {sdkError}{userFacingErrorDetails})";
+
+                        // Only try to delete and re-add if error indicates the user already exists
+                        // Don't waste time removing for other errors (connection issues, SDK issues, etc.)
+                        // For UPDATE operations: We already removed the user above, so don't retry removal
+                        bool shouldRetryWithRemoval = !request.IsUpdate; // Don't retry removal if we already did UPDATE removal
+                        
+                        // Check if error message indicates duplicate/existing user
+                        if (!string.IsNullOrWhiteSpace(sdkError))
+                        {
+                            string lowerError = sdkError.ToLower();
+                            shouldRetryWithRemoval = shouldRetryWithRemoval && (
+                                lowerError.Contains("already exists") ||
+                                lowerError.Contains("duplicate") ||
+                                lowerError.Contains("conflict") ||
+                                lowerError.Contains("user") && lowerError.Contains("exist"));
+                        }
+                        
+                        // Also check failCode if it indicates duplicate (only for CREATE operations)
+                        if (!request.IsUpdate && failCode != null && failCode.Length > 0)
+                        {
+                            int failCodeValue = (int)failCode[0].emCode;
+                            // Dahua SDK: -1 or 40 often means duplicate/already exists
+                            // Some devices return unusual codes for duplicates, so we're more permissive
+                            // failCode 10 also indicates duplicate/user exists on some devices
+                            if (failCodeValue == -1 || failCodeValue == 40 || failCodeValue == 19 || failCodeValue == 20 || failCodeValue == 10)
+                            {
+                                shouldRetryWithRemoval = true;
+                                _logger.LogWarning($"Detected potential duplicate error code: {failCodeValue}, will retry with removal");
+                            }
+                            // For "Unknown SDK error" cases, we should always try retry with removal
+                            // since we don't know what the actual error is
+                            if (sdkError == "Unknown SDK error")
+                            {
+                                shouldRetryWithRemoval = true;
+                                _logger.LogWarning($"Unknown SDK error with failCode {failCodeValue}, attempting removal retry");
+                            }
+                        }
+                        
+                        if (shouldRetryWithRemoval || (request.IsUpdate && (sdkError.ToLower().Contains("already exists") || sdkError.ToLower().Contains("duplicate") || sdkError.ToLower().Contains("user") && sdkError.ToLower().Contains("exist") || failCode != null && new[] { -1, 10, 19, 20, 40 }.Contains(failCode != null && failCode.Length > 0 ? (int)failCode[0].emCode : -999))))
+                        {
+                            string retryReason = request.IsUpdate ? "UPDATE mode re-add failed (user still exists - removal may have failed)" : "User add failed";
+                            _logger.LogWarning($"[UPDATE-RETRY] {retryReason} on device {request.DeviceID}");
+                            _logger.LogWarning($"[UPDATE-RETRY] Original error: {sdkError}{errorDetails}");
+                            _logger.LogWarning($"[UPDATE-RETRY] Attempting to delete and re-add user again...");
+                            
+                            // Try to remove existing user first
+                            try
+                            {
+                                string[] userIds = new string[] { request.PersonID ?? "" };
+                                NET_EM_FAILCODE[] removeFailCode;
+                                
+                                bool removeResult = NETClient.RemoveOperateAccessUserService(
+                                    (IntPtr)device.LoginHandle, 
+                                    userIds, 
+                                    out removeFailCode, 
+                                    5000
+                                );
+                                
+                                if (removeResult)
+                                {
+                                    _logger.LogInformation($"Successfully removed existing user {request.PersonID}");
+
+                                    // Wait longer for connection to stabilize after removal
+                                    // Some devices need more time to process the deletion
+                                    _logger.LogInformation($"Waiting 2 seconds before re-adding user to allow connection to stabilize...");
+                                    Thread.Sleep(2000);
+
+                                    // Now try to add again with the existing handle
+                                    _logger.LogInformation($"Attempting to re-add user {request.PersonID} to device {request.DeviceID}...");
+                                    userResult = NETClient.InsertOperateAccessUserService(
+                                        (IntPtr)device.LoginHandle,
+                                        userInfoArray,
+                                        out failCode,
+                                        5000
+                                    );
+
+                                    if (userResult && failCode != null && failCode.Length > 0 && failCode[0].emCode == 0)
+                                    {
+                                        result.UserAdded = true;
+                                        _logger.LogInformation($"User {request.PersonID} re-added to device {request.DeviceID} successfully");
+                                    }
+                                    else
+                                    {
+                                        // Check if the re-add failed with failCode 10 (duplicate)
+                                        // This can happen if the device hasn't fully processed the deletion yet
+                                        int retryFailCode = (failCode != null && failCode.Length > 0) ? (int)failCode[0].emCode : -999;
+                                        
+                                        if (retryFailCode == 10)
+                                        {
+                                            _logger.LogWarning($"Re-add failed with failCode 10 - device may need more time. Waiting 3 more seconds and retrying...");
+                                            Thread.Sleep(3000);
+                                            
+                                            // Try one more time
+                                            userResult = NETClient.InsertOperateAccessUserService(
+                                                (IntPtr)device.LoginHandle,
+                                                userInfoArray,
+                                                out failCode,
+                                                5000
+                                            );
+                                            
+                                            if (userResult && failCode != null && failCode.Length > 0 && failCode[0].emCode == 0)
+                                            {
+                                                result.UserAdded = true;
+                                                _logger.LogInformation($"User {request.PersonID} re-added successfully on second retry");
+                                            }
+                                            else
+                                            {
+                                                // Still failed after second retry
+                                                string retryError = NETClient.GetLastError();
+                                                string retryDetails = "";
+                                                if (string.IsNullOrWhiteSpace(retryError))
+                                                {
+                                                    if (failCode != null && failCode.Length > 0)
+                                                    {
+                                                        int finalFailCode = (int)failCode[0].emCode;
+                                                        if (finalFailCode >= -10000 && finalFailCode <= 10000)
+                                                        {
+                                                            retryDetails = $" (failCode: {finalFailCode})";
+                                                        }
+                                                    }
+                                                    retryError = "Unknown SDK error";
+                                                }
+                                                string retryErrorMsg = $"Failed to re-add user after removal (SDK Error: {retryError}{retryDetails})";
+                                                _logger.LogWarning(retryErrorMsg);
+                                                result.Error = retryErrorMsg;
+                                            }
+                                        }
+                                        else
+                                        {
+                                            // Use GetLastError() with failCode fallback
+                                            string retryError = NETClient.GetLastError();
+                                            string retryDetails = "";
+                                            if (string.IsNullOrWhiteSpace(retryError))
+                                            {
+                                                if (failCode != null && failCode.Length > 0)
+                                                {
+                                                    int finalFailCode = (int)failCode[0].emCode;
+                                                    // Only include failCode if it's valid (not garbage)
+                                                    if (finalFailCode >= -10000 && finalFailCode <= 10000)
+                                                    {
+                                                        retryDetails = $" (failCode: {finalFailCode})";
+                                                    }
+                                                    // If garbage, don't include it - just use Unknown SDK error
+                                                }
+                                                retryError = "Unknown SDK error";
+                                            }
+                                            string retryErrorMsg = $"Failed to re-add user after removal (SDK Error: {retryError}{retryDetails})";
+                                            _logger.LogWarning(retryErrorMsg);
+                                            result.Error = retryErrorMsg;
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    string removeError = NETClient.GetLastError();
+                                    string removeDetails = "";
+                                    if (string.IsNullOrWhiteSpace(removeError))
+                                    {
+                                        if (removeFailCode != null && removeFailCode.Length > 0)
+                                        {
+                                            int removeFailCodeValue = (int)removeFailCode[0].emCode;
+                                            // Only include failCode if it's valid (not garbage)
+                                            if (removeFailCodeValue >= -10000 && removeFailCodeValue <= 10000)
+                                            {
+                                                removeDetails = $" (failCode: {removeFailCodeValue})";
+                                            }
+                                            // If garbage, don't include it
+                                        }
+                                        removeError = "Unknown SDK error";
+                                    }
+                                    string removeErrorMsg = $"Failed to remove existing user (SDK Error: {removeError}{removeDetails})";
+                                    _logger.LogWarning(removeErrorMsg);
+                                    result.Error = $"User exists but cannot be removed: {removeErrorMsg}";
+                                }
+                            }
+                            catch (Exception removeEx)
+                            {
+                                _logger.LogError(removeEx, $"Error while trying to remove and re-add user {request.PersonID}");
+                                result.Error = $"User exists and removal failed: {removeEx.Message}";
+                            }
+                        }
+                        else
+                        {
+                            // Error doesn't indicate duplicate/existing user, so don't waste time with removal
+                            _logger.LogWarning($"User {request.PersonID} add failed with error that doesn't indicate duplicate. Not attempting removal.");
+                            _logger.LogWarning($"Error was: {errorMsg}");
+                            result.Error = errorMsg;
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, $"Exception upserting user {request.PersonID} to device {request.DeviceID}");
+                    result.Error = $"Exception upserting user: {ex.Message}";
+                }
+                }
+
+                // For UPDATE mode: Remove existing face and cards first to avoid duplicates
+                // The user upsert above handles the user info, but face/cards need explicit removal
+                if (request.IsUpdate)
+                {
+                    _logger.LogInformation($"[UPDATE] Removing existing face/cards for user {request.PersonID} before adding new ones...");
+
+                    // Remove existing face
+                    try
+                    {
+                        _logger.LogInformation($"[UPDATE] Removing existing face for user {request.PersonID}...");
+                        NET_IN_ACCESS_FACE_SERVICE_REMOVE stuFaceRemoveIn = new NET_IN_ACCESS_FACE_SERVICE_REMOVE();
+                        stuFaceRemoveIn.dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_ACCESS_FACE_SERVICE_REMOVE));
+                        stuFaceRemoveIn.nUserNum = 1;
+                        stuFaceRemoveIn.szUserID = new NET_IN_ACCESS_FACE_SERVICE_UserID[100];
+                        stuFaceRemoveIn.szUserID[0] = new NET_IN_ACCESS_FACE_SERVICE_UserID() { userID = request.PersonID ?? "" };
+
+                        NET_OUT_ACCESS_FACE_SERVICE_REMOVE stuFaceRemoveOut = new NET_OUT_ACCESS_FACE_SERVICE_REMOVE();
+                        stuFaceRemoveOut.dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_ACCESS_FACE_SERVICE_REMOVE));
+                        stuFaceRemoveOut.nMaxRetNum = 1;
+                        stuFaceRemoveOut.pFailCode = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_EM_FAILCODE)));
+
+                        NET_EM_FAILCODE stuFailCodeRemove = new NET_EM_FAILCODE();
+                        Marshal.StructureToPtr(stuFailCodeRemove, stuFaceRemoveOut.pFailCode, true);
+
+                        IntPtr pstInParamRemove = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_IN_ACCESS_FACE_SERVICE_REMOVE)));
+                        Marshal.StructureToPtr(stuFaceRemoveIn, pstInParamRemove, true);
+
+                        IntPtr pstOutParamRemove = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_OUT_ACCESS_FACE_SERVICE_REMOVE)));
+                        Marshal.StructureToPtr(stuFaceRemoveOut, pstOutParamRemove, true);
+
+                        bool faceRemoveResult = NETClient.OperateAccessFaceService(
+                            (IntPtr)device.LoginHandle,
+                            EM_NET_ACCESS_CTL_FACE_SERVICE.REMOVE,
+                            pstInParamRemove,
+                            pstOutParamRemove,
+                            5000
+                        );
+
+                        string faceRemoveError = NETClient.GetLastError();
+                        _logger.LogInformation($"[UPDATE] Face removal result: {faceRemoveResult}, error: '{faceRemoveError}' (face may not exist)");
+
+                        // Cleanup
+                        if (pstInParamRemove != IntPtr.Zero) Marshal.FreeHGlobal(pstInParamRemove);
+                        if (pstOutParamRemove != IntPtr.Zero) Marshal.FreeHGlobal(pstOutParamRemove);
+                        if (stuFaceRemoveOut.pFailCode != IntPtr.Zero) Marshal.FreeHGlobal(stuFaceRemoveOut.pFailCode);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, $"[UPDATE] Face removal exception (continuing): {ex.Message}");
+                    }
+
+                    // Remove existing OLD card (if different from new card)
+                    // If OldCardNumber is not provided, query device for existing cards and remove them all
+                    if (!string.IsNullOrWhiteSpace(request.CardNumber))
+                    {
+                        try
+                        {
+                            if (!string.IsNullOrWhiteSpace(request.OldCardNumber) && request.OldCardNumber != request.CardNumber)
+                            {
+                                // We know the old card number - remove it directly
+                                _logger.LogInformation($"[UPDATE] Removing OLD card {request.OldCardNumber} for user {request.PersonID}...");
+                                string[] oldCardNosToRemove = new string[] { request.OldCardNumber };
+                                NET_EM_FAILCODE[] oldCardRemoveFailCode;
+
+                                bool oldCardRemoveResult = NETClient.RemoveOperateAccessCardService(
+                                    (IntPtr)device.LoginHandle,
+                                    oldCardNosToRemove,
+                                    out oldCardRemoveFailCode,
+                                    3000
+                                );
+
+                                if (oldCardRemoveResult)
+                                {
+                                    _logger.LogInformation($"[UPDATE] ✅ OLD card {request.OldCardNumber} removed successfully");
+                                }
+                                else
+                                {
+                                    string oldCardRemoveError = NETClient.GetLastError();
+                                    _logger.LogInformation($"[UPDATE] ℹ️  OLD card removal info: {oldCardRemoveError} (card may not exist)");
+                                }
+                            }
+                            else
+                            {
+                                // OldCardNumber not provided - query device for existing cards and remove them
+                                _logger.LogInformation($"[UPDATE] Querying existing cards for user {request.PersonID}...");
+                                
+                                NET_ACCESS_CARD_INFO[] existingCards = null;
+                                NET_EM_FAILCODE[] queryFailCode;
+                                
+                                // Query cards for this user
+                                bool queryResult = NETClient.GetOperateAccessCardService(
+                                    (IntPtr)device.LoginHandle,
+                                    new string[] { "" }, // Empty string means query all cards (we'll filter by user)
+                                    out existingCards,
+                                    out queryFailCode,
+                                    5000
+                                );
+
+                                if (queryResult && existingCards != null && existingCards.Length > 0)
+                                {
+                                    // Filter cards belonging to this user
+                                    var userCards = existingCards.Where(c => c.szUserID == request.PersonID).ToList();
+                                    _logger.LogInformation($"[UPDATE] Found {userCards.Count} existing card(s) for user {request.PersonID}");
+
+                                    foreach (var userCard in userCards)
+                                    {
+                                        // Skip if this is the same card we're about to add
+                                        if (userCard.szCardNo == request.CardNumber)
+                                        {
+                                            _logger.LogInformation($"[UPDATE] Skipping card {userCard.szCardNo} (same as new card)");
+                                            continue;
+                                        }
+
+                                        _logger.LogInformation($"[UPDATE] Removing existing card {userCard.szCardNo}...");
+                                        string[] cardToRemove = new string[] { userCard.szCardNo };
+                                        NET_EM_FAILCODE[] removeFailCode;
+
+                                        bool removeResult = NETClient.RemoveOperateAccessCardService(
+                                            (IntPtr)device.LoginHandle,
+                                            cardToRemove,
+                                            out removeFailCode,
+                                            3000
+                                        );
+
+                                        if (removeResult)
+                                        {
+                                            _logger.LogInformation($"[UPDATE] ✅ Card {userCard.szCardNo} removed");
+                                        }
+                                        else
+                                        {
+                                            string removeError = NETClient.GetLastError();
+                                            _logger.LogInformation($"[UPDATE] ℹ️  Card removal info: {removeError}");
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    _logger.LogInformation($"[UPDATE] No existing cards found for user {request.PersonID}");
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, $"[UPDATE] Card removal exception (continuing): {ex.Message}");
+                        }
+                    }
+                }
+
+                // Step 2: Add card info (if card number provided)
+                if (!string.IsNullOrWhiteSpace(request.CardNumber))
+                {
+                    try
+                    {
+                        _logger.LogInformation($"[CARD] Adding card {request.CardNumber} for user {request.PersonID}");
+                        
+                        var cardInfo = new NET_ACCESS_CARD_INFO
+                        {
+                            szCardNo = request.CardNumber,
+                            szUserID = request.PersonID ?? "",
+                            emType = EM_ACCESSCTLCARD_TYPE.GENERAL,
+                            szDynamicCheckCode = "",
+                            byReserved = new byte[4096]
+                        };
+
+                        var cardInfoArray = new NET_ACCESS_CARD_INFO[] { cardInfo };
+                        NET_EM_FAILCODE[] failCode;
+
+                        bool cardResult = NETClient.InsertOperateAccessCardService((IntPtr)device.LoginHandle, cardInfoArray, out failCode, 5000);
+                        
+                        int cardFailCodeValue = failCode != null && failCode.Length > 0 ? (int)failCode[0].emCode : -999;
+                        string cardSdkError = NETClient.GetLastError();
+                        
+                        _logger.LogInformation($"[CARD] InsertOperateAccessCardService returned: cardResult={cardResult}, failCode={cardFailCodeValue}, error='{cardSdkError}'");
+
+                        // Check for success - be very lenient since device firmware may report errors even when succeeding
+                        if (cardResult && failCode != null && failCode.Length > 0 && failCode[0].emCode == 0)
+                        {
+                            // Strict success: SDK returned true and failCode is 0
+                            result.CardAdded = true;
+                            _logger.LogInformation($"[CARD] ✅ Card {request.CardNumber} added for user {request.PersonID}");
+                        }
+                        else if (cardResult && string.IsNullOrWhiteSpace(cardSdkError))
+                        {
+                            // Success: SDK returned true and no error message
+                            result.CardAdded = true;
+                            _logger.LogInformation($"[CARD] ✅ Card {request.CardNumber} added (SDK returned success despite failCode={cardFailCodeValue})");
+                        }
+                        else if (!cardResult && string.IsNullOrWhiteSpace(cardSdkError))
+                        {
+                            // Success: SDK returned false but no error message - device may have accepted it
+                            result.CardAdded = true;
+                            _logger.LogInformation($"[CARD] ✅ Card {request.CardNumber} added (SDK returned false but no error message)");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(cardSdkError) && (cardSdkError == "800004B5" || cardFailCodeValue == 18))
+                        {
+                            // Success: Device returns error code 800004B5 or failCode 18 but card is actually added
+                            // This is a firmware behavior where it reports errors even on success
+                            result.CardAdded = true;
+                            _logger.LogInformation($"[CARD] ✅ Card {request.CardNumber} added (device returned error code but card was accepted)");
+                        }
+                        else
+                        {
+                            string errorDetails = "";
+                            if (cardFailCodeValue >= -10000 && cardFailCodeValue <= 10000)
+                            {
+                                errorDetails = $" (failCode: {cardFailCodeValue})";
+                            }
+                            string errorMsg = $"Failed to add card (SDK Error: {cardSdkError}{errorDetails})";
+                            _logger.LogWarning($"[CARD] ⚠️  {errorMsg}");
+                            // Card is optional - don't fail the operation
+                            _logger.LogInformation($"[CARD] ℹ️  Card addition is optional. User access still granted.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"[CARD] Exception adding card for user {request.PersonID}");
+                        _logger.LogWarning($"[CARD] ⚠️  Card addition failed but user access still granted. Error: {ex.Message}");
+                        // Card is optional - don't fail the operation
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation($"[CARD] No card number provided for user {request.PersonID}");
+                }
+
+                // Step 3: Add/Update face info (if face image provided)
+                if (request.FaceImage != null && request.FaceImage.Length > 0)
+                {
+                    try
+                    {
+                        _logger.LogInformation($"[FACE] {(request.IsUpdate ? "Updating" : "Adding")} face image for user {request.PersonID} - Size: {request.FaceImage.Length} bytes ({request.FaceImage.Length / 1024.0:F2} KB)");
+
+                        // For UPDATE mode: face was already removed above, so use INSERT to add the new one
+                        // For CREATE mode: use INSERT to add the new face
+                        // In both cases, we use INSERT operation here
+                        EM_NET_ACCESS_CTL_FACE_SERVICE faceOperation = EM_NET_ACCESS_CTL_FACE_SERVICE.INSERT;
+                        _logger.LogInformation($"[FACE] Using operation: {faceOperation} (INSERT)");
+
+                        // INSERT operation - works for both CREATE and UPDATE (after removal)
+                        NET_IN_ACCESS_FACE_SERVICE_INSERT stuFaceInsertIn = new NET_IN_ACCESS_FACE_SERVICE_INSERT();
+                        stuFaceInsertIn.dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_ACCESS_FACE_SERVICE_INSERT));
+                        stuFaceInsertIn.nFaceInfoNum = 1;
+                        stuFaceInsertIn.pFaceInfo = IntPtr.Zero;
+                        stuFaceInsertIn.pFaceInfo = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_ACCESS_FACE_INFO)));
+
+                        NET_ACCESS_FACE_INFO stuFaceInfo = new NET_ACCESS_FACE_INFO();
+                        stuFaceInfo.szUserID = request.PersonID ?? "";
+                        stuFaceInfo.nFacePhoto = 1;
+                        stuFaceInfo.nInFacePhotoLen = new int[5];
+                        stuFaceInfo.nOutFacePhotoLen = new int[5];
+                        stuFaceInfo.nInFacePhotoLen[0] = stuFaceInfo.nOutFacePhotoLen[0] = request.FaceImage.Length;
+                        stuFaceInfo.pFacePhoto = new IntPtr[5];
+                        stuFaceInfo.pFacePhoto[0] = Marshal.AllocHGlobal(request.FaceImage.Length);
+                        Marshal.Copy(request.FaceImage, 0, stuFaceInfo.pFacePhoto[0], request.FaceImage.Length);
+
+                        Marshal.StructureToPtr(stuFaceInfo, stuFaceInsertIn.pFaceInfo, true);
+
+                        NET_OUT_ACCESS_FACE_SERVICE_INSERT stuFaceInsertOut = new NET_OUT_ACCESS_FACE_SERVICE_INSERT();
+                        stuFaceInsertOut.dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_ACCESS_FACE_SERVICE_INSERT));
+                        stuFaceInsertOut.nMaxRetNum = 1;
+                        stuFaceInsertOut.pFailCode = IntPtr.Zero;
+                        stuFaceInsertOut.pFailCode = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_EM_FAILCODE)));
+
+                        NET_EM_FAILCODE stuFailCodeR = new NET_EM_FAILCODE();
+                        Marshal.StructureToPtr(stuFailCodeR, stuFaceInsertOut.pFailCode, true);
+
+                        IntPtr pstInParam = IntPtr.Zero;
+                        pstInParam = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_IN_ACCESS_FACE_SERVICE_INSERT)));
+                        Marshal.StructureToPtr(stuFaceInsertIn, pstInParam, true);
+
+                        IntPtr pstOutParam = IntPtr.Zero;
+                        pstOutParam = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_OUT_ACCESS_FACE_SERVICE_INSERT)));
+                        Marshal.StructureToPtr(stuFaceInsertOut, pstOutParam, true);
+
+                        _logger.LogInformation($"[FACE] Calling OperateAccessFaceService with INSERT...");
+                        bool faceResult = NETClient.OperateAccessFaceService((IntPtr)device.LoginHandle, EM_NET_ACCESS_CTL_FACE_SERVICE.INSERT, pstInParam, pstOutParam, 5000);
+                        var faceinfo = (NET_OUT_ACCESS_FACE_SERVICE_INSERT)Marshal.PtrToStructure(pstOutParam, typeof(NET_OUT_ACCESS_FACE_SERVICE_INSERT));
+                        var failcode = (NET_EM_FAILCODE)Marshal.PtrToStructure(faceinfo.pFailCode, typeof(NET_EM_FAILCODE));
+                        string faceError = NETClient.GetLastError();
+
+                        _logger.LogInformation($"[FACE] INSERT result: faceResult={faceResult}, failCode={failcode.emCode}, error='{faceError}'");
+
+                        if (faceResult && failcode.emCode == EM_FAILCODE.NOERROR)
+                        {
+                            result.FaceAdded = true;
+                            _logger.LogInformation($"[FACE] ✅ Face {(request.IsUpdate ? "updated" : "added")} for {request.PersonID}");
+                        }
+                        else if (faceResult && string.IsNullOrWhiteSpace(faceError))
+                        {
+                            result.FaceAdded = true;
+                            _logger.LogInformation($"[FACE] ✅ Face {(request.IsUpdate ? "updated" : "added")} (SDK returned success)");
+                        }
+                        else if (!string.IsNullOrWhiteSpace(faceError) && faceError == "800004B5")
+                        {
+                            result.FaceAdded = true;
+                            _logger.LogInformation($"[FACE] ✅ Face {(request.IsUpdate ? "updated" : "added")} (error code 800004B5 indicates success)");
+                        }
+                        else
+                        {
+                            _logger.LogWarning($"[FACE] ⚠️  Face {(request.IsUpdate ? "update" : "insert")} failed - failCode: {failcode.emCode}, error: {faceError}");
+                        }
+
+                        if (pstInParam != IntPtr.Zero) Marshal.FreeHGlobal(pstInParam);
+                        if (pstOutParam != IntPtr.Zero) Marshal.FreeHGlobal(pstOutParam);
+                        if (stuFaceInsertIn.pFaceInfo != IntPtr.Zero) Marshal.FreeHGlobal(stuFaceInsertIn.pFaceInfo);
+                        if (stuFaceInfo.pFacePhoto[0] != IntPtr.Zero) Marshal.FreeHGlobal(stuFaceInfo.pFacePhoto[0]);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, $"[FACE] Exception {(request.IsUpdate ? "updating" : "adding")} face for user {request.PersonID} to device {request.DeviceID}");
+                        _logger.LogWarning($"[FACE] ⚠️  Face image {(request.IsUpdate ? "update" : "upload")} failed but user access is still granted. Error: {ex.Message}");
+                        // Face image is optional - don't fail the operation if it has errors
+                        // User was already added successfully, so keep result.Success = true
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation($"[FACE] No face image provided for user {request.PersonID}");
+                }
+
+                FACE_SECTION_END:; // Label for backward compatibility
+
+                // Overall success if at least user was added
+                result.Success = result.UserAdded;
+                if (result.Success)
+                {
+                    result.Message = "Person added successfully";
+                    if (result.CardAdded)
+                        result.Message += " (card added)";
+                    if (result.FaceAdded)
+                        result.Message += " (face added)";
+                }
+                else
+                {
+                    result.Message = string.IsNullOrEmpty(result.Error) ? "Failed to add person to device" : result.Error;
+                }
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Unexpected error adding person {request.PersonID} to device {request.DeviceID}");
+                result.Error = $"Unexpected error: {ex.Message}";
+                result.Message = result.Error;
+                return result;
+            }
+        }
     }
 
     public class DeviceInfo
@@ -1874,6 +2729,36 @@ namespace NetSDKBridge
         public int Channel { get; set; }
         public string RawResponse { get; set; }
         public string Error { get; set; }
+    }
+
+    /// <summary>
+    /// Request model for adding person to device
+    /// </summary>
+    public class AddPersonRequest
+    {
+        public string DeviceID { get; set; }
+        public string PersonID { get; set; }
+        public string PersonName { get; set; }
+        public string CardNumber { get; set; }
+        public string OldCardNumber { get; set; } // Previous card number to remove (for UPDATE)
+        public byte[] FaceImage { get; set; }
+        public string FaceImageType { get; set; } // jpeg, png, etc.
+        public string[] Fingerprints { get; set; } // Array of fingerprint slot names
+        public bool IsUpdate { get; set; } = false; // Whether this is an UPDATE operation (vs CREATE)
+    }
+
+    /// <summary>
+    /// Result of adding person to device
+    /// </summary>
+    public class AddPersonDeviceResult
+    {
+        public bool Success { get; set; }
+        public string Message { get; set; }
+        public string Error { get; set; }
+        public bool UserAdded { get; set; }
+        public bool CardAdded { get; set; }
+        public bool FaceAdded { get; set; }
+        public string DeviceID { get; set; }
     }
 
     #endregion

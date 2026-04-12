@@ -50,20 +50,21 @@ export default function DeviceManagementPage() {
       setIsLoading(true);
       const response = await fetch(`${API_URL}/api/devices`);
       const data = await response.json();
+      
       if (data.success) {
         const storedDevices = data.devices || [];
-        
+
         // Auto-populate IP and Serial from connected devices
         const updatedDevices = storedDevices.map(device => {
           const connectedDevice = connectedDevices.find(
             (d: any) => d.serialNumber === device.registrationId || d.deviceID === device.registrationId
           );
-          
+
           if (connectedDevice && connectedDevice.status === 'Online') {
             // Update IP and Serial if they're different or empty
             const newIp = connectedDevice.ip || device.ip;
             const newSerial = connectedDevice.serialNumber || device.serial;
-            
+
             if (newIp !== device.ip || newSerial !== device.serial) {
               // Update the device in background (don't await, just trigger update)
               fetch(`${API_URL}/api/devices/${device.deviceId}`, {
@@ -75,14 +76,14 @@ export default function DeviceManagementPage() {
                   updatedAt: new Date().toISOString()
                 })
               }).catch(err => console.error('Failed to update device IP/Serial:', err));
-              
+
               return { ...device, ip: newIp, serial: newSerial };
             }
           }
-          
+
           return device;
         });
-        
+
         setDevices(updatedDevices);
       }
     } catch (error) {
@@ -95,7 +96,7 @@ export default function DeviceManagementPage() {
 
   useEffect(() => {
     loadDevices();
-  }, [connectedDevices]); // Re-run when connected devices change
+  }, []); // Load once on mount
 
   // Refresh devices
   const handleRefresh = async () => {

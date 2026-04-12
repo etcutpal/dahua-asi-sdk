@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text.Json;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -392,6 +393,74 @@ namespace NetSDKBridge
                 }
                 catch (Exception ex)
                 {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
+            // Add person to device
+            _app.MapPost("/api/persons/add-to-device", async context =>
+            {
+                // IMMEDIATE console logging to verify endpoint is hit
+                Console.WriteLine("================================================================================");
+                Console.WriteLine("🔔 HTTP ENDPOINT HIT: /api/persons/add-to-device");
+                Console.WriteLine($"   Timestamp: {DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}");
+                Console.WriteLine("================================================================================");
+                
+                try
+                {
+                    // Read the multipart form data
+                    var form = await context.Request.ReadFormAsync();
+
+                    var deviceId = form["deviceId"].ToString();
+                    var personId = form["personId"].ToString();
+                    var personName = form["personName"].ToString();
+                    var cardNumber = form["cardNumber"].ToString();
+                    var oldCardNumber = form["oldCardNumber"].ToString();
+                    var isUpdateStr = form["isUpdate"].ToString();
+                    bool isUpdate = isUpdateStr?.ToLower() == "true";
+
+                    _logger.LogInformation($"[HTTP-ENDPOINT] Received request - DeviceId: {deviceId}, PersonId: {personId}, PersonName: {personName}, CardNumber: {cardNumber}, OldCardNumber: {oldCardNumber}, IsUpdate: {isUpdate}");
+                    _logger.LogInformation($"[HTTP-ENDPOINT] Face image file: {form.Files["faceImage"]?.FileName ?? "none"}, Size: {form.Files["faceImage"]?.Length ?? 0} bytes");
+
+                    if (string.IsNullOrEmpty(deviceId) || string.IsNullOrEmpty(personId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "Device ID and Person ID are required" });
+                        return;
+                    }
+
+                    var request = new AddPersonRequest
+                    {
+                        DeviceID = deviceId,
+                        PersonID = personId,
+                        PersonName = personName,
+                        CardNumber = cardNumber,
+                        OldCardNumber = oldCardNumber,
+                        IsUpdate = isUpdate
+                    };
+
+                    // Read face image if provided
+                    var faceImageFile = form.Files["faceImage"];
+                    if (faceImageFile != null && faceImageFile.Length > 0)
+                    {
+                        using var memoryStream = new MemoryStream();
+                        await faceImageFile.CopyToAsync(memoryStream);
+                        request.FaceImage = memoryStream.ToArray();
+                        request.FaceImageType = faceImageFile.ContentType?.Split('/')[1] ?? "jpeg";
+                        _logger.LogInformation($"[UPLOAD] Received face image: {faceImageFile.FileName}, Size: {request.FaceImage.Length} bytes ({request.FaceImage.Length / 1024.0:F2} KB), Content-Type: {faceImageFile.ContentType}");
+                    }
+                    else
+                    {
+                        _logger.LogInformation($"[UPLOAD] No face image received in request");
+                    }
+
+                    var result = await _sdkService.AddPersonToDeviceAsync(request);
+                    await context.Response.WriteAsJsonAsync(new { success = result.Success, result });
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Error adding person to device");
                     context.Response.StatusCode = 500;
                     await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
                 }
