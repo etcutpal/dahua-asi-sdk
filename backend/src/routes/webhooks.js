@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const netSdkService = require('../services/netSdkService');
-const eventService = require('../services/eventService');
+const accessRecordService = require('../services/accessRecordService').getInstance();
 const logger = require('../utils/logger');
 
 // Receive device status updates from C# Bridge
@@ -37,16 +37,8 @@ router.post('/access-events', async (req, res) => {
     logger.info(`🚪 Access control event received: ${type} from device ${deviceId}`);
     logger.info(`   Event Data: ${JSON.stringify(data, null, 2)}`);
 
-    // Store event in persistent storage
-    await eventService.storeAccessEvent({
-      type,
-      deviceId,
-      timestamp: timestamp || new Date().toISOString(),
-      data
-    });
-
-    // Broadcast to all connected frontend clients via WebSocket
-    eventService.emit('access:control:event', {
+    // Store event using the unified service (handles both events and records)
+    await accessRecordService.storeAccessEvent({
       type,
       deviceId,
       timestamp: timestamp || new Date().toISOString(),

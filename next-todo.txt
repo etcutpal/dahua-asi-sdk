@@ -1,0 +1,9 @@
+Live Access Control Events
+http://{device_ip}/cgi-bin/eventManager.cgi?action=attach&codes=[All]&heartbeat=5
+
+change this for get live event
+it’s just a CGI streaming keep-alive parameter that keeps the HTTP event subscription alive and sends periodic heartbeat messages within the event stream itself.
+
+
+
+sk-2ea46198e5ee491eb6d9148457955fc2

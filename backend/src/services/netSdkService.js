@@ -1,6 +1,6 @@
 const axios = require('axios');
 const logger = require('../utils/logger');
-const eventService = require('./eventService');
+const accessRecordService = require('./accessRecordService').getInstance();
 
 class NetSdkService {
   constructor() {
@@ -57,7 +57,7 @@ class NetSdkService {
       }));
 
       // Broadcast to frontend
-      eventService.emit('devices:update', this.devices);
+      accessRecordService.emit('devices:update', this.devices);
 
       logger.info(`Device state synced from Bridge: ${this.devices.length} devices found.`);
     } catch (error) {
@@ -232,7 +232,7 @@ class NetSdkService {
       }
 
       // Emit socket event to frontend immediately
-      eventService.emit('device:status:changed', {
+      accessRecordService.emit('device:status:changed', {
         deviceID: deviceId,
         deviceId: deviceId,
         status: status,

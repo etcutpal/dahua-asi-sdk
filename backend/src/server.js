@@ -6,8 +6,17 @@ require('dotenv').config();
 
 const logger = require('./utils/logger');
 const netSdkService = require('./services/netSdkService');
-const eventService = require('./services/eventService');
 const personService = require('./services/person.service');
+const AccessRecordService = require('./services/accessRecordService');
+
+// Get singleton instance (creates with FileRepository automatically)
+const accessRecordService = AccessRecordService.getInstance();
+
+// For backward compatibility - alias as eventService
+const eventService = accessRecordService;
+
+// Export for other modules (if needed)
+module.exports = { accessRecordService, eventService };
 
 const app = express();
 const server = http.createServer(app);
@@ -122,6 +131,9 @@ async function startServer() {
 
     // Initialize Person Service
     await personService.initialize();
+
+    // Initialize Access Record Service
+    await accessRecordService.initialize();
 
     server.listen(PORT, HOST, () => {
       logger.info(`Express server running on ${HOST}:${PORT}`);

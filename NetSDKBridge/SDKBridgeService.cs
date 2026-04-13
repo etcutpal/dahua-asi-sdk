@@ -121,21 +121,38 @@ namespace NetSDKBridge
         private readonly System.Net.Http.HttpClient _httpClient = new System.Net.Http.HttpClient();
         private string _backendWebhookUrl = "";
 
-        // Access Control Events Module - SDK Method (RealLoadPicture)
+        // Access Control Events Module - SDK Method (RealLoadPicture) - Optional for snapshot images
         private AccessControlEventsModule _accessControlEventsModule;
 
-        // Access Control Events Module - HTTP CGI Method (snapManager.cgi)
+        // Access Control Events Module - SDK Native Alarm Subscription (StartListen) - PRIMARY METHOD
+        private AccessControlEventsSdkModule _accessControlEventsSdkModule;
+
+        // Access Control Events Module - HTTP CGI Method (snapManager.cgi) - DEPRECATED
         private AccessControlEventsCgiModule _accessControlEventsCgiModule;
 
-        // Access Control Events Module - General Events Method (eventManager.cgi)
+        // Access Control Events Module - General Events Method (eventManager.cgi) - DEPRECATED
         private AccessControlEventsGeneralModule _accessControlEventsGeneralModule;
+
+        // Access Records Query Module - SDK FindRecord API (TCP method)
+        private AccessRecordsQueryModule _accessRecordsQueryModule;
 
         public void SetBackendWebhookUrl(string url)
         {
             _backendWebhookUrl = url;
             _logger.LogInformation($"Backend Webhook URL configured: {_backendWebhookUrl}");
 
-            // Initialize Access Control Events Module - SDK Method
+            // Initialize Access Control Events Module - SDK StartListen (PRIMARY)
+            if (_accessControlEventsSdkModule == null)
+            {
+                _accessControlEventsSdkModule = new AccessControlEventsSdkModule(
+                    _loggerFactory.CreateLogger<AccessControlEventsSdkModule>(),
+                    _httpClient,
+                    url
+                );
+                _logger.LogInformation("✅ Access Control Events Module (SDK StartListen) initialized - PRIMARY METHOD");
+            }
+
+            // Initialize Access Control Events Module - SDK RealLoadPicture (OPTIONAL - provides snapshot images)
             if (_accessControlEventsModule == null)
             {
                 _accessControlEventsModule = new AccessControlEventsModule(
@@ -143,10 +160,10 @@ namespace NetSDKBridge
                     _httpClient,
                     url
                 );
-                _logger.LogInformation("✅ Access Control Events Module (SDK) initialized");
+                _logger.LogInformation("ℹ️  Access Control Events Module (SDK RealLoadPicture) initialized - OPTIONAL for images");
             }
-            
-            // Initialize Access Control Events Module - HTTP CGI Method
+
+            // Initialize Access Control Events Module - HTTP CGI Method - DEPRECATED
             if (_accessControlEventsCgiModule == null)
             {
                 // Create HTTP client factory for CGI module
@@ -160,17 +177,26 @@ namespace NetSDKBridge
                     httpClientFactory,
                     url
                 );
-                _logger.LogInformation("✅ Access Control Events Module (HTTP CGI) initialized");
+                _logger.LogInformation("⚠️  Access Control Events Module (HTTP CGI) initialized - DEPRECATED, not used");
             }
 
-            // Initialize Access Control Events Module - General Events Method (eventManager.cgi)
+            // Initialize Access Control Events Module - General Events Method (eventManager.cgi) - DEPRECATED
             if (_accessControlEventsGeneralModule == null)
             {
                 _accessControlEventsGeneralModule = new AccessControlEventsGeneralModule(
                     _loggerFactory.CreateLogger<AccessControlEventsGeneralModule>(),
                     url
                 );
-                _logger.LogInformation("✅ Access Control Events Module (General Events - eventManager.cgi) initialized");
+                _logger.LogInformation("⚠️  Access Control Events Module (General Events - eventManager.cgi) initialized - DEPRECATED, not used");
+            }
+
+            // Initialize Access Records Query Module - SDK FindRecord API (TCP method)
+            if (_accessRecordsQueryModule == null)
+            {
+                _accessRecordsQueryModule = new AccessRecordsQueryModule(
+                    _loggerFactory.CreateLogger<AccessRecordsQueryModule>()
+                );
+                _logger.LogInformation("✅ Access Records Query Module (SDK FindRecord - TCP method) initialized");
             }
         }
 
@@ -604,10 +630,17 @@ namespace NetSDKBridge
         {
             try
             {
-                string eventType = GetEventType(lCommand);
                 string ip = Marshal.PtrToStringAnsi(pchDVRIP) ?? "Unknown";
 
-                _logger.LogInformation($"📨 Event received: {eventType} from {ip} (EventCode: {lCommand}, EventID: {nEventID})");
+                // Route alarm events to the new SDK module if it's active
+                if (_accessControlEventsSdkModule != null)
+                {
+                    _accessControlEventsSdkModule.HandleAlarmEvent(lCommand, lLoginID, pBuf, dwBufLen, pchDVRIP, nDVRPort);
+                }
+
+                // Also log the event for debugging
+                string eventType = GetEventType(lCommand);
+                _logger.LogDebug($"📨 Event received: {eventType} from {ip} (EventCode: 0x{lCommand:X}, EventID: {nEventID})");
 
                 string deviceId = "";
                 if (_loginHandles.TryGetValue(lLoginID.ToInt64(), out var id))
@@ -619,7 +652,7 @@ namespace NetSDKBridge
                 {
                     DeviceID = deviceId,
                     EventType = eventType,
-                    EventData = $"Event: {lCommand}, ID: {nEventID}",
+                    EventData = $"Event: 0x{lCommand:X}, ID: {nEventID}",
                     Timestamp = DateTime.UtcNow
                 });
 
@@ -744,10 +777,15 @@ namespace NetSDKBridge
 
                             _logger.LogInformation($"✅ Device marked as OFFLINE");
 
-                            // Unsubscribe from events (all three methods)
+                            // Stop SDK alarm event subscription (PRIMARY)
+                            _accessControlEventsSdkModule?.StopListen(registrationID);
+
+                            // Unsubscribe from RealLoadPicture events (OPTIONAL)
                             _accessControlEventsModule?.UnsubscribeFromDeviceEvents(registrationID);
-                            _accessControlEventsCgiModule?.UnsubscribeFromDeviceEvents(registrationID);
-                            _accessControlEventsGeneralModule?.UnsubscribeFromDeviceEvents(registrationID);
+
+                            // CGI modules no longer used (DEPRECATED)
+                            // _accessControlEventsCgiModule?.UnsubscribeFromDeviceEvents(registrationID);
+                            // _accessControlEventsGeneralModule?.UnsubscribeFromDeviceEvents(registrationID);
 
                             DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
                             {
@@ -1027,39 +1065,45 @@ namespace NetSDKBridge
                 _logger.LogInformation("🎉 DEVICE FULLY CONNECTED AND READY");
                 _logger.LogInformation($"   Registration ID: {registrationID}");
                 _logger.LogInformation($"   Status: Online");
-                _logger.LogInformation($"   Events will flow through global callback");
+                _logger.LogInformation($"   Events will flow through SDK StartListen alarm callback");
                 _logger.LogInformation("");
 
-                // Subscribe to real-time access control events (face/card/fingerprint)
-                // Method 1: SDK RealLoadPicture
+                // ============================================================
+                // PRIMARY: Start SDK alarm event subscription (StartListen)
+                // ============================================================
+                if (_accessControlEventsSdkModule != null)
+                {
+                    bool listenResult = await _accessControlEventsSdkModule.StartListen(registrationID, loginID.ToInt64());
+                    if (listenResult)
+                    {
+                        _logger.LogInformation($"✅ SDK StartListen enabled for device {registrationID} - Events will flow through MessageCallback");
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"⚠️  SDK StartListen failed for device {registrationID}");
+                    }
+                }
+
+                // ============================================================
+                // OPTIONAL: RealLoadPicture for snapshot images (requires IP access)
+                // ============================================================
                 if (_accessControlEventsModule != null)
                 {
+                    _logger.LogInformation($"📷 [OPTIONAL] Attempting RealLoadPicture subscription for snapshot images: {registrationID}");
                     await _accessControlEventsModule.SubscribeToDeviceEvents(registrationID, loginID.ToInt64(), ip);
                 }
 
-                // Method 2: HTTP CGI Subscription (snapManager.cgi)
-                if (_accessControlEventsCgiModule != null)
-                {
-                    _logger.LogInformation($"📡 [CGI] Attempting HTTP CGI subscription for device: {registrationID}");
-                    await _accessControlEventsCgiModule.SubscribeToDeviceEvents(
-                        registrationID,
-                        ip,
-                        _platformUsername,
-                        _platformPassword
-                    );
-                }
-
-                // Method 3: General Events Subscription (eventManager.cgi) - NEW!
-                if (_accessControlEventsGeneralModule != null)
-                {
-                    _logger.LogInformation($"📡 [GENERAL] Attempting General Events subscription for device: {registrationID}");
-                    await _accessControlEventsGeneralModule.SubscribeToDeviceEvents(
-                        registrationID,
-                        ip,
-                        _platformUsername,
-                        _platformPassword
-                    );
-                }
+                // ============================================================
+                // DEPRECATED: CGI subscriptions disabled (no longer used)
+                // ============================================================
+                // if (_accessControlEventsCgiModule != null)
+                // {
+                //     await _accessControlEventsCgiModule.SubscribeToDeviceEvents(...); // DEPRECATED
+                // }
+                // if (_accessControlEventsGeneralModule != null)
+                // {
+                //     await _accessControlEventsGeneralModule.SubscribeToDeviceEvents(...); // DEPRECATED
+                // }
             }
             catch (Exception ex)
             {
@@ -1297,6 +1341,61 @@ namespace NetSDKBridge
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error querying access records via SDK for device {deviceId}");
+                return new List<AccessRecordResult>();
+            }
+        }
+
+        /// <summary>
+        /// Query access records using the AccessRecordsQueryModule (TCP method via FindRecord API)
+        /// This is the modular approach - delegates to AccessRecordsQueryModule
+        /// </summary>
+        public async Task<List<AccessRecordResult>> QueryAccessRecordsViaModule(string deviceId, DateTime? startTime = null, DateTime? endTime = null, string? cardNumber = null, int maxRecords = 1000)
+        {
+            try
+            {
+                if (_accessRecordsQueryModule == null)
+                {
+                    _logger.LogWarning("AccessRecordsQueryModule not initialized");
+                    return new List<AccessRecordResult>();
+                }
+
+                var device = GetDevice(deviceId);
+                if (device == null || device.LoginHandle == 0)
+                {
+                    _logger.LogWarning($"Device {deviceId} not found or not logged in");
+                    return new List<AccessRecordResult>();
+                }
+
+                // Call module to query records
+                var moduleResults = await _accessRecordsQueryModule.QueryRecords(
+                    deviceId,
+                    new IntPtr(device.LoginHandle),
+                    startTime,
+                    endTime,
+                    cardNumber,
+                    maxRecords
+                );
+
+                // Convert module results to API results
+                var results = moduleResults.Select(r => new AccessRecordResult
+                {
+                    RecordNumber = r.RecordNumber,
+                    CardNumber = r.CardNumber,
+                    UserID = r.UserID,
+                    UserName = r.UserName,  // Empty from SDK
+                    SwipeTime = r.SwipeTime,
+                    DoorNumber = r.DoorNumber,
+                    ReaderNo = r.ReaderNo,
+                    CardType = r.CardType,
+                    Status = r.Status
+                }).ToList();
+
+                _logger.LogInformation($"[Module] Retrieved {results.Count} records for device {deviceId}");
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error querying access records via module for device {deviceId}");
                 return new List<AccessRecordResult>();
             }
         }
@@ -1719,12 +1818,18 @@ namespace NetSDKBridge
             {
                 _logger.LogInformation("Cleaning up NetSDK...");
 
-                // Unsubscribe from all access control events (all three methods)
+                // Stop all SDK alarm event subscriptions (PRIMARY)
+                _accessControlEventsSdkModule?.StopListenAll();
+                _accessControlEventsSdkModule?.Dispose();
+
+                // Unsubscribe from all RealLoadPicture events (OPTIONAL)
                 _accessControlEventsModule?.UnsubscribeAll();
                 _accessControlEventsModule?.Dispose();
-                _accessControlEventsCgiModule?.UnsubscribeAll();
+
+                // CGI modules no longer used (DEPRECATED) - just dispose
+                // _accessControlEventsCgiModule?.UnsubscribeAll();
                 _accessControlEventsCgiModule?.Dispose();
-                _accessControlEventsGeneralModule?.UnsubscribeAll();
+                // _accessControlEventsGeneralModule?.UnsubscribeAll();
                 _accessControlEventsGeneralModule?.Dispose();
 
                 foreach (var deviceId in _devices.Keys.ToList())

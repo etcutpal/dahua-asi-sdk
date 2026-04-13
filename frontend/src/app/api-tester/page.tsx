@@ -50,13 +50,38 @@ const endpoints: EndpointDef[] = [
   { label: 'Delete Device (config)', method: 'DELETE', path: '/api/devices/{id}', description: 'Remove a device config.', group: 'backend' },
 
   // ── Events ──
-  { label: 'Access Events (last 20)', method: 'GET', path: '/api/events/access-control?limit=20', description: 'Recent access control events.', group: 'backend' },
+  { label: 'Access Events (last 20)', method: 'GET', path: '/api/events/access-control?limit=20', description: 'Recent access control events from SDK StartListen.', group: 'backend' },
   { label: 'Events for Device', method: 'GET', path: '/api/events/access-control/device/ASI12', description: 'Events filtered by device.', group: 'backend' },
   { label: 'Clear Events', method: 'DELETE', path: '/api/events/access-control', description: 'Delete stored events.', group: 'backend' },
+
+  // ── Access Control Events (SDK StartListen - Live) ──
+  { 
+    label: '🔴 Live Access Events', 
+    method: 'GET', 
+    path: '/api/events/access-control?limit=50', 
+    description: 'Live access control events via SDK StartListen. Shows: User ID, Card Number, Face/Fingerprint/Card access, Success/Fail status, Door number, Timestamp. NOTE: Snapshots NOT available with StartListen (SDK limitation).', 
+    group: 'backend' 
+  },
+  { 
+    label: 'Device-Specific Events', 
+    method: 'GET', 
+    path: '/api/events/access-control/device/ASI12', 
+    description: 'Access events filtered by device ID (ASI12). Events flow through SDK alarm callback (no direct IP needed).', 
+    group: 'backend' 
+  },
 
   // ── Auto-Reg ──
   { label: 'Start Auto-Reg', method: 'POST', path: '/api/autoreg/start', description: 'Start listening on port 9500.', group: 'backend' },
   { label: 'Stop Auto-Reg', method: 'POST', path: '/api/autoreg/stop', description: 'Stop the auto-reg server.', group: 'backend' },
+
+  // ── Webhook Endpoints (Called by NetSDKBridge) ──
+  { 
+    label: '📡 Webhook: Access Events', 
+    method: 'POST', 
+    path: '/api/webhooks/access-events', 
+    description: 'Webhook endpoint called by NetSDKBridge when SDK alarm event received. Payload: {type, deviceId, timestamp, data: {eventType, userId, cardNumber, isSuccess, door, ...}}. NOTE: This is called by the bridge, not manually.', 
+    group: 'backend' 
+  },
 
   // ═══════════════════════════════════════════════════════
   // BRIDGE: NAT Traversal (Works over Internet)

@@ -1,14 +1,23 @@
 /****************************************************************************************************************************
  * Access Control Events Module - HTTP CGI Subscription Method
+ *
+ * ⚠️  DEPRECATED - DO NOT USE ⚠️
+ * This module is deprecated and should NOT be used in production.
  * 
+ * REASON: This method requires direct HTTP access to the device IP, which is not available
+ * in real-world deployments where devices are behind NAT/routers or using auto-registration.
+ *
+ * USE INSTEAD: AccessControlEventsSdkModule.cs (StartListen method)
+ * The SDK StartListen method works with auto-registration and does not require direct IP access.
+ *
  * PURPOSE:
  * Subscribes to access control devices using HTTP CGI endpoint to receive
  * real-time unlock events (face recognition, card swipe, fingerprint) with snapshot images.
- * 
+ *
  * BASED ON:
  * - Section 4.11.2 of Access Control API Guide (Subscribing for Intelligent Events)
  * - URL Pattern: http://{device_ip}/cgi-bin/snapManager.cgi?action=attachFileProc&Flags[0]=Event&Events=[AccessControl]&heartbeat=5
- * 
+ *
  * ARCHITECTURE:
  * 1. After device login → Start HTTP long-poll to CGI endpoint
  * 2. Device streams events in real-time via HTTP multipart response
@@ -18,11 +27,11 @@
  * 6. Send structured event data to backend webhook
  * 7. Handle heartbeat/keepalive automatically
  * 8. On device disconnect → Stop HTTP subscription
- * 
+ *
  * USAGE:
  * var module = new AccessControlEventsCgiModule(logger, httpClientFactory, webhookUrl);
  * await module.SubscribeToDeviceEvents(deviceId, deviceIP, username, password);
- * 
+ *
  * ADVANTAGES OVER SDK METHOD:
  * - Cleaner JSON parsing
  * - Built-in snapshot URLs

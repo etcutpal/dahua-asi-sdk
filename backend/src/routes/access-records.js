@@ -1,38 +1,80 @@
 const express = require('express');
 const router = express.Router();
-const netSdkService = require('../services/netSdkService');
+const accessRecordFetchService = require('../services/accessRecordFetchService');
+const accessRecordService = require('../services/accessRecordService').getInstance();
 const logger = require('../utils/logger');
 
-// Query access control records via NetSDK (Works over Internet/NAT)
-router.get('/sdk/:deviceId', async (req, res) => {
+// Fetch and store access records from all devices via SDK (TCP method)
+router.post('/fetch-and-store', async (req, res) => {
   try {
-    const { deviceId } = req.params;
-    const { startTime, endTime, cardNumber, maxRecords } = req.query;
+    const { deviceId, startDate, endDate, maxRecords } = req.body;
 
-    if (!deviceId) {
-      return res.status(400).json({ success: false, error: 'Device ID required' });
-    }
+    logger.info('📥 Fetching and storing access records via SDK module...');
 
-    logger.info(`Querying access records via NetSDK for device: ${deviceId}`);
-    logger.info(`  Start: ${startTime || 'Beginning'}`);
-    logger.info(`  End: ${endTime || 'Now'}`);
-    logger.info(`  Max: ${maxRecords || 100} records`);
-
-    const records = await netSdkService.queryAccessRecordsBySDK(
+    const result = await accessRecordFetchService.fetchAndStoreRecords({
       deviceId,
-      startTime,
-      endTime,
-      cardNumber,
-      parseInt(maxRecords) || 100
-    );
+      startDate,
+      endDate,
+      maxRecords: maxRecords || 1000
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        totalFetched: result.totalFetched,
+        totalStored: result.totalStored,
+        deviceResults: result.deviceResults,
+        summary: result.summary
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        error: result.error
+      });
+    }
+  } catch (error) {
+    logger.error('Error fetching and storing access records:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Get stored access records with filtering and pagination
+router.get('/stored', async (req, res) => {
+  try {
+    const { date, startDate, endDate, deviceId, filter, page = 1, limit = 20 } = req.query;
+
+    logger.info(`Getting stored access records: startDate=${startDate || 'all'}, endDate=${endDate || 'all'}, filter=${filter || 'all'}, page=${page}`);
+
+    const result = await accessRecordService.getRecords({
+      date,
+      startDate,
+      endDate,
+      deviceId,
+      filter,
+      page: parseInt(page),
+      limit: parseInt(limit)
+    });
 
     res.json({
       success: true,
-      count: records.length,
-      records
+      ...result
     });
   } catch (error) {
-    logger.error('Error querying access records via SDK:', error.message);
+    logger.error('Error getting stored access records:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// Clear stored access records
+router.delete('/stored', async (req, res) => {
+  try {
+    await accessRecordService.clearRecords();
+    res.json({
+      success: true,
+      message: 'All access records cleared'
+    });
+  } catch (error) {
+    logger.error('Error clearing access records:', error.message);
     res.status(500).json({ success: false, error: error.message });
   }
 });

@@ -314,6 +314,45 @@ namespace NetSDKBridge
                 }
             });
 
+            // Query access records via Module (TCP method - modular approach)
+            _app.MapGet("/api/devices/{deviceId}/access-records-module", async context =>
+            {
+                try
+                {
+                    var deviceId = context.Request.RouteValues["deviceId"]?.ToString();
+                    if (string.IsNullOrEmpty(deviceId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { error = "Device ID required" });
+                        return;
+                    }
+
+                    var startTimeStr = context.Request.Query["startTime"];
+                    var endTimeStr = context.Request.Query["endTime"];
+                    var cardNumber = context.Request.Query["cardNumber"];
+                    var maxRecordsStr = context.Request.Query["maxRecords"];
+
+                    DateTime? startTime = null;
+                    DateTime? endTime = null;
+                    int maxRecords = 1000;
+
+                    if (!string.IsNullOrEmpty(startTimeStr) && DateTime.TryParse(startTimeStr, out var st))
+                        startTime = st;
+                    if (!string.IsNullOrEmpty(endTimeStr) && DateTime.TryParse(endTimeStr, out var et))
+                        endTime = et;
+                    if (!string.IsNullOrEmpty(maxRecordsStr) && int.TryParse(maxRecordsStr, out var mr))
+                        maxRecords = mr;
+
+                    var records = await _sdkService.QueryAccessRecordsViaModule(deviceId, startTime, endTime, cardNumber, maxRecords);
+                    await context.Response.WriteAsJsonAsync(new { success = true, count = records.Count, records });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
             // Get door status
             _app.MapGet("/api/devices/{deviceId}/door-status", async context =>
             {

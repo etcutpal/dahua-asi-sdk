@@ -1,21 +1,27 @@
 /****************************************************************************************************************************
  * Access Control Events Module - Real-time Face/Card/Fingerprint Event Subscription
+ *
+ * ⚠️  OPTIONAL / SECONDARY METHOD ⚠️
+ * This module uses RealLoadPicture which provides snapshot images but requires direct IP access.
  * 
+ * USE FOR: Snapshot image extraction when device IP is reachable
+ * PRIMARY METHOD: AccessControlEventsSdkModule.cs (StartListen - works without IP access)
+ *
  * PURPOSE:
  * Subscribes to access control devices using SDK's RealLoadPicture API to receive
  * real-time unlock events (face recognition, card swipe, fingerprint) with snapshot images.
- * 
+ *
  * ARCHITECTURE:
  * 1. After device login → Call SubscribeToDeviceEvents()
  * 2. SDK calls fAnalyzerDataCallBack → Parse NET_DEV_EVENT_ACCESS_CTL_INFO
  * 3. Extract event details (card number, user ID, open method, success status, images)
  * 4. Send structured event data to backend webhook
  * 5. On device disconnect → Call UnsubscribeFromDeviceEvents()
- * 
+ *
  * USAGE:
  * var module = new AccessControlEventsModule(logger, httpClient, webhookUrl);
  * await module.SubscribeToDeviceEvents(deviceId, loginHandle, deviceIP);
- * 
+ *
  * BASED ON:
  * - FaceOpenDoorDemo from official NetSDK
  * - Section 4.11 of Access Control API Guide (Subscribing for Events)

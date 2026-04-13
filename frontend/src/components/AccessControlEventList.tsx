@@ -2,7 +2,7 @@
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { CheckCircle, XCircle, User, CreditCard, Fingerprint, FaceId, Thermometer, DoorOpen, Clock } from 'lucide-react';
+import { CheckCircle, XCircle, User, CreditCard, Fingerprint, ScanFace, Thermometer, DoorOpen, Clock } from 'lucide-react';
 
 interface AccessControlEvent {
   id?: string;
@@ -20,6 +20,8 @@ interface AccessControlEvent {
     errorCode: number;
     temperature: string;
     hasSnapshot: boolean;
+    snapshotBase64?: string;
+    snapshotUrl?: string;
     snapshotSize: number;
     source?: string;
   };
@@ -32,7 +34,7 @@ interface AccessControlEventListProps {
 const getOpenMethodIcon = (method: string) => {
   const methodLower = method.toLowerCase();
   
-  if (methodLower.includes('face')) return <FaceId className="h-4 w-4 text-purple-600" />;
+  if (methodLower.includes('face')) return <ScanFace className="h-4 w-4 text-purple-600" />;
   if (methodLower.includes('card')) return <CreditCard className="h-4 w-4 text-blue-600" />;
   if (methodLower.includes('fingerprint')) return <Fingerprint className="h-4 w-4 text-green-600" />;
   if (methodLower.includes('password') || methodLower.includes('pin')) return <User className="h-4 w-4 text-orange-600" />;
@@ -67,7 +69,8 @@ export default function AccessControlEventList({ events }: AccessControlEventLis
           key={event.id || index}
           className="p-4 hover:shadow-md transition-shadow border-l-4 border-l-blue-500"
         >
-          <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            {/* Left side - Event details */}
             <div className="flex items-start space-x-3 flex-1">
               {/* Icon based on event type */}
               <div className="flex-shrink-0 mt-1">
@@ -118,7 +121,7 @@ export default function AccessControlEventList({ events }: AccessControlEventLis
 
                   <div className="flex items-center space-x-1">
                     <DoorOpen className="h-3 w-3" />
-                    <span>Door {event.data?.door || 'N/A'}</span>
+                    <span>Door {event.data?.door ? event.data.door : 'N/A'}</span>
                   </div>
 
                   {event.data?.temperature && (
@@ -129,12 +132,15 @@ export default function AccessControlEventList({ events }: AccessControlEventLis
                   )}
                 </div>
 
-                {/* Timestamp */}
-                <div className="flex items-center space-x-1 mt-2 text-xs text-gray-500">
+                {/* Timestamp and Device ID */}
+                <div className="flex items-center space-x-2 mt-2 text-xs text-gray-500">
                   <Clock className="h-3 w-3" />
                   <span>{formatTimestamp(event.timestamp)}</span>
+                  <Badge variant="secondary" className="text-xs">
+                    {event.deviceId}
+                  </Badge>
                   {event.data?.source && (
-                    <Badge variant="outline" className="ml-2 text-xs">
+                    <Badge variant="outline" className="text-xs">
                       {event.data.source}
                     </Badge>
                   )}
@@ -142,12 +148,31 @@ export default function AccessControlEventList({ events }: AccessControlEventLis
               </div>
             </div>
 
-            {/* Device ID */}
-            <div className="flex-shrink-0 ml-4 text-right">
-              <Badge variant="secondary" className="text-xs">
-                {event.deviceId}
-              </Badge>
-            </div>
+            {/* Right side - Snapshot Image (only if available) */}
+            {event.data?.hasSnapshot && event.data?.snapshotBase64 && event.data.snapshotBase64.length > 0 ? (
+              <div className="flex-shrink-0">
+                <div className="relative">
+                  <img
+                    src={`data:image/jpeg;base64,${event.data.snapshotBase64}`}
+                    alt="Access snapshot"
+                    className="w-24 h-24 object-cover rounded-lg border-2 border-gray-200 shadow-sm"
+                  />
+                  <Badge
+                    variant="default"
+                    className="absolute -top-2 -right-2 h-5 px-2 text-[10px] bg-green-600"
+                  >
+                    Live
+                  </Badge>
+                </div>
+              </div>
+            ) : (
+              /* Placeholder when no snapshot available */
+              <div className="flex-shrink-0">
+                <div className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50">
+                  <span className="text-xs text-gray-400">No image</span>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       ))}

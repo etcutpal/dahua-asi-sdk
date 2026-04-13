@@ -1,6 +1,15 @@
 /****************************************************************************************************************************
  * Access Control Events Module - General Events (eventManager.cgi)
  *
+ * ⚠️  DEPRECATED - DO NOT USE ⚠️
+ * This module is deprecated and should NOT be used in production.
+ * 
+ * REASON: This method requires direct HTTP access to the device IP, which is not available
+ * in real-world deployments where devices are behind NAT/routers or using auto-registration.
+ *
+ * USE INSTEAD: AccessControlEventsSdkModule.cs (StartListen method)
+ * The SDK StartListen method works with auto-registration and does not require direct IP access.
+ *
  * PURPOSE:
  * Subscribes to access control devices using the General Events HTTP streaming API
  * as documented in Section 4.11.1 of the HTTP API documentation.

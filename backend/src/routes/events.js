@@ -1,13 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const eventService = require('../services/eventService');
+const accessRecordService = require('../services/accessRecordService').getInstance();
 const logger = require('../utils/logger');
 
-// Get event history
-router.get('/history', (req, res) => {
+// Get event history - DEPRECATED (now returns recent events)
+router.get('/history', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    const events = eventService.getEventHistory(limit);
+    const events = await accessRecordService.getRecentEvents(limit);
     res.json(events);
   } catch (error) {
     logger.error('Error fetching event history:', error);
@@ -16,10 +16,10 @@ router.get('/history', (req, res) => {
 });
 
 // Get access control events
-router.get('/access-control', (req, res) => {
+router.get('/access-control', async (req, res) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
-    const events = eventService.getAccessControlEvents(limit);
+    const limit = parseInt(req.query.limit) || 100;
+    const events = await accessRecordService.getRecentEvents(limit);
     res.json({ success: true, events });
   } catch (error) {
     logger.error('Error fetching access control events:', error);
@@ -28,10 +28,10 @@ router.get('/access-control', (req, res) => {
 });
 
 // Get access control events by device
-router.get('/access-control/device/:deviceId', (req, res) => {
+router.get('/access-control/device/:deviceId', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    const events = eventService.getAccessEventsByDevice(req.params.deviceId, limit);
+    const events = await accessRecordService.getEventsByDevice(req.params.deviceId, limit);
     res.json({ success: true, events });
   } catch (error) {
     logger.error(`Error fetching access events for device ${req.params.deviceId}:`, error);
@@ -42,7 +42,7 @@ router.get('/access-control/device/:deviceId', (req, res) => {
 // Clear access control event history
 router.delete('/access-control', async (req, res) => {
   try {
-    await eventService.clearAccessEventHistory();
+    await accessRecordService.clearEvents();
     res.json({ success: true, message: 'Access event history cleared' });
   } catch (error) {
     logger.error('Error clearing access event history:', error);
@@ -50,11 +50,11 @@ router.delete('/access-control', async (req, res) => {
   }
 });
 
-// Get events by device
-router.get('/device/:deviceId', (req, res) => {
+// Get events by device - DEPRECATED (use /access-control/device/:deviceId)
+router.get('/device/:deviceId', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    const events = eventService.getEventsByDevice(req.params.deviceId, limit);
+    const events = await accessRecordService.getEventsByDevice(req.params.deviceId, limit);
     res.json(events);
   } catch (error) {
     logger.error(`Error fetching events for device ${req.params.deviceId}:`, error);
@@ -62,11 +62,11 @@ router.get('/device/:deviceId', (req, res) => {
   }
 });
 
-// Get events by type
-router.get('/type/:eventType', (req, res) => {
+// Get events by type - DEPRECATED (returns all recent events)
+router.get('/type/:eventType', async (req, res) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
-    const events = eventService.getEventsByType(req.params.eventType, limit);
+    const events = await accessRecordService.getRecentEvents(limit);
     res.json(events);
   } catch (error) {
     logger.error(`Error fetching events of type ${req.params.eventType}:`, error);
@@ -74,10 +74,10 @@ router.get('/type/:eventType', (req, res) => {
   }
 });
 
-// Clear event history
-router.delete('/history', (req, res) => {
+// Clear event history - DEPRECATED
+router.delete('/history', async (req, res) => {
   try {
-    eventService.clearHistory();
+    await accessRecordService.clearEvents();
     res.json({ success: true, message: 'Event history cleared' });
   } catch (error) {
     logger.error('Error clearing event history:', error);
