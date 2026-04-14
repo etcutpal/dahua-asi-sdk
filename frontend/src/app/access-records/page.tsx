@@ -34,6 +34,7 @@ interface AccessRecord {
   userName: string;
   swipeTime: string;
   doorNumber: number;
+  deviceId?: string;
   readerNo: string;
   cardType: string;
   openMethod?: string;
@@ -72,6 +73,30 @@ export default function AccessRecordsPage() {
   const [page, setPage] = useState<number>(1);
   const [loading, setLoading] = useState<boolean>(false);
   const [fetching, setFetching] = useState<boolean>(false);
+  const [devices, setDevices] = useState<any[]>([]);
+
+  // Fetch devices list for name lookup
+  useEffect(() => {
+    const fetchDevices = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const response = await fetch(`${API_URL}/api/devices`);
+        const data = await response.json();
+        if (data.devices || data.value) {
+          setDevices(data.devices || data.value);
+        }
+      } catch (error) {
+        console.error('Error fetching devices:', error);
+      }
+    };
+    fetchDevices();
+  }, []);
+
+  // Helper to get device name from deviceId
+  const getDeviceName = (deviceId: string) => {
+    const device = devices.find(d => (d.deviceID || d.DeviceID || d.deviceId) === deviceId);
+    return device ? (device.name || device.Name || device.deviceID || device.DeviceID) : null;
+  };
 
   // Fetch records on mount and when filters change
   useEffect(() => {
@@ -406,7 +431,7 @@ export default function AccessRecordsPage() {
                           Card Type
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Door
+                          Device
                         </th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Time
@@ -455,9 +480,9 @@ export default function AccessRecordsPage() {
                           </td>
                           <td className="px-4 py-3 whitespace-nowrap">
                             <div className="flex items-center">
-                              <DoorOpen className="h-4 w-4 mr-2 text-gray-400" />
+                              <Database className="h-4 w-4 mr-2 text-gray-400" />
                               <span className="text-sm text-gray-900">
-                                {record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A'}
+                                {getDeviceName(record.deviceId || '') || (record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A')}
                               </span>
                             </div>
                           </td>
@@ -509,8 +534,8 @@ export default function AccessRecordsPage() {
                               <span className="ml-2">{record.cardType}</span>
                             </div>
                             <div>
-                              <span className="text-gray-500">Door:</span>
-                              <span className="ml-2">{record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A'}</span>
+                              <span className="text-gray-500">Device:</span>
+                              <span className="ml-2">{getDeviceName(record.deviceId || '') || (record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A')}</span>
                             </div>
                           </div>
                         </div>

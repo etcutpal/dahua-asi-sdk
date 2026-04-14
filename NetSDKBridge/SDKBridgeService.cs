@@ -1379,6 +1379,7 @@ namespace NetSDKBridge
                 // Convert module results to API results
                 var results = moduleResults.Select(r => new AccessRecordResult
                 {
+                    DeviceID = r.DeviceId,
                     RecordNumber = r.RecordNumber,
                     CardNumber = r.CardNumber,
                     UserID = r.UserID,
@@ -2739,6 +2740,7 @@ namespace NetSDKBridge
 
     public class AccessRecordResult
     {
+        public string DeviceID { get; set; }
         public int RecordNumber { get; set; }
         public string CardNumber { get; set; }
         public string UserID { get; set; }

@@ -199,10 +199,11 @@ namespace NetSDKBridge.Modules
                                 // Convert to result
                                 var result = new AccessRecordQueryResult
                                 {
+                                    DeviceId = deviceId, // Include the device ID
                                     RecordNumber = record.nRecNo,
                                     CardNumber = record.szCardNo?.Trim() ?? "",
                                     UserID = record.szUserID?.Trim() ?? "",
-                                    UserName = "",  // SDK doesn't provide name in this structure
+                                    UserName = record.szCardName?.Trim() ?? "",  // Extract name from SDK record
                                     SwipeTime = record.stuTime.ToDateTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
                                     DoorNumber = record.nDoor,
                                     ReaderNo = record.szReaderID?.Trim() ?? "",
@@ -266,6 +267,7 @@ namespace NetSDKBridge.Modules
     /// </summary>
     public class AccessRecordQueryResult
     {
+        public string DeviceId { get; set; } = "";
         public int RecordNumber { get; set; }
         public string CardNumber { get; set; } = "";
         public string UserID { get; set; } = "";

@@ -2,14 +2,14 @@
   "devices": [
     {
       "deviceId": "37677997",
-      "name": "Main Door",
+      "name": "Main Entry",
       "registrationId": "ASI12",
       "username": "admin",
       "password": "admin123",
       "ip": "192.168.1.150",
       "serial": "AE0550FPAJ48EDA",
       "createdAt": "2026-04-08T18:37:44.207Z",
-      "updatedAt": "2026-04-12T12:09:16.227Z"
+      "updatedAt": "2026-04-14T08:56:36.205Z"
     }
   ]
 }

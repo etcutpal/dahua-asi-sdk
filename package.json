@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "kill-ports": "kill-port 3000 3001",
+    "kill-ports": "kill-port 3000 3001 5000",
     "backend": "npm start --prefix backend",
     "frontend": "npm start --prefix frontend",
     "dev": "npm run kill-ports"
