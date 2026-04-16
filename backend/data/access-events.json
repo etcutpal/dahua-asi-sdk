@@ -1,384 +1,6 @@
 {
   "events": [
     {
-      "id": "1776019490160-qo0q5vk7c",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T18:44:49Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T18:44:49Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776019489,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T18:44:50.161Z"
-    },
-    {
-      "id": "1776019604372-oygc3jbrl",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T18:46:45Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T18:46:45Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776019605,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T18:46:44.372Z"
-    },
-    {
-      "id": "1776019663732-5jypts73u",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T18:47:43Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T18:47:43Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776019663,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T18:47:43.732Z"
-    },
-    {
-      "id": "1776019723737-g0d5vd1g9",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T18:48:41Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T18:48:41Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776019721,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T18:48:43.737Z"
-    },
-    {
-      "id": "1776020184156-rr0m0ipa1",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T18:56:25Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T18:56:25Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776020185,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T18:56:24.156Z"
-    },
-    {
-      "id": "1776020244047-nh2zpxuej",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T18:57:23Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T18:57:23Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776020243,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T18:57:24.047Z"
-    },
-    {
-      "id": "1776020594062-0e0lrfc2h",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:03:11Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:03:11Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776020591,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:03:14.062Z"
-    },
-    {
-      "id": "1776020708757-1tikyk985",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:05:07Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:05:07Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776020707,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:05:08.757Z"
-    },
-    {
-      "id": "1776020728716-uskw58ekb",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:05:30Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:05:30Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776020730,\n   \"Type\" : \"WebLogin\"\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:05:28.716Z"
-    },
-    {
-      "id": "1776020763701-xb3vm623f",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:06:05Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:06:05Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776020765,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:06:03.701Z"
-    },
-    {
-      "id": "1776020823706-99wvs8huc",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:07:03Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:07:03Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776020823,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:07:03.706Z"
-    },
-    {
-      "id": "1776021114378-z164lipj7",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:11:53Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:11:53Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776021113,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:11:54.378Z"
-    },
-    {
-      "id": "1776021174290-k43k6yfqh",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:12:51Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:12:51Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776021171,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:12:54.290Z"
-    },
-    {
-      "id": "1776021577203-y8ogjmbq9",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:19:37Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:19:37Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776021577,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:19:37.203Z"
-    },
-    {
-      "id": "1776021637139-gyw6rcvi5",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-12T19:20:35Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-12T19:20:35Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776021635,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-12T19:20:37.140Z"
-    },
-    {
-      "id": "1776085927481-zsqbw4n9u",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T13:12:11Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-13T13:12:11Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776085931,\n   \"ScreenOff\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-13T13:12:07.481Z"
-    },
-    {
-      "id": "1776085929634-15o6csw87",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T13:12:13Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 99,
-        "openMethod": "Face",
-        "timestamp": "2026-04-13T13:12:13Z",
-        "rawJson": "{\n   \"Alive\" : 100,\n   \"BlockId\" : 425,\n   \"CardName\" : \"Utpal Mandal\",\n   \"CardNo\" : \"\",\n   \"CardType\" : 0,\n   \"CreateTime\" : 1776085933,\n   \"Door\" : 0,\n   \"Druss\" : false,\n   \"ErrorCode\" : 0,\n   \"FaceIndex\" : 0,\n   \"FeatureId\" : 3,\n   \"HatColor\" : \"Other\",\n   \"HatType\" : 0,\n   \"Method\" : 15,\n   \"Name\" : \"Door1\",\n   \"ObjectProperties\" : {\n      \"HatInfo\" : {\n         \"HatColor\" : \"Other\",\n         \"HatType\" : 0\n      }\n   },\n   \"OperationMode\" : 0,\n   \"OperatorID\" : \"\",\n   \"ReaderID\" : \"1\",\n   \"RealUTC\" : 1776085933,\n   \"SN\" : \"AE0550FPAJ48EDA\",\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"Status\" : 1,\n   \"Type\" : \"Entry\",\n   \"UTC\" : 1776085933,\n   \"UserID\" : \"448008\",\n   \"UserType\" : 0\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-13T13:12:09.635Z"
-    },
-    {
-      "id": "1776085931833-fcdlqxjj3",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T13:12:13Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "448008",
-        "cardNumber": "",
-        "isSuccess": true,
-        "similarity": 99,
-        "openMethod": "Face",
-        "timestamp": "2026-04-13T13:12:13Z",
-        "rawJson": "{\n   \"Alive\" : 100,\n   \"Door\" : 0,\n   \"FeatureId\" : 3,\n   \"HatColor\" : [ 0, 0, 0, 255 ],\n   \"HatType\" : 0,\n   \"OpenDoorMethod\" : 3,\n   \"PartInfo\" : {\n      \"FeatureId\" : 3,\n      \"ObjectID\" : 3,\n      \"Region\" : [ 454, 310, 833, 597 ],\n      \"Sequence\" : 7360\n   },\n   \"RealUTC\" : 1776085933,\n   \"Similarity\" : 99,\n   \"SnapPath\" : \"\",\n   \"UserID\" : \"448008\",\n   \"readID\" : 1\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-13T13:12:11.833Z"
-    },
-    {
-      "id": "1776085937451-nqv756acr",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T13:12:21Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-13T13:12:21Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776085941,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-13T13:12:17.451Z"
-    },
-    {
-      "id": "1776085995408-fcpog5j6x",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T13:13:17Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-13T13:13:17Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776085997,\n   \"ScreenOff\" : true\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-13T13:13:15.408Z"
-    },
-    {
-      "id": "1776085997461-ilvw1izhj",
-      "type": "access_control_event",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T13:13:19Z",
-      "data": {
-        "eventType": "Unknown",
-        "userId": "",
-        "cardNumber": "",
-        "isSuccess": false,
-        "similarity": 0,
-        "openMethod": "Unknown",
-        "timestamp": "2026-04-13T13:13:19Z",
-        "rawJson": "{\n   \"RealUTC\" : 1776085999,\n   \"Success\" : false\n}",
-        "source": "GENERAL_EVENT_MANAGER"
-      },
-      "storedAt": "2026-04-13T13:13:17.461Z"
-    },
-    {
       "id": "1776086057405-jsf01eu4o",
       "type": "access_control_event",
       "deviceId": "ASI12",
@@ -2075,8 +1697,470 @@
         "source": "SDK_STARTLISTEN"
       },
       "storedAt": "2026-04-14T09:33:54.400Z"
+    },
+    {
+      "id": "1776162919280-e9wghntp4",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T10:35:25Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T10:35:19.280Z"
+    },
+    {
+      "id": "1776162920994-o720q526j",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T10:35:29Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T10:35:20.994Z"
+    },
+    {
+      "id": "1776162928162-7gllm8c30",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T10:35:34Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T10:35:28.162Z"
+    },
+    {
+      "id": "1776163167749-mxcznhe8t",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T10:39:34Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T10:39:27.749Z"
+    },
+    {
+      "id": "1776192289191-zvywmx908",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T18:44:49Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T18:44:49.191Z"
+    },
+    {
+      "id": "1776192303822-ddzzlpq0p",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T18:45:10Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T18:45:03.822Z"
+    },
+    {
+      "id": "1776192366140-8mfuwhspf",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T18:46:13Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T18:46:06.140Z"
+    },
+    {
+      "id": "1776193203462-9ri2c76ou",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:00:10Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:00:03.462Z"
+    },
+    {
+      "id": "1776193212305-4wkb8u053",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:00:19Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:00:12.305Z"
+    },
+    {
+      "id": "1776193215457-os2vqwgtb",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:00:24Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:00:15.457Z"
+    },
+    {
+      "id": "1776193225656-jqay3fu5o",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:00:32Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:00:25.656Z"
+    },
+    {
+      "id": "1776193228587-ukm3rzzya",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:00:37Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:00:28.587Z"
+    },
+    {
+      "id": "1776193319381-3gvvlxkjb",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:02:06Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:01:59.381Z"
+    },
+    {
+      "id": "1776193426483-uhnbhdbnq",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:03:53Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:03:46.483Z"
+    },
+    {
+      "id": "1776193449651-3txne756h",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:04:16Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:04:09.651Z"
+    },
+    {
+      "id": "1776193505190-1ja8kfvny",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:05:12Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:05:05.190Z"
+    },
+    {
+      "id": "1776193540197-cdj0ar0mh",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:05:47Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:05:40.197Z"
+    },
+    {
+      "id": "1776193571447-b4dankfmt",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:06:18Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:06:11.447Z"
+    },
+    {
+      "id": "1776193614103-u56xeoaiz",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:07:01Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:06:54.103Z"
+    },
+    {
+      "id": "1776193925240-gyvfpgke8",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:12:12Z",
+      "data": {
+        "eventType": "Fingerprint",
+        "alarmEventType": "ENTRY",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": false,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 16,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:12:05.240Z"
+    },
+    {
+      "id": "1776193951035-tejplx60k",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-14T19:12:38Z",
+      "data": {
+        "eventType": "Fingerprint",
+        "alarmEventType": "ENTRY",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": false,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 16,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-14T19:12:31.035Z"
     }
   ],
-  "lastUpdated": "2026-04-14T09:33:54.400Z",
+  "lastUpdated": "2026-04-14T19:12:31.035Z",
   "count": 100
 }

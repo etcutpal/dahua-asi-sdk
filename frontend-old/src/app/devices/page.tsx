@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '@/context/SocketContext';
 import DeviceModal from '@/components/DeviceModal';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import {
+  Monitor,
   Plus,
   Edit,
   Trash2,
@@ -14,14 +16,8 @@ import {
   WifiOff,
   Search,
   RefreshCw,
-  Monitor,
+  ArrowLeft,
 } from 'lucide-react';
-
-const Icon = ({ path, className = "w-5 h-5" }: { path: string; className?: string }) => (
-  <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d={path} />
-  </svg>
-);
 
 interface Device {
   deviceId: string;
@@ -45,18 +41,8 @@ export default function DeviceManagementPage() {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [currentTime, setCurrentTime] = useState(new Date());
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-  useEffect(() => {
-    loadDevices();
-  }, []);
-
-  useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
-  }, []);
 
   // Load devices from backend
   const loadDevices = async () => {
@@ -64,7 +50,7 @@ export default function DeviceManagementPage() {
       setIsLoading(true);
       const response = await fetch(`${API_URL}/api/devices`);
       const data = await response.json();
-
+      
       if (data.success) {
         const storedDevices = data.devices || [];
 
@@ -75,10 +61,12 @@ export default function DeviceManagementPage() {
           );
 
           if (connectedDevice && connectedDevice.status === 'Online') {
+            // Update IP and Serial if they're different or empty
             const newIp = connectedDevice.ip || device.ip;
             const newSerial = connectedDevice.serialNumber || device.serial;
 
             if (newIp !== device.ip || newSerial !== device.serial) {
+              // Update the device in background (don't await, just trigger update)
               fetch(`${API_URL}/api/devices/${device.deviceId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -105,6 +93,10 @@ export default function DeviceManagementPage() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadDevices();
+  }, []); // Load once on mount
 
   // Refresh devices
   const handleRefresh = async () => {
@@ -197,77 +189,31 @@ export default function DeviceManagementPage() {
     }
   };
 
-  const onlineCount = devices.filter(d => getDeviceStatus(d.registrationId) === 'online').length;
-  const offlineCount = devices.filter(d => getDeviceStatus(d.registrationId) === 'offline').length;
-
-  const navItems = [
-    { name: 'Dashboard', path: '/', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
-    { name: 'Devices', path: '/devices', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
-    { name: 'Access Records', path: '/access-records', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-    { name: 'Persons', path: '/persons', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
-    { name: 'API Tester', path: '/api-tester', icon: 'M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4' },
-  ];
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      {/* Sidebar */}
-      <div className="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
-        <div className="p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center">
-              <Icon path="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" className="w-6 h-6" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold">AccessPro</h1>
-              <p className="text-xs text-slate-400">Access Control</p>
-            </div>
-          </div>
-        </div>
-
-        <nav className="px-4">
-          {navItems.map((item) => (
-            <a
-              key={item.path}
-              href={item.path}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors ${
-                item.path === '/devices'
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
-                  : 'text-slate-300 hover:bg-slate-700 hover:text-white'
-              }`}
-            >
-              <Icon path={item.icon} className="w-5 h-5" />
-              <span className="font-medium">{item.name}</span>
-            </a>
-          ))}
-
-          <div className="group relative">
-            <a href="/settings" className="flex items-center gap-3 px-4 py-3 rounded-lg mb-2 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors">
-              <Icon path="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" className="w-5 h-5" />
-              <span className="font-medium">Settings</span>
-              <Icon path="M9 5l7 7-7 7" className="w-4 h-4 ml-auto" />
-            </a>
-          </div>
-        </nav>
-      </div>
-
-      {/* Main Content */}
-      <div className="ml-64 p-8">
-        {/* Header */}
-        <div className="mb-8">
+      {/* Header */}
+      <header className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-800">Device Management</h1>
-              <p className="text-gray-500 mt-1">Manage your access control devices</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right mr-4">
-                <div className="text-2xl font-bold text-gray-800">
-                  {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                </div>
-                <div className="text-gray-500 text-sm">
-                  {currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+            <div className="flex items-center space-x-4">
+              <Button
+                variant="ghost"
+                onClick={() => router.push('/')}
+                className="flex items-center space-x-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                <span>Back</span>
+              </Button>
+              <div className="flex items-center space-x-3">
+                <Monitor className="h-8 w-8 text-primary-600" />
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">Device Management</h1>
+                  <p className="text-sm text-gray-500">Manage your access control devices</p>
                 </div>
               </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
               <Button
                 variant="outline"
                 onClick={handleRefresh}
@@ -287,73 +233,78 @@ export default function DeviceManagementPage() {
             </div>
           </div>
         </div>
+      </header>
 
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Devices</p>
-                <p className="text-3xl font-bold text-gray-800 mt-2">{devices.length}</p>
-              </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                <Icon path="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
+              <Monitor className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{devices.length}</div>
+              <p className="text-xs text-muted-foreground">Configured devices</p>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Online Devices</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{onlineCount}</p>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Online Devices</CardTitle>
+              <Wifi className="h-4 w-4 text-green-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600">
+                {devices.filter(d => getDeviceStatus(d.registrationId) === 'online').length}
               </div>
-              <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                <Icon path="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
+              <p className="text-xs text-muted-foreground">Currently online</p>
+            </CardContent>
+          </Card>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Offline Devices</p>
-                <p className="text-3xl font-bold text-red-600 mt-2">{offlineCount}</p>
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Offline Devices</CardTitle>
+              <WifiOff className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {devices.filter(d => getDeviceStatus(d.registrationId) === 'offline').length}
               </div>
-              <div className="w-12 h-12 bg-red-50 rounded-lg flex items-center justify-center">
-                <Icon path="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" className="w-6 h-6 text-red-600" />
-              </div>
-            </div>
-          </div>
+              <p className="text-xs text-muted-foreground">Currently offline</p>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Search Bar */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by device name, ID, registration ID, or IP..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-        </div>
+        <Card className="mb-6">
+          <CardContent className="pt-6">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by device name, ID, registration ID, or IP..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Device List */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-semibold text-gray-800">Devices ({filteredDevices.length})</h2>
-          </div>
-          <div className="p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Devices ({filteredDevices.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <RefreshCw className="h-8 w-8 animate-spin text-primary-600" />
               </div>
             ) : filteredDevices.length === 0 ? (
               <div className="text-center py-12">
-                <Icon path="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <Monitor className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <p className="text-gray-500 mb-4">No devices found</p>
                 <Button onClick={handleAddDevice} className="flex items-center space-x-2">
                   <Plus className="h-4 w-4" />
@@ -381,7 +332,7 @@ export default function DeviceManagementPage() {
                         <tr key={device.deviceId} className="border-b hover:bg-gray-50">
                           <td className="py-3 px-4">
                             <div className="flex flex-col">
-                              <span className="font-mono text-sm font-bold text-blue-600">{device.deviceId}</span>
+                              <span className="font-mono text-sm font-bold text-primary-600">{device.deviceId}</span>
                               <span className="text-xs text-gray-400">Permanent ID</span>
                             </div>
                           </td>
@@ -436,9 +387,9 @@ export default function DeviceManagementPage() {
                 </table>
               </div>
             )}
-          </div>
-        </div>
-      </div>
+          </CardContent>
+        </Card>
+      </main>
 
       {/* Device Modal */}
       <DeviceModal

@@ -31,7 +31,6 @@ interface SocketContextType {
   isConnected: boolean;
   devices: Device[];
   events: Event[];
-  accessEvents: any[];
 }
 
 const SocketContext = createContext<SocketContextType | undefined>(undefined);
@@ -41,7 +40,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const [devices, setDevices] = useState<Device[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
-  const [accessEvents, setAccessEvents] = useState<any[]>([]);
 
   useEffect(() => {
     // Initialize socket connection
@@ -99,12 +97,6 @@ export function SocketProvider({ children }: { children: ReactNode }) {
       setEvents((prevEvents) => [event, ...prevEvents].slice(0, 100));
     });
 
-    // Access control event updates (live events from devices)
-    socketInstance.on('access:control:event', (event: any) => {
-      console.log('🔌 SocketContext: access control event received', event);
-      setAccessEvents((prev) => [event, ...prev].slice(0, 500));
-    });
-
     setSocket(socketInstance);
 
     // Cleanup on unmount
@@ -114,7 +106,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SocketContext.Provider value={{ socket, isConnected, devices, events, accessEvents }}>
+    <SocketContext.Provider value={{ socket, isConnected, devices, events }}>
       {children}
     </SocketContext.Provider>
   );
