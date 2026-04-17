@@ -27,7 +27,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const login = (username: string, password: string) => {
-    if (username === 'admin' && password === 'admin123') {
+    // Demo mode: accept any non-empty credentials
+    if (username && password) {
       setIsAuthenticated(true);
       try {
         localStorage.setItem('accesspro_auth', 'true');
