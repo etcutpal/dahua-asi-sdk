@@ -1,72 +1,6 @@
 {
   "events": [
     {
-      "id": "1776097507044-6278mrbnu",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T16:25:13Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T16:25:07.044Z"
-    },
-    {
-      "id": "1776099634426-gtw37pyww",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:00:39Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:00:34.426Z"
-    },
-    {
-      "id": "1776099724061-p40it5f1e",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:02:08Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:02:04.061Z"
-    },
-    {
       "id": "1776101172268-6by1cz6c6",
       "type": "access_control_event_sdk",
       "deviceId": "ASI12",
@@ -2199,8 +2133,74 @@
         "source": "SDK_STARTLISTEN"
       },
       "storedAt": "2026-04-18T08:38:37.896Z"
+    },
+    {
+      "id": "1776528578613-wbg5qoa8t",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-18T16:09:35Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-18T16:09:38.613Z"
+    },
+    {
+      "id": "1776532142167-m3y9bwm0s",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-18T17:09:11Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": false,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 16,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-18T17:09:02.167Z"
+    },
+    {
+      "id": "1776540816821-q7kkjxoar",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-18T19:33:34Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-18T19:33:36.821Z"
     }
   ],
-  "lastUpdated": "2026-04-18T08:38:37.896Z",
+  "lastUpdated": "2026-04-18T19:33:36.821Z",
   "count": 100
 }

@@ -5,6 +5,8 @@ packages/
 vendor/
 General_NetSDK_Eng_CSharp_Win64_IS_V3.060.0000003.0.R.251202/
 DesignImportOnly/
+AccessDemo2s/
+frontend-old/
 
 # Build outputs
 dist/
