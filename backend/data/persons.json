@@ -3,13 +3,13 @@
     {
       "personId": "P005",
       "name": "NAME4",
-      "faceImagePath": "person_images\\person_1776359093426.png",
+      "faceImagePath": "person_images\\person_1776498006870.png",
       "fingerprints": [],
       "cardNumbers": [
         "78789"
       ],
       "createdAt": "2026-04-12T19:20:01.409Z",
-      "updatedAt": "2026-04-16T17:04:53.428Z"
+      "updatedAt": "2026-04-18T07:40:06.872Z"
     }
   ]
 }

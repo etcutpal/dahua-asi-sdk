@@ -5057,8 +5057,37 @@
       "openMethod": "Unknown",
       "status": "Failed",
       "storedAt": "2026-04-17T15:47:49.404Z"
+    },
+    {
+      "id": "1776499240385-bgk9tiila",
+      "deviceId": "ASI12",
+      "recordNumber": 0,
+      "userID": "448008",
+      "userName": "Utpal Mandal",
+      "cardNumber": "",
+      "swipeTime": "2026-04-18T08:00:49Z",
+      "doorNumber": 0,
+      "readerNo": "",
+      "cardType": "Unknown",
+      "openMethod": "Unknown",
+      "status": "Success",
+      "storedAt": "2026-04-18T08:00:40.385Z"
+    },
+    {
+      "id": "1776499241187-lqytkm00t-460",
+      "deviceId": "",
+      "recordNumber": 460,
+      "cardNumber": "",
+      "userID": "448008",
+      "userName": "Utpal Mandal",
+      "swipeTime": "2026-04-18T08:00:49Z",
+      "doorNumber": 0,
+      "readerNo": "1",
+      "cardType": "Normal",
+      "status": "Success",
+      "storedAt": "2026-04-18T08:00:41.187Z"
     }
   ],
-  "lastUpdated": "2026-04-17T15:47:49.406Z",
-  "count": 370
+  "lastUpdated": "2026-04-18T08:00:41.187Z",
+  "count": 372
 }

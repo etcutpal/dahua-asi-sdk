@@ -4,6 +4,6 @@
     "data/**",
     "node_modules/**"
   ],
-  "ext": "js,json",
+  "ext": "ts,js,json",
   "delay": "1000"
 }

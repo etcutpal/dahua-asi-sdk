@@ -72,14 +72,14 @@ export default function DeviceManagementPage() {
         const storedDevices = data.devices || [];
 
         // Auto-populate IP and Serial from connected devices
-        const updatedDevices = storedDevices.map(device => {
+        const updatedDevices = storedDevices.map((device: any) => {
           const connectedDevice = connectedDevices.find(
             (d: any) => d.serialNumber === device.registrationId || d.deviceID === device.registrationId
           );
 
           if (connectedDevice && connectedDevice.status === 'Online') {
             const newIp = connectedDevice.ip || device.ip;
-            const newSerial = connectedDevice.serialNumber || device.serial;
+            const newSerial = (connectedDevice as any).serialNumber || device.serial;
 
             if (newIp !== device.ip || newSerial !== device.serial) {
               fetch(`${API_URL}/api/devices/${device.deviceId}`, {

@@ -1,0 +1,29 @@
+{
+  "employees": [
+    {
+      "id": "emp_1776500588856_2",
+      "personId": "7676",
+      "name": "Name10",
+      "department": "group_1776499173184",
+      "gender": "Male",
+      "effectiveStart": "2026-04-18T00:00",
+      "effectiveEnd": "2036-04-18T23:59",
+      "profilePicture": "/api/employees/images/profile_pictures/1776500589177_25mib85.png",
+      "facePicture": "/api/employees/images/face_pictures/1776500589174_tgcmxc4.png",
+      "cardNumber": "9100",
+      "fingerprints": [],
+      "title": "Mr.",
+      "nickname": "Nik",
+      "dateOfBirth": "2026-04-18",
+      "phone": "82392132",
+      "occupation": "Eng",
+      "email": "at@at.com",
+      "address": "1 Gulshan Ave",
+      "remarks": "Rem",
+      "_faceImageFilename": "face_pictures/1776500589174_tgcmxc4.png",
+      "_profileImageFilename": "profile_pictures/1776500589177_25mib85.png",
+      "createdAt": "2026-04-18T08:23:09.181Z",
+      "updatedAt": "2026-04-18T08:23:09.181Z"
+    }
+  ]
+}

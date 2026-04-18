@@ -14,6 +14,7 @@ import eventsRouter from './routes/events';
 import webhooksRouter from './routes/webhooks';
 import accessRecordsRouter from './routes/access-records';
 import personsRouter from './routes/persons';
+import employeesRouter from './routes/employees';
 
 // Load environment variables
 dotenv.config();
@@ -59,6 +60,7 @@ app.use('/api/events', eventsRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/access-records', accessRecordsRouter);
 app.use('/api/persons', personsRouter);
+app.use('/api/employees', employeesRouter);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

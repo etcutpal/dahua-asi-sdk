@@ -16,6 +16,7 @@ interface EndpointDef {
   body?: string;
   params?: { key: string; value: string }[];
   group: 'nat' | 'local-ip' | 'backend';
+  baseUrl?: string;
 }
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
