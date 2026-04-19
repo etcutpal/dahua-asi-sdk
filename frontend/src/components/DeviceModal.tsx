@@ -12,6 +12,12 @@ interface Device {
   password: string;
   ip: string;
   serial: string;
+  groupId?: string;
+}
+
+interface DeviceGroup {
+  id: string;
+  name: string;
 }
 
 interface DeviceModalProps {
@@ -19,9 +25,10 @@ interface DeviceModalProps {
   onClose: () => void;
   onSave: (deviceData: Partial<Device>) => Promise<boolean>;
   device: Device | null;
+  deviceGroups?: DeviceGroup[];
 }
 
-export default function DeviceModal({ isOpen, onClose, onSave, device }: DeviceModalProps) {
+export default function DeviceModal({ isOpen, onClose, onSave, device, deviceGroups = [] }: DeviceModalProps) {
   const [formData, setFormData] = useState({
     name: '',
     registrationId: '',
@@ -29,6 +36,7 @@ export default function DeviceModal({ isOpen, onClose, onSave, device }: DeviceM
     password: '',
     ip: '',
     serial: '',
+    groupId: '',
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
@@ -43,6 +51,7 @@ export default function DeviceModal({ isOpen, onClose, onSave, device }: DeviceM
         password: device.password || '',
         ip: device.ip || '',
         serial: device.serial || '',
+        groupId: device.groupId || '',
       });
     } else {
       setFormData({
@@ -52,6 +61,7 @@ export default function DeviceModal({ isOpen, onClose, onSave, device }: DeviceM
         password: '',
         ip: '',
         serial: '',
+        groupId: '',
       });
     }
     setErrors({});
@@ -227,6 +237,25 @@ export default function DeviceModal({ isOpen, onClose, onSave, device }: DeviceM
               Device&apos;s LAN IP address (for reference only)
             </p>
           </div>
+
+          {/* Device Group (optional) */}
+          {deviceGroups.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Device Group <span className="text-gray-400 text-xs">(optional)</span>
+              </label>
+              <select
+                value={formData.groupId}
+                onChange={(e) => handleChange('groupId', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent bg-white"
+              >
+                <option value="">— No Group (All Devices) —</option>
+                {deviceGroups.map(g => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

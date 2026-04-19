@@ -52,6 +52,31 @@ namespace NetSDKBridge
         // Per-device credentials: registrationId -> (username, password)
         // Falls back to _platformUsername/_platformPassword if not found
         private readonly ConcurrentDictionary<string, (string Username, string Password)> _deviceCredentials = new();
+
+        // Path to shared device registry — same file used by the backend.
+        // Bridge reads from this on startup so it never depends on the backend pushing credentials.
+        private readonly string _bridgeDevicesFilePath = ResolveSharedDevicesPath();
+
+        private static string ResolveSharedDevicesPath()
+        {
+            // Try several relative paths from the binary location
+            string[] candidates = new[]
+            {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "backend", "data", "devices.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "backend", "data", "devices.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "backend", "data", "devices.json"),
+            };
+
+            foreach (var candidate in candidates)
+            {
+                string full = Path.GetFullPath(candidate);
+                if (File.Exists(full))
+                    return full;
+            }
+
+            // Return the first candidate as default even if it doesn't exist yet
+            return Path.GetFullPath(candidates[0]);
+        }
         
         private bool _isInitialized = false;
         private int _autoRegPort = 9500;
@@ -263,6 +288,14 @@ namespace NetSDKBridge
 
                 _logger.LogInformation("Initializing NetSDK...");
 
+                // Load device credentials from shared backend/data/devices.json first
+                // so every known device can login the moment it connects, even without the backend
+                LoadBridgeDevices();
+
+                // Watch for changes to devices.json so credentials update live
+                // (e.g. when user edits device password in Device Management page)
+                StartDevicesFileWatcher();
+
                 _disconnectCallback = DisconnectCallback;
                 _reconnectCallback = ReconnectCallback;
                 _messageCallback = MessageCallback;
@@ -354,7 +387,8 @@ namespace NetSDKBridge
         public string GetPlatformUsername() => _platformUsername;
 
         /// <summary>
-        /// Register per-device credentials (overrides platform credentials for that device)
+        /// Register per-device credentials (overrides platform credentials for that device).
+        /// Called by the backend via POST /api/devices/credentials after create/update.
         /// </summary>
         public void SetDeviceCredentials(string registrationId, string username, string password)
         {
@@ -374,6 +408,93 @@ namespace NetSDKBridge
             }
             _logger.LogInformation($"[Credentials] No per-device credentials for {registrationId} — using platform credentials");
             return (_platformUsername, _platformPassword);
+        }
+
+        /// <summary>
+        /// Load all device credentials from the shared backend/data/devices.json on startup.
+        /// This makes the bridge fully self-sufficient — it can log in every known device
+        /// the moment it connects, even if the backend hasn't started yet.
+        /// Format: { "devices": [{ "registrationId", "username", "password", ... }] }
+        /// </summary>
+        private FileSystemWatcher _devicesFileWatcher;
+
+        private void StartDevicesFileWatcher()
+        {
+            try
+            {
+                if (!File.Exists(_bridgeDevicesFilePath)) return;
+
+                var dir  = Path.GetDirectoryName(_bridgeDevicesFilePath);
+                var file = Path.GetFileName(_bridgeDevicesFilePath);
+
+                _devicesFileWatcher = new FileSystemWatcher(dir, file)
+                {
+                    NotifyFilter       = NotifyFilters.LastWrite | NotifyFilters.Size,
+                    EnableRaisingEvents = true
+                };
+
+                System.Timers.Timer debounce = null;
+                _devicesFileWatcher.Changed += (s, e) =>
+                {
+                    debounce?.Stop();
+                    debounce = new System.Timers.Timer(500) { AutoReset = false };
+                    debounce.Elapsed += (_, __) =>
+                    {
+                        _logger.LogInformation("[BridgeDevices] 🔄 devices.json changed — reloading credentials...");
+                        LoadBridgeDevices();
+                    };
+                    debounce.Start();
+                };
+
+                _logger.LogInformation($"[BridgeDevices] 👀 Watching for changes: {_bridgeDevicesFilePath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[BridgeDevices] Could not start devices.json file watcher");
+            }
+        }
+
+        private void LoadBridgeDevices()
+        {
+            try
+            {
+                if (!File.Exists(_bridgeDevicesFilePath))
+                {
+                    _logger.LogInformation($"[BridgeDevices] Shared devices.json not found at: {_bridgeDevicesFilePath}");
+                    _logger.LogInformation($"[BridgeDevices] Starting with empty credentials — backend must push via POST /api/devices/credentials");
+                    return;
+                }
+
+                var json = File.ReadAllText(_bridgeDevicesFilePath);
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+
+                if (!doc.RootElement.TryGetProperty("devices", out var devicesArray))
+                {
+                    _logger.LogWarning("[BridgeDevices] devices.json has no 'devices' array");
+                    return;
+                }
+
+                int count = 0;
+                foreach (var entry in devicesArray.EnumerateArray())
+                {
+                    var regId    = entry.TryGetProperty("registrationId", out var r) ? r.GetString() : null;
+                    var username = entry.TryGetProperty("username", out var u) ? u.GetString() : null;
+                    var password = entry.TryGetProperty("password", out var p) ? p.GetString() : null;
+
+                    if (!string.IsNullOrWhiteSpace(regId))
+                    {
+                        _deviceCredentials[regId] = (username ?? "admin", password ?? "");
+                        count++;
+                        _logger.LogInformation($"[BridgeDevices]   Loaded: {regId} (user: {username ?? "admin"})");
+                    }
+                }
+
+                _logger.LogInformation($"[BridgeDevices] ✅ Loaded {count} device credential(s) from: {_bridgeDevicesFilePath}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[BridgeDevices] Failed to load shared devices.json — will rely on backend push");
+            }
         }
 
         /// <summary>

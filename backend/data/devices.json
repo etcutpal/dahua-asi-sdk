@@ -2,25 +2,15 @@
   "devices": [
     {
       "deviceId": "37122082",
-      "name": "Min",
-      "registrationId": "ASI12",
+      "name": "Main Entry",
+      "registrationId": "600I",
       "username": "admin",
-      "password": "admin1234",
-      "ip": "103.234.164.217",
-      "serial": "9K0063DPAJ4B17D",
+      "password": "admin123",
+      "ip": "192.168.1.151",
+      "serial": "AE0550FPAJ48EDA",
       "createdAt": "2026-04-19T10:36:03.308Z",
-      "updatedAt": "2026-04-19T11:16:46.207Z"
-    },
-    {
-      "deviceId": "33791056",
-      "name": "Door2",
-      "registrationId": "ASI11",
-      "username": "admin",
-      "password": "admin1234",
-      "ip": "",
-      "serial": "",
-      "createdAt": "2026-04-19T11:11:22.265Z",
-      "updatedAt": "2026-04-19T11:12:50.850Z"
+      "updatedAt": "2026-04-19T17:19:15.416Z",
+      "groupId": ""
     }
   ]
 }

@@ -18,16 +18,13 @@ router.get('/', async (req: Request, res: Response) => {
     logger.debug(`Merging devices: ${localDevices.length} local, ${sdkDevices.length} from SDK`);
     logger.debug(`SDK devices: ${JSON.stringify(sdkDevices.map((d: any) => ({ id: d.DeviceID || d.deviceId, status: d.status || d.Status })))}`);
 
-    // Helper function to find matching device
+    // Helper function to find matching device — match ONLY by registrationId
+    // (serial number match is intentionally excluded: serial must never make an
+    //  unrecognised device appear online when its registration ID has changed)
     const findMatchingSdkDevice = (localDevice: Device): any => {
       return sdkDevices.find((sdk: any) => {
         const sdkId = sdk.DeviceID || sdk.deviceId || sdk.deviceID;
-        const localId = localDevice.registrationId || localDevice.deviceId;
-
-        return sdkId === localId ||
-               sdk.registrationId === localDevice.registrationId ||
-               sdk.SerialNumber === localDevice.serial ||
-               sdk.serialNumber === localDevice.serial;
+        return sdkId === localDevice.registrationId;
       });
     };
 
@@ -52,36 +49,6 @@ router.get('/', async (req: Request, res: Response) => {
         Status: status,
         DeviceName: sdkDevice ? sdkDevice.Name : undefined,
       };
-    });
-
-    // Also include any SDK devices that aren't in local config yet (auto-registered devices)
-    const localRegIds = new Set(localDevices.map(d => d.registrationId).filter(Boolean));
-    const localDeviceIds = new Set(localDevices.map(d => d.deviceId));
-
-    sdkDevices.forEach((sdkDevice: any) => {
-      const regId = sdkDevice.DeviceID || sdkDevice.deviceID || sdkDevice.registrationId;
-      const deviceId = regId; // Use registration ID as device ID for SDK-only devices
-
-      if (!localRegIds.has(regId) && !localDeviceIds.has(deviceId)) {
-        const status = sdkDevice.Status || sdkDevice.status || 'Offline';
-
-        logger.debug(`Auto-registered device: ${regId} - ${status}`);
-
-        // Add SDK device with normalized structure
-        mergedDevices.push({
-          deviceId: deviceId,
-          name: sdkDevice.Name || sdkDevice.name || `Device ${deviceId}`,
-          registrationId: regId,
-          username: sdkDevice.username || 'admin',
-          status: status,
-          ip: sdkDevice.IP || sdkDevice.ip || '',
-          serial: sdkDevice.SerialNumber || sdkDevice.serialNumber || '',
-          // Include PascalCase for backward compatibility
-          DeviceID: sdkDevice.DeviceID,
-          Status: status,
-          DeviceName: sdkDevice.Name,
-        });
-      }
     });
 
     const onlineCount = mergedDevices.filter((d: any) => d.status === 'Online').length;

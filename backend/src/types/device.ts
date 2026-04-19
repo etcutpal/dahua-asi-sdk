@@ -7,6 +7,7 @@ export interface Device {
   password?: string;
   ip?: string;
   serial?: string;
+  groupId?: string;   // device group membership (null/undefined = "All Devices" default)
   createdAt?: string;
   updatedAt?: string;
   // Additional runtime fields from SDK (PascalCase for compatibility)

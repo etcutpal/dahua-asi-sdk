@@ -249,32 +249,10 @@ export default function DashboardPage() {
       if (devicesRes.ok) {
         const devicesData = await devicesRes.json();
         setDevices(devicesData);
-      } else {
-        // Fallback to socket devices if API fails
-        const onlineCount = socketDevices.filter((d: any) => d.status === 'Online').length;
-        setDevices(socketDevices.slice(0, 10).map((d: any) => ({
-          id: d.deviceID || d.id,
-          name: d.name || d.deviceID,
-          ipAddress: d.ip ? `${d.ip}:${d.port}` : 'N/A',
-          status: d.status === 'Online' ? 'online' : 'offline',
-          lastSeen: d.loginTime || 'N/A',
-          location: 'Main Building'
-        })));
-        setSummary(prev => ({
-          ...prev,
-          devicesOnline: onlineCount,
-          devicesOffline: socketDevices.length - onlineCount
-        }));
       }
+      // No fallback to raw socketDevices — unrecognised devices must not appear
     } catch (error) {
       console.error('Error loading dashboard data:', error);
-      // Fallback to socket data
-      const onlineCount = socketDevices.filter((d: any) => d.status === 'Online').length;
-      setSummary(prev => ({
-        ...prev,
-        devicesOnline: onlineCount,
-        devicesOffline: socketDevices.length - onlineCount
-      }));
     }
   };
 

@@ -10,6 +10,7 @@ import personService from './services/person.service';
 import deviceService from './services/device.service';
 import AccessRecordService from './services/accessRecordService';
 import devicesRouter from './routes/devices';
+import deviceGroupsRouter from './routes/device-groups';
 import autoregRouter from './routes/autoreg';
 import eventsRouter from './routes/events';
 import webhooksRouter from './routes/webhooks';
@@ -57,6 +58,7 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 
 // Routes
 app.use('/api/devices', devicesRouter);
+app.use('/api/device-groups', deviceGroupsRouter);
 app.use('/api/autoreg', autoregRouter);
 app.use('/api/events', eventsRouter);
 app.use('/api/webhooks', webhooksRouter);
@@ -74,12 +76,47 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+// Dashboard devices — same merged list used by the socket, consumed by the dashboard widget
+app.get('/api/dashboard/devices', async (req: Request, res: Response) => {
+  try {
+    const devices = await getMergedDevicesForSocket();
+    res.json(devices);
+  } catch (error: any) {
+    logger.error('Error in /api/dashboard/devices:', error);
+    res.json([]);
+  }
+});
+
+// Helper: build a merged device list (devices.json + live status from bridge).
+// This is the single source of truth for what the frontend should see.
+// Only devices registered in devices.json are shown; unknown bridge devices
+// (e.g. a device whose registration ID was changed on the frontend) stay hidden.
+async function getMergedDevicesForSocket() {
+  const [storedDevices, bridgeDevices] = await Promise.all([
+    deviceService.getAll(),
+    netSdkService.getAllDevices(),
+  ]);
+
+  return storedDevices.map((d: any) => {
+    const bridgeDev = bridgeDevices.find(
+      (b: any) => (b.DeviceID || b.deviceID) === d.registrationId
+    );
+    const status = bridgeDev ? (bridgeDev.Status || bridgeDev.status || 'Offline') : 'Offline';
+    return {
+      ...d,
+      deviceID: d.registrationId,
+      status,
+      Status: status,
+    };
+  });
+}
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
   logger.info(`Client connected: ${socket.id}`);
 
-  // Send current devices to newly connected client
-  netSdkService.getAllDevices()
+  // Send merged devices (only devices.json entries with live status) to newly connected client
+  getMergedDevicesForSocket()
     .then(devices => {
       socket.emit('devices:update', devices);
     })
