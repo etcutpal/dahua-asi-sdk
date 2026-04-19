@@ -2250,7 +2250,7 @@ namespace NetSDKBridge
                                     Index = i,
                                     DataBase64 = Convert.ToBase64String(fpBytes),
                                     PacketLen = pktLen,
-                                    PacketCount = count
+                                    PacketCount = 1  // each entry holds exactly ONE packet (one finger template)
                                 });
                             }
                         }
@@ -2725,7 +2725,7 @@ namespace NetSDKBridge
                     userInfo.nDoors[0] = 1; // Door 1
                     
                     // Set user password (empty string allows no password authentication)
-                    userInfo.szPsw = "";
+                    userInfo.szPsw = !string.IsNullOrEmpty(request.Password) ? request.Password : "";
 
                     // Set valid time (default: 10 years from now)
                     var now = DateTime.Now;
@@ -3151,15 +3151,28 @@ namespace NetSDKBridge
                 }
 
                 // Step 2: Add card info (if card number provided)
-                if (!string.IsNullOrWhiteSpace(request.CardNumber))
+                // First add primary card, then any extra cards from AllCardNumbers
+                var allCardsToAdd = new List<string>();
+                if (request.AllCardNumbers != null && request.AllCardNumbers.Length > 0)
                 {
+                    allCardsToAdd.AddRange(request.AllCardNumbers.Where(c => !string.IsNullOrWhiteSpace(c)));
+                }
+                else if (!string.IsNullOrWhiteSpace(request.CardNumber))
+                {
+                    allCardsToAdd.Add(request.CardNumber);
+                }
+
+                if (allCardsToAdd.Count > 0)
+                {
+                    foreach (var cardNo in allCardsToAdd)
+                    {
                     try
                     {
-                        _logger.LogInformation($"[CARD] Adding card {request.CardNumber} for user {request.PersonID}");
+                        _logger.LogInformation($"[CARD] Adding card {cardNo} for user {request.PersonID}");
                         
                         var cardInfo = new NET_ACCESS_CARD_INFO
                         {
-                            szCardNo = request.CardNumber,
+                            szCardNo = cardNo,
                             szUserID = request.PersonID ?? "",
                             emType = EM_ACCESSCTLCARD_TYPE.GENERAL,
                             szDynamicCheckCode = "",
@@ -3179,52 +3192,42 @@ namespace NetSDKBridge
                         // Check for success - be very lenient since device firmware may report errors even when succeeding
                         if (cardResult && failCode != null && failCode.Length > 0 && failCode[0].emCode == 0)
                         {
-                            // Strict success: SDK returned true and failCode is 0
                             result.CardAdded = true;
-                            _logger.LogInformation($"[CARD] ✅ Card {request.CardNumber} added for user {request.PersonID}");
+                            _logger.LogInformation($"[CARD] ✅ Card {cardNo} added for user {request.PersonID}");
                         }
                         else if (cardResult && string.IsNullOrWhiteSpace(cardSdkError))
                         {
-                            // Success: SDK returned true and no error message
                             result.CardAdded = true;
-                            _logger.LogInformation($"[CARD] ✅ Card {request.CardNumber} added (SDK returned success despite failCode={cardFailCodeValue})");
+                            _logger.LogInformation($"[CARD] ✅ Card {cardNo} added (SDK returned success despite failCode={cardFailCodeValue})");
                         }
                         else if (!cardResult && string.IsNullOrWhiteSpace(cardSdkError))
                         {
-                            // Success: SDK returned false but no error message - device may have accepted it
                             result.CardAdded = true;
-                            _logger.LogInformation($"[CARD] ✅ Card {request.CardNumber} added (SDK returned false but no error message)");
+                            _logger.LogInformation($"[CARD] ✅ Card {cardNo} added (SDK returned false but no error message)");
                         }
                         else if (!string.IsNullOrWhiteSpace(cardSdkError) && (cardSdkError == "800004B5" || cardFailCodeValue == 18))
                         {
-                            // Success: Device returns error code 800004B5 or failCode 18 but card is actually added
-                            // This is a firmware behavior where it reports errors even on success
                             result.CardAdded = true;
-                            _logger.LogInformation($"[CARD] ✅ Card {request.CardNumber} added (device returned error code but card was accepted)");
+                            _logger.LogInformation($"[CARD] ✅ Card {cardNo} added (device returned error code but card was accepted)");
                         }
                         else
                         {
                             string errorDetails = "";
                             if (cardFailCodeValue >= -10000 && cardFailCodeValue <= 10000)
-                            {
                                 errorDetails = $" (failCode: {cardFailCodeValue})";
-                            }
-                            string errorMsg = $"Failed to add card (SDK Error: {cardSdkError}{errorDetails})";
-                            _logger.LogWarning($"[CARD] ⚠️  {errorMsg}");
-                            // Card is optional - don't fail the operation
-                            _logger.LogInformation($"[CARD] ℹ️  Card addition is optional. User access still granted.");
+                            _logger.LogWarning($"[CARD] ⚠️  Failed to add card {cardNo}: SDK Error: {cardSdkError}{errorDetails}");
+                            _logger.LogInformation($"[CARD] ℹ️  Continuing — card is optional.");
                         }
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, $"[CARD] Exception adding card for user {request.PersonID}");
-                        _logger.LogWarning($"[CARD] ⚠️  Card addition failed but user access still granted. Error: {ex.Message}");
-                        // Card is optional - don't fail the operation
+                        _logger.LogError(ex, $"[CARD] Exception adding card {cardNo} for user {request.PersonID}");
+                    }
                     }
                 }
                 else
                 {
-                    _logger.LogInformation($"[CARD] No card number provided for user {request.PersonID}");
+                    _logger.LogInformation($"[CARD] No card numbers provided for user {request.PersonID}");
                 }
 
                 // Step 3: Add/Update face info (if face image provided)
@@ -3320,6 +3323,93 @@ namespace NetSDKBridge
                 else
                 {
                     _logger.LogInformation($"[FACE] No face image provided for user {request.PersonID}");
+                }
+
+                // Step 4: Insert fingerprint templates (if provided)
+                if (request.FingerprintTemplates != null && request.FingerprintTemplates.Length > 0)
+                {
+                    _logger.LogInformation($"[FP] Inserting {request.FingerprintTemplates.Length} fingerprint template(s) for user {request.PersonID}");
+
+                    // For UPDATE: remove existing fingerprints first using the high-level wrapper
+                    if (request.IsUpdate)
+                    {
+                        try
+                        {
+                            _logger.LogInformation($"[FP] [UPDATE] Removing existing fingerprints for user {request.PersonID}...");
+                            NET_EM_FAILCODE[] fpRemoveFailCodes;
+                            bool fpRemoveResult = NETClient.RemoveOperateAccessFingerprintService(
+                                (IntPtr)device.LoginHandle,
+                                new string[] { request.PersonID ?? "" },
+                                out fpRemoveFailCodes,
+                                5000);
+                            _logger.LogInformation($"[FP] [UPDATE] Fingerprint removal result: {fpRemoveResult}, error: '{NETClient.GetLastError()}'");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, $"[FP] [UPDATE] Fingerprint removal exception (continuing): {ex.Message}");
+                        }
+                    }
+
+                    // Insert each fingerprint one at a time using the high-level wrapper
+                    foreach (var fp in request.FingerprintTemplates)
+                    {
+                        IntPtr pFpData = IntPtr.Zero;
+                        try
+                        {
+                            byte[] fpBytes = Convert.FromBase64String(fp.DataBase64);
+                            // Each stored entry is ONE finger template of PacketLen bytes.
+                            // PacketCount in old JSON may be wrong (stored as total fingers, not 1),
+                            // so always validate against PacketLen only and send as nPacketNum=1.
+                            if (fpBytes.Length < fp.PacketLen)
+                            {
+                                _logger.LogWarning($"[FP] Fingerprint index {fp.Index}: data length {fpBytes.Length} < PacketLen {fp.PacketLen}, skipping");
+                                continue;
+                            }
+
+                            // Allocate unmanaged buffer for the raw template data — must stay alive during SDK call
+                            pFpData = Marshal.AllocHGlobal(fpBytes.Length);
+                            Marshal.Copy(fpBytes, 0, pFpData, fpBytes.Length);
+
+                            var fpInfo = new NET_ACCESS_FINGERPRINT_INFO
+                            {
+                                szUserID = request.PersonID ?? "",
+                                nPacketLen = fp.PacketLen,
+                                nPacketNum = 1,  // each stored entry is one complete finger template (1 packet)
+                                szFingerPrintInfo = pFpData,
+                                nDuressIndex = 0,
+                                byReserved = new byte[4096]
+                            };
+
+                            NET_EM_FAILCODE[] fpFailCodes;
+                            bool fpResult = NETClient.InsertOperateAccessFingerprintService(
+                                (IntPtr)device.LoginHandle,
+                                new NET_ACCESS_FINGERPRINT_INFO[] { fpInfo },
+                                out fpFailCodes,
+                                10000);
+
+                            string fpError = NETClient.GetLastError();
+                            int fpFailCode = fpFailCodes != null && fpFailCodes.Length > 0 ? (int)fpFailCodes[0].emCode : -999;
+                            _logger.LogInformation($"[FP] Fingerprint index {fp.Index}: result={fpResult}, failCode={fpFailCode}, error='{fpError}'");
+
+                            if (fpResult || string.IsNullOrWhiteSpace(fpError))
+                                _logger.LogInformation($"[FP] ✅ Fingerprint index {fp.Index} inserted for user {request.PersonID}");
+                            else
+                                _logger.LogWarning($"[FP] ⚠️  Fingerprint index {fp.Index} insert failed: {fpError} (failCode={fpFailCode})");
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogError(ex, $"[FP] Exception inserting fingerprint index {fp.Index} for user {request.PersonID}");
+                        }
+                        finally
+                        {
+                            // Free the template data buffer AFTER the SDK call returns
+                            if (pFpData != IntPtr.Zero) Marshal.FreeHGlobal(pFpData);
+                        }
+                    }
+                }
+                else
+                {
+                    _logger.LogInformation($"[FP] No fingerprint templates provided for user {request.PersonID}");
                 }
 
                 FACE_SECTION_END:; // Label for backward compatibility
@@ -3498,12 +3588,22 @@ namespace NetSDKBridge
         public string DeviceID { get; set; }
         public string PersonID { get; set; }
         public string PersonName { get; set; }
-        public string CardNumber { get; set; }
-        public string OldCardNumber { get; set; } // Previous card number to remove (for UPDATE)
+        public string CardNumber { get; set; }       // Primary card (first card)
+        public string OldCardNumber { get; set; }    // Previous card number to remove (for UPDATE)
+        public string[] AllCardNumbers { get; set; } // All cards (index 0 = primary, 1-4 = extra)
+        public string Password { get; set; }         // Door access password (szPsw)
+        public FingerprintTemplateRequest[] FingerprintTemplates { get; set; } // Fingerprint biometric data
         public byte[] FaceImage { get; set; }
         public string FaceImageType { get; set; } // jpeg, png, etc.
-        public string[] Fingerprints { get; set; } // Array of fingerprint slot names
         public bool IsUpdate { get; set; } = false; // Whether this is an UPDATE operation (vs CREATE)
+    }
+
+    public class FingerprintTemplateRequest
+    {
+        public int Index { get; set; }
+        public string DataBase64 { get; set; }
+        public int PacketLen { get; set; }
+        public int PacketCount { get; set; }
     }
 
     /// <summary>

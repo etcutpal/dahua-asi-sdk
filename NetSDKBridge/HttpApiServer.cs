@@ -583,7 +583,26 @@ namespace NetSDKBridge
                     var isUpdateStr = form["isUpdate"].ToString();
                     bool isUpdate = isUpdateStr?.ToLower() == "true";
 
-                    _logger.LogInformation($"[HTTP-ENDPOINT] Received request - DeviceId: {deviceId}, PersonId: {personId}, PersonName: {personName}, CardNumber: {cardNumber}, OldCardNumber: {oldCardNumber}, IsUpdate: {isUpdate}");
+                    // Extended fields: password, all card numbers, fingerprint templates
+                    var password = form["password"].ToString();
+                    var allCardNumbersJson = form["allCardNumbers"].ToString();
+                    var fingerprintsJson = form["fingerprints"].ToString();
+
+                    string[] allCardNumbers = null;
+                    if (!string.IsNullOrWhiteSpace(allCardNumbersJson))
+                    {
+                        try { allCardNumbers = System.Text.Json.JsonSerializer.Deserialize<string[]>(allCardNumbersJson); }
+                        catch { _logger.LogWarning($"[HTTP-ENDPOINT] Failed to parse allCardNumbers JSON: {allCardNumbersJson}"); }
+                    }
+
+                    FingerprintTemplateRequest[] fingerprintTemplates = null;
+                    if (!string.IsNullOrWhiteSpace(fingerprintsJson))
+                    {
+                        try { fingerprintTemplates = System.Text.Json.JsonSerializer.Deserialize<FingerprintTemplateRequest[]>(fingerprintsJson, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }); }
+                        catch { _logger.LogWarning($"[HTTP-ENDPOINT] Failed to parse fingerprints JSON (length {fingerprintsJson.Length})"); }
+                    }
+
+                    _logger.LogInformation($"[HTTP-ENDPOINT] Received request - DeviceId: {deviceId}, PersonId: {personId}, PersonName: {personName}, CardNumber: {cardNumber}, OldCardNumber: {oldCardNumber}, IsUpdate: {isUpdate}, Password: {(string.IsNullOrEmpty(password) ? "(none)" : "[set]")}, AllCards: {allCardNumbers?.Length ?? 0}, Fingerprints: {fingerprintTemplates?.Length ?? 0}");
                     _logger.LogInformation($"[HTTP-ENDPOINT] Face image file: {form.Files["faceImage"]?.FileName ?? "none"}, Size: {form.Files["faceImage"]?.Length ?? 0} bytes");
 
                     if (string.IsNullOrEmpty(deviceId) || string.IsNullOrEmpty(personId))
@@ -600,7 +619,10 @@ namespace NetSDKBridge
                         PersonName = personName,
                         CardNumber = cardNumber,
                         OldCardNumber = oldCardNumber,
-                        IsUpdate = isUpdate
+                        IsUpdate = isUpdate,
+                        Password = password,
+                        AllCardNumbers = allCardNumbers,
+                        FingerprintTemplates = fingerprintTemplates
                     };
 
                     // Read face image if provided

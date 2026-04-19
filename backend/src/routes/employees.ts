@@ -376,14 +376,29 @@ router.post('/:id/send-to-device', async (req: Request, res: Response) => {
       }
     }
 
-    // Card number — use first card from cardNumbers array
+    // Card numbers — full list
     const cardNumbers: string[] = Array.isArray(employee.cardNumbers)
       ? employee.cardNumbers.filter((c: any) => c && c.toString().trim())
       : (employee.cardNumber ? [employee.cardNumber.toString().trim()] : []); // backward compat
     const cardNumber = cardNumbers[0] || null;
 
+    // Password
+    const password: string | undefined = employee.password || undefined;
+
+    // Fingerprint templates — only device-format objects with dataBase64
+    const fingerprintTemplates = Array.isArray(employee.fingerprints)
+      ? employee.fingerprints
+          .filter((fp: any) => fp && typeof fp === 'object' && fp.dataBase64)
+          .map((fp: any) => ({
+            index: fp.index ?? 0,
+            dataBase64: fp.dataBase64,
+            packetLen: fp.packetLen ?? 0,
+            packetCount: fp.packetCount ?? 0
+          }))
+      : [];
+
     logger.info(`[EMPLOYEE SEND-TO-DEVICE] Employee ${employee.personId} (${employee.name}) → device ${finalDeviceId}`);
-    logger.info(`[EMPLOYEE SEND-TO-DEVICE] Card: ${cardNumber || '(none)'}, Face: ${faceImageFilename || '(none)'}`);
+    logger.info(`[EMPLOYEE SEND-TO-DEVICE] Cards: [${cardNumbers.join(', ') || '(none)'}], Password: ${password ? '[set]' : '(none)'}, Fingerprints: ${fingerprintTemplates.length}, Face: ${faceImageFilename || '(none)'}`);
 
     const result = await netSdkService.addPersonToDevice(
       finalDeviceId,
@@ -392,13 +407,17 @@ router.post('/:id/send-to-device', async (req: Request, res: Response) => {
       faceImageBuffer,
       faceImageFilename,
       cardNumber,
-      true  // isUpdate = true (upsert mode like persons route)
+      true,  // isUpdate = true (upsert mode)
+      null,  // oldCardNumber
+      cardNumbers.length > 0 ? cardNumbers : undefined,
+      password,
+      fingerprintTemplates.length > 0 ? fingerprintTemplates : undefined
     );
 
     logger.info(`✅ Employee ${employee.personId} sent to device. User:${result.userAdded} Card:${result.cardAdded} Face:${result.faceAdded}`);
 
     // If no card was provided, cardAdded from the bridge is misleading — override to false
-    const cardActuallySent = cardNumber !== null;
+    const cardActuallySent = cardNumbers.length > 0;
 
     res.json({
       success: true,
@@ -406,7 +425,8 @@ router.post('/:id/send-to-device', async (req: Request, res: Response) => {
         ...result,
         cardAdded: cardActuallySent ? result.cardAdded : false,
         cardSent: cardActuallySent,
-        message: `Person sent to device successfully! User: ${result.userAdded ? '✅' : '❌'}, Card: ${cardActuallySent ? (result.cardAdded ? '✅' : '❌') : '⚠️ No card number'}, Face: ${result.faceAdded ? '✅' : '❌'}`
+        fingerprintsSent: fingerprintTemplates.length,
+        message: `Person sent to device successfully! User: ${result.userAdded ? '✅' : '❌'}, Cards: ${cardActuallySent ? `${cardNumbers.length} (${result.cardAdded ? '✅' : '❌'})` : '⚠️ No cards'}, Face: ${result.faceAdded ? '✅' : '❌'}, Fingerprints: ${fingerprintTemplates.length > 0 ? `${fingerprintTemplates.length} sent` : 'none'}`
       }
     });
   } catch (err: any) {

@@ -393,14 +393,17 @@ class NetSdkService {
     personName: string,
     faceImageBuffer: Buffer | null,
     faceImageFilename: string | null,
-    cardNumber?: string,
+    cardNumber?: string | null,
     isUpdate: boolean = false,
-    oldCardNumber?: string | null
+    oldCardNumber?: string | null,
+    allCardNumbers?: string[],
+    password?: string,
+    fingerprintTemplates?: Array<{ index: number; dataBase64: string; packetLen: number; packetCount: number }>
   ): Promise<any> {
     try {
       const operation = isUpdate ? 'Updating' : 'Adding';
       logger.info(`${operation} person ${personId} (${personName}) on device ${deviceId}`);
-      logger.info(`📊 Face image size: ${faceImageBuffer ? `${(faceImageBuffer.length / 1024).toFixed(2)} KB` : 'none'}, Card: ${cardNumber || 'none'}, Old card: ${oldCardNumber || 'none'}`);
+      logger.info(`📊 Face image size: ${faceImageBuffer ? `${(faceImageBuffer.length / 1024).toFixed(2)} KB` : 'none'}, Cards: ${allCardNumbers?.length ?? (cardNumber ? 1 : 0)}, Password: ${password ? '[set]' : 'none'}, Fingerprints: ${fingerprintTemplates?.length ?? 0}`);
 
       // Create FormData for multipart request
       const FormData = require('form-data');
@@ -409,14 +412,31 @@ class NetSdkService {
       formData.append('deviceId', deviceId);
       formData.append('personId', personId);
       formData.append('personName', personName);
-      formData.append('isUpdate', isUpdate ? 'true' : 'false');  // Pass update flag
+      formData.append('isUpdate', isUpdate ? 'true' : 'false');
 
-      if (cardNumber) {
-        formData.append('cardNumber', cardNumber);
+      // Primary card (first card or single card for backward compat)
+      const primaryCard = (allCardNumbers && allCardNumbers.length > 0) ? allCardNumbers[0] : (cardNumber || null);
+      if (primaryCard) {
+        formData.append('cardNumber', primaryCard);
       }
 
       if (oldCardNumber) {
         formData.append('oldCardNumber', oldCardNumber);
+      }
+
+      // All card numbers as JSON array
+      if (allCardNumbers && allCardNumbers.length > 0) {
+        formData.append('allCardNumbers', JSON.stringify(allCardNumbers));
+      }
+
+      // Door password
+      if (password) {
+        formData.append('password', password);
+      }
+
+      // Fingerprint templates as JSON
+      if (fingerprintTemplates && fingerprintTemplates.length > 0) {
+        formData.append('fingerprints', JSON.stringify(fingerprintTemplates));
       }
 
       if (faceImageBuffer && faceImageFilename) {
