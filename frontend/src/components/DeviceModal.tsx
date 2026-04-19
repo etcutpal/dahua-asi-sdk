@@ -207,7 +207,24 @@ export default function DeviceModal({ isOpen, onClose, onSave, device }: DeviceM
           {/* Info note */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
             <p className="text-xs text-blue-700">
-              <strong>Note:</strong> IP Address and Serial Number will be automatically detected when the device connects online.
+              <strong>Note:</strong> Local IP is optional — enter the device&apos;s LAN IP (e.g. 192.168.1.100) for your reference. Serial Number will be automatically detected when the device connects online.
+            </p>
+          </div>
+
+          {/* Local IP (optional) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Local IP <span className="text-gray-400 text-xs">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={formData.ip}
+              onChange={(e) => handleChange('ip', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              placeholder="e.g., 192.168.1.100"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              Device&apos;s LAN IP address (for reference only)
             </p>
           </div>
         </div>

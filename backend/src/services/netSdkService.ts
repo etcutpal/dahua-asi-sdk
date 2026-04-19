@@ -1,7 +1,27 @@
 import axios from 'axios';
+import fs from 'fs';
+import path from 'path';
 import logger from '../utils/logger';
 import AccessRecordService from './accessRecordService';
 import { Device } from '../types';
+
+// ─── AutoReg credentials persistence ─────────────────────────────────────────
+const AUTOREG_CONFIG_FILE = path.join(__dirname, '../../data/autoreg-config.json');
+
+function readAutoRegConfig(): { username: string; password: string } {
+  try {
+    if (fs.existsSync(AUTOREG_CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(AUTOREG_CONFIG_FILE, 'utf-8'));
+    }
+  } catch {}
+  return { username: 'admin', password: '' };
+}
+
+function writeAutoRegConfig(config: { username: string; password: string }) {
+  const dir = path.dirname(AUTOREG_CONFIG_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(AUTOREG_CONFIG_FILE, JSON.stringify(config, null, 2));
+}
 
 interface BridgeResponse<T = any> {
   success: boolean;
@@ -30,6 +50,7 @@ class NetSdkService {
   private bridgeUrl: string;
   private isInitialized: boolean;
   private devices: Device[];
+  private credentialsPushed: boolean = false;
 
   constructor() {
     this.bridgeUrl = process.env.NETSDK_BRIDGE_URL || 'http://localhost:5000';
@@ -123,6 +144,85 @@ class NetSdkService {
       logger.error('Failed to stop Auto Registration:', error.message);
       throw error;
     }
+  }
+
+  // Save credentials to JSON and push to bridge
+  async setPlatformCredentials(username: string, password: string): Promise<BridgeResponse> {
+    try {
+      writeAutoRegConfig({ username, password });
+      const response = await axios.post<BridgeResponse>(`${this.bridgeUrl}/api/autoreg/credentials`, { username, password });
+      logger.info(`[AutoReg] Platform credentials updated — Username: ${username}`);
+      return response.data;
+    } catch (error: any) {
+      logger.error('Failed to set platform credentials:', error.message);
+      throw error;
+    }
+  }
+
+  // Push per-device credentials to bridge (call after create/update device)
+  async pushDeviceCredentials(registrationId: string, username: string, password: string): Promise<void> {
+    try {
+      await axios.post(`${this.bridgeUrl}/api/devices/credentials`, { registrationId, username, password });
+      logger.info(`[Bridge] Device credentials pushed for: ${registrationId}`);
+    } catch (error: any) {
+      logger.warn(`[Bridge] Could not push device credentials for ${registrationId}: ${error.message}`);
+    }
+  }
+
+  // Push all stored device credentials to bridge (call on startup)
+  async pushAllDeviceCredentials(devices: Array<{ registrationId: string; username: string; password: string }>): Promise<void> {
+    for (const d of devices) {
+      if (d.registrationId) {
+        await this.pushDeviceCredentials(d.registrationId, d.username || 'admin', d.password || '');
+      }
+    }
+    logger.info(`[Bridge] Pushed credentials for ${devices.length} devices`);
+  }
+
+  // Push all device credentials with retry until bridge is ready (background task)
+  async pushAllDeviceCredentialsWithRetry(devices: Array<{ registrationId: string; username: string; password: string }>): Promise<void> {
+    const maxAttempts = 10;
+    const delayMs = 3000;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        // Test bridge is alive first
+        await axios.get(`${this.bridgeUrl}/api/health`, { timeout: 2000 });
+
+        // Bridge is ready — push all credentials
+        for (const d of devices) {
+          if (d.registrationId) {
+            await this.pushDeviceCredentials(d.registrationId, d.username || 'admin', d.password || '');
+          }
+        }
+        this.credentialsPushed = true;
+        logger.info(`[Bridge] ✅ All device credentials pushed successfully (attempt ${attempt})`);
+        return;
+      } catch (err: any) {
+        logger.warn(`[Bridge] Attempt ${attempt}/${maxAttempts} — bridge not ready yet, retrying in ${delayMs/1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
+      }
+    }
+    logger.error(`[Bridge] ❌ Could not push device credentials after ${maxAttempts} attempts — bridge may be down`);
+  }
+
+  // Load persisted credentials from JSON and push to bridge (call on startup)
+  async loadAndApplyCredentials(): Promise<void> {
+    try {
+      const config = readAutoRegConfig();
+      if (config.username || config.password) {
+        await axios.post<BridgeResponse>(`${this.bridgeUrl}/api/autoreg/credentials`, config);
+        logger.info(`[AutoReg] Restored platform credentials for username: ${config.username}`);
+      }
+    } catch (error: any) {
+      logger.warn(`[AutoReg] Could not restore credentials to bridge (bridge may not be ready): ${error.message}`);
+    }
+  }
+
+  // Get saved credentials (password masked)
+  getSavedCredentials(): { username: string; passwordSet: boolean } {
+    const config = readAutoRegConfig();
+    return { username: config.username, passwordSet: !!config.password };
   }
 
   async getAllDevices(): Promise<Device[]> {

@@ -45,6 +45,13 @@ namespace NetSDKBridge
         // Track which devices have had their hardware serial fetched this session
         // Cleared when device goes offline, so serial is fetched once per online session
         private readonly ConcurrentDictionary<string, bool> _hasFetchedHardwareSerial = new();
+
+        // Prevent duplicate concurrent login attempts for the same registration ID
+        private readonly ConcurrentDictionary<string, bool> _loginInProgress = new();
+
+        // Per-device credentials: registrationId -> (username, password)
+        // Falls back to _platformUsername/_platformPassword if not found
+        private readonly ConcurrentDictionary<string, (string Username, string Password)> _deviceCredentials = new();
         
         private bool _isInitialized = false;
         private int _autoRegPort = 9500;
@@ -342,6 +349,34 @@ namespace NetSDKBridge
         public string GetServerIP() => _autoRegServerIP;
 
         /// <summary>
+        /// Get current platform username (for display — password is never exposed)
+        /// </summary>
+        public string GetPlatformUsername() => _platformUsername;
+
+        /// <summary>
+        /// Register per-device credentials (overrides platform credentials for that device)
+        /// </summary>
+        public void SetDeviceCredentials(string registrationId, string username, string password)
+        {
+            _deviceCredentials[registrationId] = (username, password);
+            _logger.LogInformation($"[Credentials] Registered credentials for device: {registrationId} (username: {username})");
+        }
+
+        /// <summary>
+        /// Get credentials for a specific device — falls back to platform credentials
+        /// </summary>
+        private (string Username, string Password) GetCredentialsForDevice(string registrationId)
+        {
+            if (_deviceCredentials.TryGetValue(registrationId, out var creds))
+            {
+                _logger.LogInformation($"[Credentials] Using per-device credentials for {registrationId}");
+                return creds;
+            }
+            _logger.LogInformation($"[Credentials] No per-device credentials for {registrationId} — using platform credentials");
+            return (_platformUsername, _platformPassword);
+        }
+
+        /// <summary>
         /// Set server IP address
         /// </summary>
         public void SetServerIP(string ip)
@@ -516,85 +551,70 @@ namespace NetSDKBridge
                 _logger.LogInformation($"   Login ID: {lLoginID}");
                 _logger.LogInformation("=".PadRight(70, '='));
 
-                // Find device by IP and port
-                bool found = false;
-                foreach (var device in _devices.Values)
-                {
-                    if (device.IP == ip && device.Port == nDVRPort)
-                    {
-                        found = true;
-                        _logger.LogInformation($"✅ DEVICE FOUND BY IP+PORT");
-                        _logger.LogInformation($"   Registration ID: {device.DeviceID}");
-                        _logger.LogInformation($"   Previous Status: {device.Status}");
-                        _logger.LogInformation($"   Login Handle: {device.LoginHandle}");
-                        
-                        device.Status = "Offline";
-                        
-                        // Clear login handle
-                        if (device.LoginHandle != 0)
-                        {
-                            _loginHandles.TryRemove(device.LoginHandle, out _);
-                            _logger.LogInformation($"   Login handle cleared");
-                            device.LoginHandle = 0;
-                        }
-
-                        _logger.LogInformation($"   Status changed to: OFFLINE");
-
-                        // Clear hardware serial fetch flag - will fetch again when device comes back online
-                        _hasFetchedHardwareSerial.TryRemove(device.DeviceID, out _);
-                        _logger.LogInformation($"   Cleared hardware serial cache for {device.DeviceID}");
-
-                        DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
-                        {
-                            DeviceID = device.DeviceID,
-                            Status = "Offline",
-                            Timestamp = DateTime.UtcNow
-                        });
-                        break;
-                    }
-                }
-
-                if (!found)
-                {
-                    _logger.LogWarning($"⚠️  DEVICE NOT FOUND by IP+Port");
-                    _logger.LogWarning($"   Searching by login handle instead...");
-                }
-
-                // Also try to find by login handle
+                // PRIMARY: Find device by login handle (reliable, unique per session)
                 if (_loginHandles.TryGetValue(lLoginID.ToInt64(), out var registrationID))
                 {
                     if (_devices.TryGetValue(registrationID, out var deviceByHandle))
                     {
-                        if (deviceByHandle.Status != "Offline")
+                        _logger.LogInformation($"✅ DEVICE FOUND BY LOGIN HANDLE");
+                        _logger.LogInformation($"   Registration ID: {registrationID}");
+                        _logger.LogInformation($"   Previous Status: {deviceByHandle.Status}");
+
+                        deviceByHandle.Status = "Offline";
+                        _loginHandles.TryRemove(lLoginID.ToInt64(), out _);
+                        deviceByHandle.LoginHandle = 0;
+
+                        _logger.LogInformation($"   Status changed to: OFFLINE");
+
+                        // Clear hardware serial fetch flag - will fetch again when device comes back online
+                        _hasFetchedHardwareSerial.TryRemove(registrationID, out _);
+                        _logger.LogInformation($"   Cleared hardware serial cache for {registrationID}");
+
+                        DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
                         {
-                            _logger.LogInformation($"✅ DEVICE FOUND BY LOGIN HANDLE");
-                            _logger.LogInformation($"   Registration ID: {registrationID}");
-                            _logger.LogInformation($"   Previous Status: {deviceByHandle.Status}");
-                            
-                            deviceByHandle.Status = "Offline";
-                            _loginHandles.TryRemove(lLoginID.ToInt64(), out _);
-                            deviceByHandle.LoginHandle = 0;
+                            DeviceID = registrationID,
+                            Status = "Offline",
+                            Timestamp = DateTime.UtcNow
+                        });
+                    }
+                }
+                else
+                {
+                    // FALLBACK: Find device by IP and port (may be unreliable when multiple devices share same NAT IP)
+                    _logger.LogWarning($"⚠️  Login handle {lLoginID} not found — falling back to IP+Port lookup");
+                    bool found = false;
+                    foreach (var device in _devices.Values)
+                    {
+                        if (device.IP == ip && device.Port == nDVRPort && device.LoginHandle != 0)
+                        {
+                            found = true;
+                            _logger.LogInformation($"✅ DEVICE FOUND BY IP+PORT");
+                            _logger.LogInformation($"   Registration ID: {device.DeviceID}");
+                            _logger.LogInformation($"   Previous Status: {device.Status}");
+
+                            device.Status = "Offline";
+                            _loginHandles.TryRemove(device.LoginHandle, out _);
+                            device.LoginHandle = 0;
 
                             _logger.LogInformation($"   Status changed to: OFFLINE");
 
-                            // Clear hardware serial fetch flag - will fetch again when device comes back online
-                            _hasFetchedHardwareSerial.TryRemove(registrationID, out _);
-                            _logger.LogInformation($"   Cleared hardware serial cache for {registrationID}");
+                            _hasFetchedHardwareSerial.TryRemove(device.DeviceID, out _);
+                            _logger.LogInformation($"   Cleared hardware serial cache for {device.DeviceID}");
 
                             DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
                             {
-                                DeviceID = registrationID,
+                                DeviceID = device.DeviceID,
                                 Status = "Offline",
                                 Timestamp = DateTime.UtcNow
                             });
+                            break;
                         }
                     }
-                }
 
-                if (!found && string.IsNullOrEmpty(registrationID))
-                {
-                    _logger.LogWarning($"❌ DEVICE NOT FOUND in registry");
-                    _logger.LogWarning($"   This may be a device that was already removed");
+                    if (!found)
+                    {
+                        _logger.LogWarning($"❌ DEVICE NOT FOUND in registry — may have already been removed");
+                    }
                 }
             }
             catch (Exception ex)
@@ -608,20 +628,38 @@ namespace NetSDKBridge
             string ip = Marshal.PtrToStringAnsi(pchDVRIP) ?? "Unknown";
             _logger.LogInformation($"🔄 Device reconnected: {ip}");
 
-            foreach (var device in _devices.Values)
+            // Prefer login handle lookup over IP (multiple devices may share same NAT IP)
+            if (_loginHandles.TryGetValue(lLoginID.ToInt64(), out var registrationID) &&
+                _devices.TryGetValue(registrationID, out var deviceByHandle))
             {
-                if (device.IP == ip)
-                {
-                    device.Status = "Online";
-                    device.LoginTime = DateTime.UtcNow;
+                deviceByHandle.Status = "Online";
+                deviceByHandle.LoginTime = DateTime.UtcNow;
 
-                    DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
+                DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
+                {
+                    DeviceID = deviceByHandle.DeviceID,
+                    Status = "Online",
+                    Timestamp = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                // Fallback: match by IP (only reliable when single device per IP)
+                foreach (var device in _devices.Values)
+                {
+                    if (device.IP == ip)
                     {
-                        DeviceID = device.DeviceID,
-                        Status = "Online",
-                        Timestamp = DateTime.UtcNow
-                    });
-                    break;
+                        device.Status = "Online";
+                        device.LoginTime = DateTime.UtcNow;
+
+                        DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
+                        {
+                            DeviceID = device.DeviceID,
+                            Status = "Online",
+                            Timestamp = DateTime.UtcNow
+                        });
+                        break;
+                    }
                 }
             }
         }
@@ -736,19 +774,33 @@ namespace NetSDKBridge
                         }
                         else
                         {
-                            // New device - queue it for login
+                            // New device - queue it for login (guard against duplicates)
                             _logger.LogInformation($"✅ NEW DEVICE DETECTED");
                             _logger.LogInformation($"   Registration ID: {registrationID}");
                             _logger.LogInformation($"   Device IP: {ip}");
                             _logger.LogInformation($"   Device Port: {wPort}");
                             _logger.LogInformation($"   Action: Starting login process...");
-                            
-                            // Start login process in background
-                            _ = Task.Run(async () =>
+
+                            if (_loginInProgress.TryAdd(registrationID, true))
                             {
-                                await Task.Delay(100); // Small delay to ensure device is ready
-                                await LoginAutoRegDevice(registrationID, ip, wPort);
-                            });
+                                // Start login process in background
+                                _ = Task.Run(async () =>
+                                {
+                                    try
+                                    {
+                                        await Task.Delay(200); // Small delay to ensure device is ready
+                                        await LoginAutoRegDevice(registrationID, ip, wPort);
+                                    }
+                                    finally
+                                    {
+                                        _loginInProgress.TryRemove(registrationID, out _);
+                                    }
+                                });
+                            }
+                            else
+                            {
+                                _logger.LogInformation($"⏳ Login already in progress for {registrationID} — skipping duplicate");
+                            }
                         }
                         break;
 
@@ -847,13 +899,27 @@ namespace NetSDKBridge
                             }
                             else
                             {
-                                // New device - queue it for login
+                                // New device - queue it for login (guard against duplicates)
                                 _logger.LogInformation($"✅ NEW DEVICE DETECTED (Type 5)");
-                                _ = Task.Run(async () =>
+                                if (_loginInProgress.TryAdd(registrationID, true))
                                 {
-                                    await Task.Delay(100);
-                                    await LoginAutoRegDevice(registrationID, ip, wPort);
-                                });
+                                    _ = Task.Run(async () =>
+                                    {
+                                        try
+                                        {
+                                            await Task.Delay(200);
+                                            await LoginAutoRegDevice(registrationID, ip, wPort);
+                                        }
+                                        finally
+                                        {
+                                            _loginInProgress.TryRemove(registrationID, out _);
+                                        }
+                                    });
+                                }
+                                else
+                                {
+                                    _logger.LogInformation($"⏳ Login already in progress for {registrationID} (Type 5) — skipping duplicate");
+                                }
                             }
                         }
                         else
@@ -931,8 +997,12 @@ namespace NetSDKBridge
                 _logger.LogInformation($"   Registration ID: {registrationID}");
                 _logger.LogInformation($"   Device IP: {ip}");
                 _logger.LogInformation($"   Device Port: {port}");
-                _logger.LogInformation($"   Platform Username: {_platformUsername}");
-                _logger.LogInformation($"   Platform Password: [HIDDEN]");
+
+                // Resolve credentials — per-device takes priority over global platform credentials
+                var (username, password) = GetCredentialsForDevice(registrationID);
+
+                _logger.LogInformation($"   Username: {username}");
+                _logger.LogInformation($"   Password: [HIDDEN]");
                 _logger.LogInformation($"   Login Mode: SERVER_CONN (required for auto-reg)");
                 _logger.LogInformation("=".PadRight(70, '='));
 
@@ -947,8 +1017,8 @@ namespace NetSDKBridge
                 IntPtr loginID = NETClient.LoginWithHighLevelSecurity(
                     ip, 
                     port, 
-                    _platformUsername, 
-                    _platformPassword,
+                    username, 
+                    password,
                     EM_LOGIN_SPAC_CAP_TYPE.SERVER_CONN, // MUST use SERVER_CONN for auto-reg
                     pParam, 
                     ref deviceInfo
@@ -966,11 +1036,20 @@ namespace NetSDKBridge
                     _logger.LogError($"   Device IP: {ip}");
                     _logger.LogError($"   Error Code: {error}");
                     _logger.LogError($"   Troubleshooting:");
-                    _logger.LogError($"     1. Check if device username/password match server credentials");
-                    _logger.LogError($"     2. Check if device Registration ID matches what server expects");
-                    _logger.LogError($"     3. Check if device is on same network");
-                    _logger.LogError($"     4. Check firewall settings");
+                    _logger.LogError($"     1. Check if device username/password match the platform credentials (POST /api/autoreg/credentials)");
+                    _logger.LogError($"     2. Check if device Registration ID matches what is configured on the device");
+                    _logger.LogError($"     3. Check Windows Firewall — ensure port {_autoRegPort} is open inbound");
+                    _logger.LogError($"     4. If device is behind NAT, ensure router port-forwards {_autoRegPort} to this server");
                     _logger.LogError("=".PadRight(70, '='));
+
+                    // On account-locked or wrong-password: mark device so we don't keep hammering it
+                    var errorStr = error?.ToLower() ?? "";
+                    if (errorStr.Contains("locked") || errorStr.Contains("password"))
+                    {
+                        _logger.LogError($"🔒 FATAL AUTH ERROR for {registrationID} — will not retry until credentials are updated.");
+                        _logger.LogError($"   ➜ Update credentials via POST /api/autoreg/credentials then reconnect the device.");
+                        // Don't TryAdd to _devices — device stays unknown until credentials fixed
+                    }
                     return;
                 }
 

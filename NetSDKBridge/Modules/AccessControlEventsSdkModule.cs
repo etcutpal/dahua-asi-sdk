@@ -207,6 +207,11 @@ namespace NetSDKBridge.Modules
                         HandleMaliciousOpeningEvent(pBuf, dwBufLen, deviceId, ip);
                         break;
 
+                    case (EM_ALARM_TYPE)0x3491:
+                        // Undocumented event fired by device after face data upload (face processing status)
+                        // Intentionally silenced — not an access control event
+                        break;
+
                     default:
                         _logger.LogDebug($"Unhandled alarm event type: {eventType} (0x{lCommand:X}) from {ip}");
                         break;

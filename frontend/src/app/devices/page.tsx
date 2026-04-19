@@ -71,28 +71,26 @@ export default function DeviceManagementPage() {
       if (data.success) {
         const storedDevices = data.devices || [];
 
-        // Auto-populate IP and Serial from connected devices
+        // Auto-populate Serial from connected devices (do NOT overwrite user-set local IP with NAT IP)
         const updatedDevices = storedDevices.map((device: any) => {
           const connectedDevice = connectedDevices.find(
             (d: any) => d.serialNumber === device.registrationId || d.deviceID === device.registrationId
           );
 
           if (connectedDevice && connectedDevice.status === 'Online') {
-            const newIp = connectedDevice.ip || device.ip;
             const newSerial = (connectedDevice as any).serialNumber || device.serial;
 
-            if (newIp !== device.ip || newSerial !== device.serial) {
+            if (newSerial !== device.serial) {
               fetch(`${API_URL}/api/devices/${device.deviceId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  ip: newIp,
                   serial: newSerial,
                   updatedAt: new Date().toISOString()
                 })
-              }).catch(err => console.error('Failed to update device IP/Serial:', err));
+              }).catch(err => console.error('Failed to update device Serial:', err));
 
-              return { ...device, ip: newIp, serial: newSerial };
+              return { ...device, serial: newSerial };
             }
           }
 
@@ -325,7 +323,7 @@ export default function DeviceManagementPage() {
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Device ID</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Name</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Registration ID</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">IP Address</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Local IP</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Serial</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Status</th>
                       <th className="text-left py-3 px-4 text-sm font-medium text-gray-500">Actions</th>
@@ -349,7 +347,10 @@ export default function DeviceManagementPage() {
                             <span className="text-sm font-mono text-gray-600">{device.registrationId}</span>
                           </td>
                           <td className="py-3 px-4">
-                            <span className="text-sm font-mono text-gray-500">{device.ip || <span className="text-gray-300 italic">Auto-detected</span>}</span>
+                            {device.ip
+                              ? <span className="text-sm font-mono text-gray-600">{device.ip}</span>
+                              : <span className="text-gray-300 italic text-sm">Not set</span>
+                            }
                           </td>
                           <td className="py-3 px-4">
                             <span className="text-sm font-mono text-gray-500">{device.serial || <span className="text-gray-300 italic">Auto-detected</span>}</span>

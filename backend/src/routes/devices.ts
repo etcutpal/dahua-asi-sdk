@@ -117,6 +117,10 @@ router.get('/:deviceId', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const device = await deviceService.create(req.body);
+    // Push this device's credentials to bridge immediately
+    if (device.registrationId) {
+      await netSdkService.pushDeviceCredentials(device.registrationId, device.username || 'admin', device.password || '');
+    }
     res.status(201).json({ success: true, device });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });
@@ -127,6 +131,10 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:deviceId', async (req: Request, res: Response) => {
   try {
     const device = await deviceService.update(req.params.deviceId, req.body);
+    // Push updated credentials to bridge if username/password changed
+    if (device.registrationId && (req.body.username !== undefined || req.body.password !== undefined)) {
+      await netSdkService.pushDeviceCredentials(device.registrationId, device.username || 'admin', device.password || '');
+    }
     res.json({ success: true, device });
   } catch (error: any) {
     if (error.message === 'Device not found') {

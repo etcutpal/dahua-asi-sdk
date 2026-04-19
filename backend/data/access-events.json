@@ -1,182 +1,6 @@
 {
   "events": [
     {
-      "id": "1776101172268-6by1cz6c6",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:26:16Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:26:12.268Z"
-    },
-    {
-      "id": "1776101173293-hjcoobbta",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:26:20Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:26:13.293Z"
-    },
-    {
-      "id": "1776101206499-jlagiidnd",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:26:51Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:26:46.499Z"
-    },
-    {
-      "id": "1776101207932-5ocuhlrc4",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:26:54Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:26:47.932Z"
-    },
-    {
-      "id": "1776101215746-e3gjiuks6",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:27:00Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:26:55.746Z"
-    },
-    {
-      "id": "1776101228640-6vubz4ph3",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:27:13Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:27:08.640Z"
-    },
-    {
-      "id": "1776101244475-bbn4nz2zp",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:27:29Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:27:24.475Z"
-    },
-    {
-      "id": "1776101296024-bba162507",
-      "type": "access_control_event_sdk",
-      "deviceId": "ASI12",
-      "timestamp": "2026-04-13T17:28:20Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-13T17:28:16.024Z"
-    },
-    {
       "id": "1776101810180-qnojkfa9z",
       "type": "access_control_event_sdk",
       "deviceId": "ASI12",
@@ -2199,8 +2023,180 @@
         "source": "SDK_STARTLISTEN"
       },
       "storedAt": "2026-04-18T19:33:36.821Z"
+    },
+    {
+      "id": "1776595692989-xpuxvxjk4",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-19T10:48:12Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-19T10:48:12.989Z"
+    },
+    {
+      "id": "1776595772505-t83gn1224",
+      "type": "access_control_event",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-19T10:49:33Z",
+      "data": {
+        "eventType": "Face",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": false,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 16,
+        "temperature": null,
+        "hasSnapshot": true,
+        "snapshotSize": 38295
+      },
+      "storedAt": "2026-04-19T10:49:32.505Z"
+    },
+    {
+      "id": "1776595772512-pgblxin8g",
+      "type": "access_control_event",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-19T10:49:34Z",
+      "data": {
+        "eventType": "Face",
+        "userId": "API322",
+        "cardNumber": "",
+        "cardName": "mahbub",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "temperature": null,
+        "hasSnapshot": true,
+        "snapshotSize": 57547
+      },
+      "storedAt": "2026-04-19T10:49:32.513Z"
+    },
+    {
+      "id": "1776596533923-o7y4drm2r",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI11",
+      "timestamp": "2026-04-19T11:02:13Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-19T11:02:13.923Z"
+    },
+    {
+      "id": "1776596997819-hnl019zal",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-19T11:09:57Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-19T11:09:57.819Z"
+    },
+    {
+      "id": "1776597471006-e3c79fp4o",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI11",
+      "timestamp": "2026-04-19T11:17:50Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-19T11:17:51.006Z"
+    },
+    {
+      "id": "1776597668592-d0zl1n7di",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI12",
+      "timestamp": "2026-04-19T11:21:08Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-19T11:21:08.592Z"
+    },
+    {
+      "id": "1776597676168-w73eyrjgh",
+      "type": "access_control_event_sdk",
+      "deviceId": "ASI11",
+      "timestamp": "2026-04-19T11:21:14Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-19T11:21:16.168Z"
     }
   ],
-  "lastUpdated": "2026-04-18T19:33:36.821Z",
+  "lastUpdated": "2026-04-19T11:21:16.168Z",
   "count": 100
 }

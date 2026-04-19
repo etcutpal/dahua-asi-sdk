@@ -37,4 +37,27 @@ router.get('/status', (req: Request, res: Response) => {
   });
 });
 
+// Get saved platform credentials (username only, password masked)
+router.get('/credentials', (req: Request, res: Response) => {
+  try {
+    const saved = netSdkService.getSavedCredentials();
+    res.json({ success: true, ...saved });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Set platform credentials — saved to JSON + pushed to bridge
+router.post('/credentials', async (req: Request, res: Response) => {
+  try {
+    const { username, password } = req.body;
+    if (!username) return res.status(400).json({ error: 'username is required' });
+    const result = await netSdkService.setPlatformCredentials(username, password || '');
+    res.json({ success: true, message: 'Credentials saved', username });
+  } catch (error: any) {
+    logger.error('Error setting platform credentials:', error);
+    res.status(500).json({ error: error.message || 'Failed to set credentials' });
+  }
+});
+
 export default router;

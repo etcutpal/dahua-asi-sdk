@@ -107,11 +107,74 @@ namespace NetSDKBridge
                 }
             });
 
+            // Set platform credentials (username/password used to log in to auto-registered devices)
+            _app.MapPost("/api/autoreg/credentials", async context =>
+            {
+                try
+                {
+                    var json = await System.Text.Json.JsonSerializer.DeserializeAsync<PlatformCredentialsRequest>(context.Request.Body,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (json == null || string.IsNullOrEmpty(json.Username))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "username is required" });
+                        return;
+                    }
+                    _sdkService.SetPlatformCredentials(json.Username, json.Password ?? "");
+                    _logger.LogInformation($"[API] Platform credentials updated — Username: {json.Username}");
+                    await context.Response.WriteAsJsonAsync(new { success = true, message = "Credentials updated", username = json.Username });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
+            // Get current platform credentials (username only, password hidden)
+            _app.MapGet("/api/autoreg/credentials", async context =>
+            {
+                try
+                {
+                    var username = _sdkService.GetPlatformUsername();
+                    await context.Response.WriteAsJsonAsync(new { success = true, username = username });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
             // Get all devices
             _app.MapGet("/api/devices", context =>
             {
                 var devices = _sdkService.GetAllDevices();
                 return context.Response.WriteAsJsonAsync(devices);
+            });
+
+            // Register per-device credentials (registrationId, username, password)
+            _app.MapPost("/api/devices/credentials", async context =>
+            {
+                try
+                {
+                    var json = await System.Text.Json.JsonSerializer.DeserializeAsync<DeviceCredentialsRequest>(context.Request.Body,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (json == null || string.IsNullOrEmpty(json.RegistrationId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "registrationId is required" });
+                        return;
+                    }
+                    _sdkService.SetDeviceCredentials(json.RegistrationId, json.Username ?? "admin", json.Password ?? "");
+                    _logger.LogInformation($"[API] Per-device credentials set for: {json.RegistrationId}");
+                    await context.Response.WriteAsJsonAsync(new { success = true, message = "Device credentials registered", registrationId = json.RegistrationId });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
             });
 
             // Get specific device
@@ -523,6 +586,19 @@ namespace NetSDKBridge
     public class StartAutoRegRequest
     {
         public int Port { get; set; } = 9500;
+    }
+
+    public class PlatformCredentialsRequest
+    {
+        public string Username { get; set; } = "admin";
+        public string Password { get; set; } = string.Empty;
+    }
+
+    public class DeviceCredentialsRequest
+    {
+        public string RegistrationId { get; set; } = string.Empty;
+        public string Username { get; set; } = "admin";
+        public string Password { get; set; } = string.Empty;
     }
 
     public class LoginRequest

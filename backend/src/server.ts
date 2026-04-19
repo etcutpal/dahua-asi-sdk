@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import logger from './utils/logger';
 import netSdkService from './services/netSdkService';
 import personService from './services/person.service';
+import deviceService from './services/device.service';
 import AccessRecordService from './services/accessRecordService';
 import devicesRouter from './routes/devices';
 import autoregRouter from './routes/autoreg';
@@ -142,6 +143,15 @@ async function startServer() {
   try {
     // Initialize NetSDK Service
     await netSdkService.initialize();
+
+    // Restore persisted auto-reg platform credentials to bridge
+    await netSdkService.loadAndApplyCredentials();
+
+    // Push all stored device credentials to bridge (with retry — bridge may not be ready yet)
+    const storedDevices = await deviceService.getAll();
+    netSdkService.pushAllDeviceCredentialsWithRetry(
+      storedDevices.map(d => ({ registrationId: d.registrationId, username: d.username, password: d.password }))
+    ).catch((e: any) => logger.warn(`[Startup] Credential push background task failed: ${e.message}`));
 
     // Initialize Person Service
     await personService.initialize();
