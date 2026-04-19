@@ -138,6 +138,9 @@ namespace NetSDKBridge
             return "127.0.0.1";
         }
 
+        // Dahua NetSDK DLL is NOT thread-safe. All direct SDK calls MUST be serialized.
+        private readonly SemaphoreSlim _sdkSemaphore = new SemaphoreSlim(1, 1);
+
         // Platform credentials that devices use to authenticate
         // These MUST match what's configured on the devices
         private string _platformUsername = "admin";
@@ -1351,6 +1354,8 @@ namespace NetSDKBridge
         /// </summary>
         public async Task<List<AccessRecordResult>> QueryAccessRecordsBySDK(string deviceId, DateTime? startTime = null, DateTime? endTime = null, string cardNumber = null, int maxRecords = 100)
         {
+            // Serialize all SDK calls — Dahua NetSDK DLL is NOT thread-safe
+            await _sdkSemaphore.WaitAsync();
             try
             {
                 var device = GetDevice(deviceId);
@@ -1542,6 +1547,10 @@ namespace NetSDKBridge
             {
                 _logger.LogError(ex, $"Error querying access records via SDK for device {deviceId}");
                 return new List<AccessRecordResult>();
+            }
+            finally
+            {
+                _sdkSemaphore.Release();
             }
         }
 
@@ -2052,6 +2061,443 @@ namespace NetSDKBridge
         }
 
         /// <summary>
+        /// Fetch all users stored on a device using the StartFindUserInfo / DoFindUserInfo SDK API.
+        /// Works over TCP (auto-registration connection) — no direct IP access needed.
+        /// </summary>
+        public Task<(List<DeviceUserResult> Users, string Error)> GetAllUsersFromDeviceAsync(string deviceId)
+        {
+            return Task.FromResult(GetAllUsersFromDevice(deviceId));
+        }
+
+        /// <summary>
+        /// Fetch card number + face image for a single user on a device.
+        /// Card: StartFindCardInfo / DoFindCardInfo filtered by userID.
+        /// Face: FaceInfoOpreate(GET) with pre-allocated photo buffers.
+        /// </summary>
+        public Task<(DeviceUserDetails Details, string Error)> GetUserDetailsFromDeviceAsync(string deviceId, string userId)
+        {
+            return Task.FromResult(GetUserDetailsFromDevice(deviceId, userId));
+        }
+
+        private (DeviceUserDetails Details, string Error) GetUserDetailsFromDevice(string deviceId, string userId)
+        {
+            var details = new DeviceUserDetails { UserID = userId };
+
+            _sdkSemaphore.Wait();
+            try
+            {
+                if (!_devices.TryGetValue(deviceId, out var device) || device.LoginHandle == 0)
+                    return (details, "Device not found or not logged in");
+
+                var loginHandle = new IntPtr(device.LoginHandle);
+
+                // ── 1. Query user info for password ──────────────────────────
+                try
+                {
+                    var userStartIn = new NET_IN_USERINFO_START_FIND
+                    {
+                        dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_USERINFO_START_FIND)),
+                        szUserID = userId
+                    };
+                    var userStartOut = new NET_OUT_USERINFO_START_FIND
+                    {
+                        dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_USERINFO_START_FIND))
+                    };
+                    IntPtr userFindHandle = NETClient.StartFindUserInfo(loginHandle, ref userStartIn, ref userStartOut, 5000);
+                    if (userFindHandle != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            int userInfoSize = Marshal.SizeOf(typeof(NET_ACCESS_USER_INFO));
+                            IntPtr userBuf = Marshal.AllocHGlobal(userInfoSize);
+                            try
+                            {
+                                var defaultUser = new NET_ACCESS_USER_INFO();
+                                Marshal.StructureToPtr(defaultUser, userBuf, false);
+                                var userDoIn = new NET_IN_USERINFO_DO_FIND
+                                {
+                                    dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_USERINFO_DO_FIND)),
+                                    nStartNo = 0,
+                                    nCount = 1
+                                };
+                                var userDoOut = new NET_OUT_USERINFO_DO_FIND
+                                {
+                                    dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_USERINFO_DO_FIND)),
+                                    nMaxNum = 1,
+                                    pstuInfo = userBuf,
+                                    byReserved = new byte[4]
+                                };
+                                bool userOk = NETClient.DoFindUserInfo(userFindHandle, ref userDoIn, ref userDoOut, 5000);
+                                if (userOk && userDoOut.nRetNum > 0)
+                                {
+                                    var userInfo = (NET_ACCESS_USER_INFO)Marshal.PtrToStructure(userBuf, typeof(NET_ACCESS_USER_INFO));
+                                    details.Password = userInfo.szPsw?.Trim() ?? "";
+                                }
+                            }
+                            finally { Marshal.FreeHGlobal(userBuf); }
+                        }
+                        finally { NETClient.StopFindUserInfo(userFindHandle); }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"[UserDetails] Password query failed for {userId}: {ex.Message}");
+                }
+
+                // ── 2. Query all cards (up to 5) ──────────────────────────────
+                try
+                {
+                    var cardStartIn = new NET_IN_CARDINFO_START_FIND
+                    {
+                        dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_CARDINFO_START_FIND)),
+                        szUserID = userId
+                    };
+                    var cardStartOut = new NET_OUT_CARDINFO_START_FIND
+                    {
+                        dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_CARDINFO_START_FIND))
+                    };
+
+                    IntPtr cardFindHandle = NETClient.StartFindCardInfo(loginHandle, ref cardStartIn, ref cardStartOut, 5000);
+                    if (cardFindHandle != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            int maxCards = 5;
+                            int cardInfoSize = Marshal.SizeOf(typeof(NET_ACCESS_CARD_INFO));
+                            IntPtr cardBuf = Marshal.AllocHGlobal(cardInfoSize * maxCards);
+                            try
+                            {
+                                // Zero-init to prevent SDK reading garbage pointer fields
+                                var defaultCard = new NET_ACCESS_CARD_INFO();
+                                for (int i = 0; i < maxCards; i++)
+                                    Marshal.StructureToPtr(defaultCard, IntPtr.Add(cardBuf, cardInfoSize * i), false);
+
+                                int fetched = 0;
+                                while (fetched < maxCards)
+                                {
+                                    int want = Math.Min(maxCards - fetched, maxCards);
+                                    var cardDoIn = new NET_IN_CARDINFO_DO_FIND
+                                    {
+                                        dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_CARDINFO_DO_FIND)),
+                                        nStartNo = fetched,
+                                        nCount = want
+                                    };
+                                    var cardDoOut = new NET_OUT_CARDINFO_DO_FIND
+                                    {
+                                        dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_CARDINFO_DO_FIND)),
+                                        nMaxNum = want,
+                                        pstuInfo = cardBuf,
+                                        byReserved = new byte[4]
+                                    };
+                                    bool cardOk = NETClient.DoFindCardInfo(cardFindHandle, ref cardDoIn, ref cardDoOut, 5000);
+                                    if (!cardOk || cardDoOut.nRetNum <= 0) break;
+                                    for (int i = 0; i < cardDoOut.nRetNum; i++)
+                                    {
+                                        var card = (NET_ACCESS_CARD_INFO)Marshal.PtrToStructure(
+                                            IntPtr.Add(cardBuf, cardInfoSize * i), typeof(NET_ACCESS_CARD_INFO));
+                                        var cardNo = card.szCardNo?.Trim() ?? "";
+                                        if (!string.IsNullOrEmpty(cardNo))
+                                            details.CardNumbers.Add(cardNo);
+                                    }
+                                    fetched += cardDoOut.nRetNum;
+                                    if (cardDoOut.nRetNum < want) break;
+                                }
+                            }
+                            finally
+                            {
+                                Marshal.FreeHGlobal(cardBuf);
+                            }
+                        }
+                        finally
+                        {
+                            NETClient.StopFindCardInfo(cardFindHandle);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"[UserDetails] Card query failed for {userId}: {ex.Message}");
+                }
+
+                // ── 3. Query fingerprints (up to 5) ──────────────────────────
+                try
+                {
+                    // Each fingerprint template is typically ~500 bytes; allocate 5*2KB = 10KB
+                    const int FP_BUF_SIZE = 5 * 2048;
+                    IntPtr fpBuf = Marshal.AllocHGlobal(FP_BUF_SIZE);
+                    try
+                    {
+                        // Zero-init
+                        for (int i = 0; i < FP_BUF_SIZE; i++)
+                            Marshal.WriteByte(fpBuf, i, 0);
+
+                        bool fpOk = NETClient.GetOperateAccessFingerprintService(
+                            loginHandle, userId, fpBuf, FP_BUF_SIZE,
+                            out NET_ACCESS_FINGERPRINT_INFO fpResult, 10000);
+
+                        if (fpOk && fpResult.nPacketNum > 0 && fpResult.nPacketLen > 0)
+                        {
+                            int count = Math.Min(fpResult.nPacketNum, 5);
+                            int pktLen = fpResult.nPacketLen;
+                            for (int i = 0; i < count; i++)
+                            {
+                                int offset = i * pktLen;
+                                if (offset + pktLen > FP_BUF_SIZE) break;
+                                byte[] fpBytes = new byte[pktLen];
+                                Marshal.Copy(IntPtr.Add(fpBuf, offset), fpBytes, 0, pktLen);
+                                details.Fingerprints.Add(new DeviceFingerprintData
+                                {
+                                    Index = i,
+                                    DataBase64 = Convert.ToBase64String(fpBytes),
+                                    PacketLen = pktLen,
+                                    PacketCount = count
+                                });
+                            }
+                        }
+                    }
+                    finally { Marshal.FreeHGlobal(fpBuf); }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"[UserDetails] Fingerprint query failed for {userId}: {ex.Message}");
+                }
+
+                // ── 4. Query face image ────────────────────────────────────────
+                const int MAX_PHOTO_SIZE = 200 * 1024; // 200 KB per photo
+                IntPtr pstInParam = IntPtr.Zero;
+                IntPtr pstOutParam = IntPtr.Zero;
+                IntPtr[] photoBuffers = new IntPtr[5];
+                try
+                {
+                    var faceGetIn = new NET_IN_GET_FACE_INFO
+                    {
+                        dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_GET_FACE_INFO)),
+                        szUserID = userId
+                    };
+                    var faceGetOut = new NET_OUT_GET_FACE_INFO
+                    {
+                        dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_GET_FACE_INFO)),
+                        nInPhotoDataLen = new int[5],
+                        nOutPhotoDataLen = new int[5],
+                        pPhotoData = new IntPtr[5]
+                    };
+
+                    // Allocate photo buffers
+                    for (int i = 0; i < 5; i++)
+                    {
+                        photoBuffers[i] = Marshal.AllocHGlobal(MAX_PHOTO_SIZE);
+                        faceGetOut.nInPhotoDataLen[i] = MAX_PHOTO_SIZE;
+                        faceGetOut.pPhotoData[i] = photoBuffers[i];
+                    }
+
+                    pstInParam = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_IN_GET_FACE_INFO)));
+                    pstOutParam = Marshal.AllocHGlobal(Marshal.SizeOf(typeof(NET_OUT_GET_FACE_INFO)));
+                    Marshal.StructureToPtr(faceGetIn, pstInParam, false);
+                    Marshal.StructureToPtr(faceGetOut, pstOutParam, false);
+
+                    bool faceOk = NETClient.FaceInfoOpreate(loginHandle, EM_FACEINFO_OPREATE_TYPE.GET, pstInParam, pstOutParam, 10000);
+                    if (faceOk)
+                    {
+                        var resultOut = (NET_OUT_GET_FACE_INFO)Marshal.PtrToStructure(pstOutParam, typeof(NET_OUT_GET_FACE_INFO));
+                        if (resultOut.nPhotoData > 0 && resultOut.nOutPhotoDataLen[0] > 0)
+                        {
+                            int photoLen = resultOut.nOutPhotoDataLen[0];
+                            byte[] photoBytes = new byte[photoLen];
+                            Marshal.Copy(resultOut.pPhotoData[0], photoBytes, 0, photoLen);
+                            details.FaceImageBase64 = Convert.ToBase64String(photoBytes);
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogDebug($"[UserDetails] No face found for user {userId}: {NETClient.GetLastError()}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning($"[UserDetails] Face query failed for {userId}: {ex.Message}");
+                }
+                finally
+                {
+                    if (pstInParam != IntPtr.Zero) Marshal.FreeHGlobal(pstInParam);
+                    if (pstOutParam != IntPtr.Zero) Marshal.FreeHGlobal(pstOutParam);
+                    for (int i = 0; i < 5; i++)
+                        if (photoBuffers[i] != IntPtr.Zero) Marshal.FreeHGlobal(photoBuffers[i]);
+                }
+
+                return (details, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[UserDetails] Exception for device {deviceId} user {userId}");
+                return (details, $"Exception: {ex.Message}");
+            }
+            finally
+            {
+                _sdkSemaphore.Release();
+            }
+        }
+
+        private (List<DeviceUserResult> Users, string Error) GetAllUsersFromDevice(string deviceId)
+        {
+            var results = new List<DeviceUserResult>();
+            IntPtr findHandle = IntPtr.Zero;
+            IntPtr outBuffer = IntPtr.Zero;
+
+            // Serialize all SDK calls — Dahua NetSDK DLL is NOT thread-safe
+            _sdkSemaphore.Wait();
+            try
+            {
+                if (!_devices.TryGetValue(deviceId, out var device))
+                    return (results, "Device not found");
+
+                if (device.LoginHandle == 0)
+                    return (results, "Device not logged in");
+
+                var loginHandle = new IntPtr(device.LoginHandle);
+
+                _logger.LogInformation($"[ImportUsers] Starting user query for device {deviceId}");
+
+                // Step 1: Open find handle — empty szUserID means "query all users"
+                var startIn = new NET_IN_USERINFO_START_FIND
+                {
+                    dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_USERINFO_START_FIND))
+                };
+                var startOut = new NET_OUT_USERINFO_START_FIND
+                {
+                    dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_USERINFO_START_FIND))
+                };
+
+                findHandle = NETClient.StartFindUserInfo(loginHandle, ref startIn, ref startOut, 5000);
+                if (findHandle == IntPtr.Zero)
+                {
+                    string err = NETClient.GetLastError();
+                    _logger.LogError($"[ImportUsers] StartFindUserInfo failed: {err}");
+                    return (results, $"StartFindUserInfo failed: {err}");
+                }
+
+                int total = startOut.nTotalCount;
+                int capNum = startOut.nCapNum;
+                _logger.LogInformation($"[ImportUsers] TotalCount={total}, CapNum={capNum}");
+
+                // Match the official Dahua demo: use a small fixed batch size (10)
+                // NOT capNum — using capNum can be too large and trigger firmware bugs
+                int batchSize = 10;
+
+                // Allocate buffer once outside the loop — same pattern as official demo
+                int userInfoSize = Marshal.SizeOf(typeof(NET_ACCESS_USER_INFO));
+                outBuffer = Marshal.AllocHGlobal(userInfoSize * batchSize);
+
+                // CRITICAL: Zero-initialize every slot in the output buffer.
+                // NET_ACCESS_USER_INFO contains IntPtr fields (pstuFloorsEx2, pstuUserInfoEx,
+                // pstuUserInfoEx2). If those are garbage from AllocHGlobal, the SDK will
+                // dereference them when filling in extended data → AccessViolationException.
+                // The official Dahua demo uses Marshal.StructureToPtr on each slot for the same reason.
+                var defaultUserInfo = new NET_ACCESS_USER_INFO();
+                for (int idx = 0; idx < batchSize; idx++)
+                    Marshal.StructureToPtr(defaultUserInfo, IntPtr.Add(outBuffer, userInfoSize * idx), false);
+
+                // Build the find-in and find-out structs once, mutate nStartNo in the loop
+                var stuFindIn = new NET_IN_USERINFO_DO_FIND
+                {
+                    dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_USERINFO_DO_FIND)),
+                    nCount = batchSize
+                };
+                var stuFindOut = new NET_OUT_USERINFO_DO_FIND
+                {
+                    dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_USERINFO_DO_FIND)),
+                    nMaxNum = batchSize,
+                    pstuInfo = outBuffer,
+                    byReserved = new byte[4]  // must not be null for ref-struct marshal
+                };
+
+                int startNo = 0;
+                while (true)
+                {
+                    stuFindIn.nStartNo = startNo;
+                    stuFindOut.nRetNum = 0;          // reset before each call
+                    stuFindOut.pstuInfo = outBuffer; // ensure pointer is always set
+
+                    // Re-initialize buffer slots so IntPtr fields are null (prevents SDK AV on extended fields)
+                    for (int idx = 0; idx < batchSize; idx++)
+                        Marshal.StructureToPtr(defaultUserInfo, IntPtr.Add(outBuffer, userInfoSize * idx), false);
+
+                    bool ok = NETClient.DoFindUserInfo(findHandle, ref stuFindIn, ref stuFindOut, 5000);
+
+                    // Stop when SDK returns false OR returns zero records
+                    if (!ok || stuFindOut.nRetNum <= 0)
+                    {
+                        if (!ok)
+                            _logger.LogInformation($"[ImportUsers] DoFindUserInfo returned false (no more records). Error: {NETClient.GetLastError()}");
+                        break;
+                    }
+
+                    _logger.LogInformation($"[ImportUsers] Batch startNo={startNo}, returned {stuFindOut.nRetNum} users");
+
+                    for (int i = 0; i < stuFindOut.nRetNum; i++)
+                    {
+                        IntPtr ptr = IntPtr.Add(outBuffer, userInfoSize * i);
+                        var u = (NET_ACCESS_USER_INFO)Marshal.PtrToStructure(ptr, typeof(NET_ACCESS_USER_INFO));
+
+                        string userTypeStr = u.emUserType switch
+                        {
+                            EM_USER_TYPE.NORMAL    => "Normal",
+                            EM_USER_TYPE.BLACKLIST => "Blacklist",
+                            EM_USER_TYPE.GUEST     => "Guest",
+                            EM_USER_TYPE.PATROL    => "Patrol",
+                            EM_USER_TYPE.VIP       => "VIP",
+                            EM_USER_TYPE.HANDICAP  => "Handicap",
+                            EM_USER_TYPE.CUSTOM1   => "Custom1",
+                            EM_USER_TYPE.CUSTOM2   => "Custom2",
+                            _ => "Unknown"
+                        };
+
+                        results.Add(new DeviceUserResult
+                        {
+                            UserID     = u.szUserID?.Trim() ?? "",
+                            Name       = u.szName?.Trim() ?? "",
+                            UserType   = userTypeStr,
+                            UserStatus = (int)u.nUserStatus,
+                            ValidBegin = $"{u.stuValidBeginTime.dwYear:D4}-{u.stuValidBeginTime.dwMonth:D2}-{u.stuValidBeginTime.dwDay:D2}",
+                            ValidEnd   = $"{u.stuValidEndTime.dwYear:D4}-{u.stuValidEndTime.dwMonth:D2}-{u.stuValidEndTime.dwDay:D2}",
+                            FirstEnter = u.bFirstEnter
+                        });
+                    }
+
+                    startNo += stuFindOut.nRetNum;
+
+                    // If device told us the total, stop once we have them all
+                    if (total > 0 && startNo >= total)
+                        break;
+
+                    // Safety: if we got fewer records than requested, we've reached the end
+                    if (stuFindOut.nRetNum < batchSize)
+                        break;
+                }
+
+                _logger.LogInformation($"[ImportUsers] Finished — total users retrieved: {results.Count}");
+                return (results, null);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[ImportUsers] Exception for device {deviceId}");
+                return (results, $"Exception: {ex.Message}");
+            }
+            finally
+            {
+                // Always free unmanaged resources — order matters: free buffer before closing handle
+                if (outBuffer != IntPtr.Zero)
+                {
+                    try { Marshal.FreeHGlobal(outBuffer); } catch { }
+                }
+                if (findHandle != IntPtr.Zero)
+                {
+                    try { NETClient.StopFindUserInfo(findHandle); } catch { }
+                }
+                _sdkSemaphore.Release();
+            }
+        }
+
+        /// <summary>
         /// Add person information to access control device
         /// Supports both SDK and CGI methods based on device capability
         /// </summary>
@@ -2230,6 +2676,8 @@ namespace NetSDKBridge
                 FaceAdded = false
             };
 
+            // Serialize all SDK calls — Dahua NetSDK DLL is NOT thread-safe
+            _sdkSemaphore.Wait();
             try
             {
                 string operation = request.IsUpdate ? "UPDATE" : "CREATE";
@@ -2900,6 +3348,10 @@ namespace NetSDKBridge
                 result.Message = result.Error;
                 return result;
             }
+            finally
+            {
+                _sdkSemaphore.Release();
+            }
         }
     }
 
@@ -3066,6 +3518,48 @@ namespace NetSDKBridge
         public bool CardAdded { get; set; }
         public bool FaceAdded { get; set; }
         public string DeviceID { get; set; }
+    }
+
+    /// <summary>
+    /// A single user record fetched from the device via FindUserInfo
+    /// </summary>
+    public class DeviceUserResult
+    {
+        public string UserID { get; set; }
+        public string Name { get; set; }
+        public string UserType { get; set; }
+        public int UserStatus { get; set; }
+        public string ValidBegin { get; set; }
+        public string ValidEnd { get; set; }
+        public bool FirstEnter { get; set; }
+    }
+
+    public class DeviceUserDetails
+    {
+        public string UserID { get; set; }
+        // Password (szPsw from NET_ACCESS_USER_INFO)
+        public string Password { get; set; } = "";
+        // All card numbers (up to 5)
+        public List<string> CardNumbers { get; set; } = new List<string>();
+        // Convenience: first card (backward compat)
+        public string CardNumber => CardNumbers.Count > 0 ? CardNumbers[0] : "";
+        // Fingerprints: each entry is base64-encoded raw biometric packet
+        // PacketLen and PacketCount describe the template format on-device
+        public List<DeviceFingerprintData> Fingerprints { get; set; } = new List<DeviceFingerprintData>();
+        public string FaceImageBase64 { get; set; } // JPEG base64, empty if no face
+        public string FaceImageMimeType { get; set; } = "image/jpeg";
+    }
+
+    public class DeviceFingerprintData
+    {
+        /// <summary>Index 0–4 (order returned by device)</summary>
+        public int Index { get; set; }
+        /// <summary>Raw fingerprint template, base64-encoded</summary>
+        public string DataBase64 { get; set; }
+        /// <summary>Bytes per packet (nPacketLen)</summary>
+        public int PacketLen { get; set; }
+        /// <summary>Number of packets (nPacketNum / nRetFingerPrintCount)</summary>
+        public int PacketCount { get; set; }
     }
 
     #endregion

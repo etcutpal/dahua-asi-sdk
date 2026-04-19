@@ -376,10 +376,11 @@ router.post('/:id/send-to-device', async (req: Request, res: Response) => {
       }
     }
 
-    // Card number — must be a non-empty string
-    const cardNumber = (employee.cardNumber && employee.cardNumber.toString().trim())
-      ? employee.cardNumber.toString().trim()
-      : null;
+    // Card number — use first card from cardNumbers array
+    const cardNumbers: string[] = Array.isArray(employee.cardNumbers)
+      ? employee.cardNumbers.filter((c: any) => c && c.toString().trim())
+      : (employee.cardNumber ? [employee.cardNumber.toString().trim()] : []); // backward compat
+    const cardNumber = cardNumbers[0] || null;
 
     logger.info(`[EMPLOYEE SEND-TO-DEVICE] Employee ${employee.personId} (${employee.name}) → device ${finalDeviceId}`);
     logger.info(`[EMPLOYEE SEND-TO-DEVICE] Card: ${cardNumber || '(none)'}, Face: ${faceImageFilename || '(none)'}`);
@@ -417,6 +418,168 @@ router.post('/:id/send-to-device', async (req: Request, res: Response) => {
     }
 
     res.status(500).json({ success: false, error: detailedError, message: 'Failed to send employee to device' });
+  }
+});
+
+// ─── Import from Device ────────────────────────────────────────────────────────
+router.post('/import-from-device', async (req: Request, res: Response) => {
+  try {
+    const { deviceId, conflictMode = 'skip', selectedPersonIds, targetGroup = 'all' } = req.body as {
+      deviceId?: string;
+      conflictMode?: 'skip' | 'overwrite';
+      selectedPersonIds?: string[];   // if provided, only import these user IDs
+      targetGroup?: string;           // person group/department to assign on import
+    };
+
+    if (!deviceId) {
+      return res.status(400).json({ success: false, error: 'deviceId is required' });
+    }
+
+    logger.info(`[ImportFromDevice] Fetching users from device ${deviceId}, conflictMode=${conflictMode}, targetGroup=${targetGroup}, selected=${selectedPersonIds?.length ?? 'all'}`);
+
+    // Fetch all users from the device via C# bridge
+    const deviceUsers = await netSdkService.getDeviceUsers(deviceId);
+    logger.info(`[ImportFromDevice] Got ${deviceUsers.length} users from device`);
+
+    // Filter to only selected persons if provided
+    const usersToImport = selectedPersonIds && selectedPersonIds.length > 0
+      ? deviceUsers.filter(u => selectedPersonIds.includes(String(u.userId)))
+      : deviceUsers;
+
+    const employees = readEmployees();
+    const existingByPersonId = new Map(employees.map((e: any) => [String(e.personId), e]));
+
+    const now = new Date();
+    const defaultStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T00:00`;
+    const defaultEnd = `${now.getFullYear()+10}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T23:59`;
+
+    let imported = 0, updated = 0, skipped = 0, failed = 0;
+    const errors: string[] = [];
+
+    for (const u of usersToImport) {
+      if (!u.userId) { failed++; continue; }
+      try {
+        const existing = existingByPersonId.get(String(u.userId));
+        if (existing) {
+          if (conflictMode === 'skip') {
+            skipped++;
+          } else {
+            // overwrite — fetch fresh details from device, update record
+            try {
+              const details = await netSdkService.getDeviceUserDetails(deviceId, u.userId);
+              existing.name = u.name || u.userId;
+              // Password
+              if (details.password) existing.password = details.password;
+              // All cards — store in cardNumbers only
+              if (details.cardNumbers.length > 0) {
+                existing.cardNumbers = details.cardNumbers;
+                delete existing.cardNumber; // remove legacy field if present
+              }
+              // Fingerprints (replace all)
+              if (details.fingerprints.length > 0) {
+                existing.fingerprints = details.fingerprints.map(fp => ({
+                  index: fp.index,
+                  dataBase64: fp.dataBase64,
+                  packetLen: fp.packetLen,
+                  packetCount: fp.packetCount,
+                }));
+              }
+              // Face image
+              if (details.faceImageBase64) {
+                deleteImageFile(existing._faceImageFilename);
+                const relPath = saveBase64Image(`data:${details.faceImageMimeType};base64,${details.faceImageBase64}`, 'face_pictures');
+                if (relPath) {
+                  existing._faceImageFilename = relPath;
+                  existing.facePicture = `/api/employees/images/${relPath}`;
+                  existing.profilePicture = existing.profilePicture || `/api/employees/images/${relPath}`;
+                }
+              }
+              existing.updatedAt = new Date().toISOString();
+            } catch (detailErr: any) {
+              // If details fail, still update name
+              existing.name = u.name || u.userId;
+              existing.updatedAt = new Date().toISOString();
+              logger.warn(`[ImportFromDevice] Details fetch failed for ${u.userId}: ${detailErr.message}`);
+            }
+            updated++;
+          }
+        } else {
+          // Fetch all details from device for new employee
+          let cardNumbers: string[] = [];
+          let password = '';
+          let fingerprints: any[] = [];
+          let facePicture = '';
+          let profilePicture = '';
+          let faceImageFilename = '';
+
+          try {
+            const details = await netSdkService.getDeviceUserDetails(deviceId, u.userId);
+            password = details.password || '';
+            cardNumbers = details.cardNumbers || [];
+            fingerprints = details.fingerprints.map(fp => ({
+              index: fp.index,
+              dataBase64: fp.dataBase64,
+              packetLen: fp.packetLen,
+              packetCount: fp.packetCount,
+            }));
+            if (details.faceImageBase64) {
+              const relPath = saveBase64Image(`data:${details.faceImageMimeType};base64,${details.faceImageBase64}`, 'face_pictures');
+              if (relPath) {
+                faceImageFilename = relPath;
+                facePicture = `/api/employees/images/${relPath}`;
+                profilePicture = `/api/employees/images/${relPath}`;
+              }
+            }
+          } catch (detailErr: any) {
+            logger.warn(`[ImportFromDevice] Details fetch failed for ${u.userId}: ${detailErr.message}`);
+          }
+
+          const newEmp: any = {
+            id: `emp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            personId: u.userId,
+            name: u.name || u.userId,
+            department: targetGroup,
+            gender: '',
+            effectiveStart: u.validBegin ? `${u.validBegin}T00:00` : defaultStart,
+            effectiveEnd: u.validEnd ? `${u.validEnd}T23:59` : defaultEnd,
+            profilePicture,
+            facePicture,
+            password,
+            cardNumbers,
+            fingerprints,
+            title: '',
+            nickname: '',
+            dateOfBirth: '',
+            phone: '',
+            occupation: '',
+            email: '',
+            address: '',
+            remarks: `Imported from device ${deviceId}`,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          if (faceImageFilename) {
+            newEmp._faceImageFilename = faceImageFilename;
+            newEmp._profileImageFilename = faceImageFilename;
+          }
+          employees.push(newEmp);
+          existingByPersonId.set(String(u.userId), newEmp);
+          imported++;
+        }
+      } catch (e: any) {
+        failed++;
+        errors.push(`${u.userId}: ${e.message}`);
+        logger.error(`[ImportFromDevice] Error importing user ${u.userId}:`, e.message);
+      }
+    }
+
+    writeEmployees(employees);
+    logger.info(`[ImportFromDevice] Done — imported: ${imported}, updated: ${updated}, skipped: ${skipped}, failed: ${failed}`);
+
+    res.json({ success: true, totalOnDevice: deviceUsers.length, totalSelected: usersToImport.length, imported, updated, skipped, failed, errors: errors.slice(0, 20) });
+  } catch (err: any) {
+    logger.error('[ImportFromDevice] Error:', err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 

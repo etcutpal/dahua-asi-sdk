@@ -1,41 +1,11 @@
 {
   "groups": [
     {
-      "id": "group_1776497134394",
-      "name": "Test Group",
-      "description": "",
-      "createdAt": "2026-04-18T07:25:34.748Z"
-    },
-    {
-      "id": "group_1776497793833",
-      "name": "Test Group",
-      "description": "",
-      "createdAt": "2026-04-18T07:36:34.159Z"
-    },
-    {
-      "id": "group_1776498728610",
-      "name": "Test",
-      "description": "",
-      "createdAt": "2026-04-18T07:52:08.656Z"
-    },
-    {
-      "id": "group_1776498765874",
-      "name": "SSS",
-      "description": "",
-      "createdAt": "2026-04-18T07:52:46.197Z"
-    },
-    {
-      "id": "group_1776498857968",
-      "name": "dsd",
-      "description": "",
-      "createdAt": "2026-04-18T07:54:18.289Z"
-    },
-    {
-      "id": "group_1776499173184",
+      "id": "group_1776626392657",
       "name": "SS",
       "description": "",
       "parentId": "all",
-      "createdAt": "2026-04-18T07:59:33.217Z"
+      "createdAt": "2026-04-19T19:19:52.663Z"
     }
   ]
 }

@@ -472,6 +472,79 @@ class NetSdkService {
     }
   }
 
+  /**
+   * Fetch all users stored on a device (for "Import from Device" feature)
+   */
+  async getDeviceUsers(deviceId: string): Promise<{ userId: string; name: string; userType: string; userStatus: number; validBegin: string; validEnd: string; firstEnter: boolean }[]> {
+    try {
+      logger.info(`Fetching all users from device ${deviceId}`);
+      const response = await axios.get(
+        `${this.bridgeUrl}/api/devices/${encodeURIComponent(deviceId)}/users`,
+        { timeout: 60000 }
+      );
+      if (response.data.success) {
+        logger.info(`Retrieved ${response.data.count} users from device ${deviceId}`);
+        return (response.data.users as any[]).map(u => ({
+          userId: u.userID,
+          name: u.name,
+          userType: u.userType,
+          userStatus: u.userStatus,
+          validBegin: u.validBegin,
+          validEnd: u.validEnd,
+          firstEnter: u.firstEnter
+        }));
+      } else {
+        throw new Error(response.data.error || 'Failed to get device users');
+      }
+    } catch (error: any) {
+      if (error.code === 'ECONNREFUSED') {
+        throw new Error('C# Bridge is not running. Please start it first.');
+      }
+      logger.error(`Error fetching users from device ${deviceId}:`, error.message);
+      throw error;
+    }
+  }
+
+  async getDeviceUserDetails(deviceId: string, userId: string): Promise<{
+    password: string;
+    cardNumber: string;       // first card (backward compat)
+    cardNumbers: string[];    // all cards (up to 5)
+    fingerprints: Array<{ index: number; dataBase64: string; packetLen: number; packetCount: number }>;
+    faceImageBase64: string;
+    faceImageMimeType: string;
+  }> {
+    try {
+      const response = await axios.get(
+        `${this.bridgeUrl}/api/devices/${encodeURIComponent(deviceId)}/users/${encodeURIComponent(userId)}/details`,
+        { timeout: 30000 }
+      );
+      if (response.data.success) {
+        const d = response.data.details;
+        return {
+          password: d.password || '',
+          cardNumbers: Array.isArray(d.cardNumbers) ? d.cardNumbers : (d.cardNumber ? [d.cardNumber] : []),
+          cardNumber: d.cardNumber || (Array.isArray(d.cardNumbers) && d.cardNumbers[0]) || '',
+          fingerprints: Array.isArray(d.fingerprints) ? d.fingerprints.map((f: any) => ({
+            index: f.index ?? 0,
+            dataBase64: f.dataBase64 || '',
+            packetLen: f.packetLen ?? 0,
+            packetCount: f.packetCount ?? 0,
+          })) : [],
+          faceImageBase64: d.faceImageBase64 || '',
+          faceImageMimeType: d.faceImageMimeType || 'image/jpeg',
+        };
+      } else {
+        throw new Error(response.data.error || 'Failed to get user details');
+      }
+    } catch (error: any) {
+      if (error.code === 'ECONNREFUSED') {
+        throw new Error('C# Bridge is not running. Please start it first.');
+      }
+      logger.error(`Error fetching user details from device ${deviceId} user ${userId}:`, error.message);
+      throw error;
+    }
+  }
+
   async cleanup(): Promise<void> {
     try {
       if (this.isInitialized) {

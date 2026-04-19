@@ -482,4 +482,99 @@ router.post('/:personId/send-to-device', async (req: PersonRequest, res: Respons
   }
 });
 
+// POST import persons from device
+router.post('/import-from-device', async (req: PersonRequest, res: Response) => {
+  try {
+    const { deviceId, conflictMode = 'skip' } = req.body as {
+      deviceId?: string;
+      conflictMode?: 'skip' | 'overwrite';
+    };
+
+    if (!deviceId) {
+      return res.status(400).json({ success: false, error: 'deviceId is required' });
+    }
+
+    // Resolve registration ID if a local device ID was passed
+    let finalDeviceId = deviceId;
+    if (/^\d{8}$/.test(deviceId)) {
+      const device = await deviceService.getById(deviceId);
+      if (device && device.registrationId) {
+        finalDeviceId = device.registrationId;
+      } else {
+        return res.status(404).json({ success: false, error: `Device ${deviceId} not found in local config` });
+      }
+    }
+
+    logger.info(`[ImportFromDevice] Fetching users from device ${finalDeviceId}, conflictMode=${conflictMode}`);
+
+    // 1. Get all users from device via C# bridge
+    const deviceUsers = await netSdkService.getDeviceUsers(finalDeviceId);
+    logger.info(`[ImportFromDevice] Got ${deviceUsers.length} users from device`);
+
+    // 2. Get existing local persons for duplicate check
+    const existingPersons = await personService.getAll();
+    const existingIds = new Set(existingPersons.map((p: any) => p.personId));
+
+    let imported = 0;
+    let skipped = 0;
+    let updated = 0;
+    let failed = 0;
+    const errors: string[] = [];
+
+    for (const u of deviceUsers) {
+      if (!u.userId) { failed++; continue; }
+
+      try {
+        if (existingIds.has(u.userId)) {
+          if (conflictMode === 'skip') {
+            skipped++;
+            continue;
+          }
+          // overwrite
+          await personService.update(
+            u.userId,
+            {
+              name: u.name || u.userId,
+              cardNumbers: [],
+            },
+            null,
+            null
+          );
+          updated++;
+        } else {
+          await personService.create(
+            {
+              personId: u.userId,
+              name: u.name || u.userId,
+              cardNumbers: [],
+            },
+            null,
+            null
+          );
+          imported++;
+        }
+      } catch (e: any) {
+        failed++;
+        errors.push(`${u.userId}: ${e.message}`);
+        logger.error(`[ImportFromDevice] Error importing user ${u.userId}:`, e.message);
+      }
+    }
+
+    logger.info(`[ImportFromDevice] Done — imported: ${imported}, updated: ${updated}, skipped: ${skipped}, failed: ${failed}`);
+
+    res.json({
+      success: true,
+      totalOnDevice: deviceUsers.length,
+      imported,
+      updated,
+      skipped,
+      failed,
+      errors: errors.slice(0, 20), // cap error list
+    });
+  } catch (error: any) {
+    logger.error('[ImportFromDevice] Error:', error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

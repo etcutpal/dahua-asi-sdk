@@ -32,8 +32,9 @@ interface Employee {
   effectiveEnd: string;
   profilePicture: string;
   facePicture: string;
-  cardNumber: string;
-  fingerprints: string[];
+  cardNumbers: string[];   // up to 5 cards
+  password: string;        // door-open PIN
+  fingerprints: any[];     // string (SVG data-URL) or device object { index, dataBase64, packetLen, packetCount }
   // Additional Info
   title: string;
   nickname: string;
@@ -88,6 +89,21 @@ export default function EmployeesPage() {
   const [importStatus, setImportStatus] = useState<{ success: number; failed: number; errors: string[] } | null>(null);
   const importFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Import from Device — multi-step modal
+  const [showImportFromDeviceModal, setShowImportFromDeviceModal] = useState(false);
+  const [importFromDeviceId, setImportFromDeviceId] = useState('');
+  const [importFromDeviceConflict, setImportFromDeviceConflict] = useState<'skip' | 'overwrite'>('skip');
+  const [importFromDeviceLoading, setImportFromDeviceLoading] = useState(false);
+  const [importFromDeviceResult, setImportFromDeviceResult] = useState<{ totalOnDevice: number; totalSelected: number; imported: number; updated: number; skipped: number; failed: number; errors: string[] } | null>(null);
+  // Step 2: search results & selection
+  const [importDeviceSearchLoading, setImportDeviceSearchLoading] = useState(false);
+  const [importDeviceUsers, setImportDeviceUsers] = useState<{ userId: string; name: string; userType: string; validBegin: string; validEnd: string }[]>([]);
+  const [importDeviceFilter, setImportDeviceFilter] = useState('');
+  const [importSelectedIds, setImportSelectedIds] = useState<Set<string>>(new Set());
+  const [importTargetGroup, setImportTargetGroup] = useState('all');
+  // step: 'config' | 'select' | 'done'
+  const [importStep, setImportStep] = useState<'config' | 'select' | 'done'>('config');
+
   // Employee Form
   const [employeeForm, setEmployeeForm] = useState({
     personId: '',
@@ -98,8 +114,9 @@ export default function EmployeesPage() {
     effectiveEnd: '',
     profilePicture: '',
     facePicture: '',
-    cardNumber: '',
-    fingerprints: [] as string[],
+    cardNumbers: [] as string[],
+    password: '',
+    fingerprints: [] as any[],
     // Additional Info
     title: 'Mr.',
     nickname: '',
@@ -208,7 +225,8 @@ export default function EmployeesPage() {
       effectiveEnd: formatDateTimeLocal(endDate),
       profilePicture: '',
       facePicture: '',
-      cardNumber: '',
+      cardNumbers: [],
+      password: '',
       fingerprints: [],
       title: 'Mr.',
       nickname: '',
@@ -421,7 +439,7 @@ export default function EmployeesPage() {
           });
           break;
         case 'cardNumber':
-          filtered = filtered.filter(e => e.cardNumber && e.cardNumber.toLowerCase().includes(search));
+          filtered = filtered.filter(e => e.cardNumbers && e.cardNumbers.some(c => c.toLowerCase().includes(search)));
           break;
       }
     }
@@ -615,7 +633,8 @@ export default function EmployeesPage() {
       effectiveEnd: employee.effectiveEnd,
       profilePicture: employee.profilePicture,
       facePicture: employee.facePicture,
-      cardNumber: employee.cardNumber,
+      cardNumbers: employee.cardNumbers || [],
+      password: employee.password || '',
       fingerprints: employee.fingerprints,
       title: employee.title || 'Mr.',
       nickname: employee.nickname || '',
@@ -906,6 +925,69 @@ export default function EmployeesPage() {
 
   const handleLogout = () => logout();
 
+  // Import from Device handler
+  // Step 1 → 2: Search persons on the device
+  const handleSearchDevicePersons = async () => {
+    if (!importFromDeviceId) return;
+    setImportDeviceSearchLoading(true);
+    setImportDeviceUsers([]);
+    setImportSelectedIds(new Set());
+    setImportDeviceFilter('');
+    try {
+      const PERSONS_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${PERSONS_API}/api/devices/${importFromDeviceId}/users`);
+      const data = await res.json();
+      if (data.success) {
+        setImportDeviceUsers(data.users || []);
+        setImportStep('select');
+      } else {
+        alert(data.error || 'Failed to fetch persons from device');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Failed to fetch persons from device');
+    } finally {
+      setImportDeviceSearchLoading(false);
+    }
+  };
+
+  // Step 3: Execute import for selected persons
+  const handleImportFromDevice = async () => {
+    if (!importFromDeviceId || importSelectedIds.size === 0) return;
+    setImportFromDeviceLoading(true);
+    setImportFromDeviceResult(null);
+    try {
+      const PERSONS_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const res = await fetch(`${PERSONS_API}/api/employees/import-from-device`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId: importFromDeviceId,
+          conflictMode: importFromDeviceConflict,
+          selectedPersonIds: Array.from(importSelectedIds),
+          targetGroup: importTargetGroup,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setImportFromDeviceResult(data);
+        setImportStep('done');
+        // Reload employees list
+        const resp = await fetch(`${PERSONS_API}/api/employees`);
+        if (resp.ok) {
+          const d = await resp.json();
+          const list = d.data || d;
+          setEmployees(Array.isArray(list) ? list : []);
+        }
+      } else {
+        alert(data.error || 'Import failed');
+      }
+    } catch (err: any) {
+      alert(err.message || 'Import failed');
+    } finally {
+      setImportFromDeviceLoading(false);
+    }
+  };
+
   // Import employees from zip file
   const handleImportFromZip = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1072,7 +1154,7 @@ export default function EmployeesPage() {
         const email = getCellValue(row.getCell(16).value);
         const occupation = getCellValue(row.getCell(17).value);
         const address = getCellValue(row.getCell(18).value);
-        const cardNumber = getCellValue(row.getCell(19).value);
+        const cardNumbers = getCellValue(row.getCell(19).value).split(',').map((s: string) => s.trim()).filter(Boolean);
         const effectiveStart = getDateCellValue(row.getCell(20).value);
         const effectiveEnd = getDateCellValue(row.getCell(21).value);
         const remarks = getCellValue(row.getCell(22).value);
@@ -1187,8 +1269,9 @@ export default function EmployeesPage() {
           effectiveEnd: effectiveEnd || formatDateTimeLocal(new Date(new Date().getFullYear() + 10, 11, 31)),
           profilePicture,
           facePicture,
-          cardNumber,
-          fingerprints,
+          cardNumbers,
+          password: '',
+          fingerprints: [],
           title,
           nickname,
           dateOfBirth,
@@ -1403,7 +1486,7 @@ export default function EmployeesPage() {
           email: employee.email || '',
           occupation: employee.occupation || '',
           address: employee.address || '',
-          cardNumber: employee.cardNumber || '',
+          cardNumber: (employee.cardNumbers || []).join(', '),
           effectiveStart: employee.effectiveStart || '',
           effectiveEnd: employee.effectiveEnd || '',
           remarks: employee.remarks || '',
@@ -1668,6 +1751,33 @@ export default function EmployeesPage() {
                 Export to Excel
               </button>
               <button
+                onClick={async () => {
+                  setImportFromDeviceResult(null);
+                  setImportFromDeviceId('');
+                  setImportDeviceUsers([]);
+                  setImportSelectedIds(new Set());
+                  setImportDeviceFilter('');
+                  setImportStep('config');
+                  setShowImportFromDeviceModal(true);
+                  // Load device list
+                  try {
+                    const PERSONS_API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+                    const response = await fetch(`${PERSONS_API}/api/devices`);
+                    const data = await response.json();
+                    if (data.success) {
+                      setSendToDeviceList(data.devices || []);
+                    }
+                  } catch (err) {
+                    console.error('Error loading devices for import:', err);
+                    setSendToDeviceList([]);
+                  }
+                }}
+                className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-all flex items-center text-sm"
+              >
+                <Icon className="w-4 h-4 mr-2" path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                Import from Device
+              </button>
+              <button
                 onClick={handleNewEmployee}
                 className="px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-all flex items-center text-sm"
               >
@@ -1820,7 +1930,9 @@ export default function EmployeesPage() {
                               </span>
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap">
-                              <span className="text-sm text-gray-600 font-mono">{employee.cardNumber || '-'}</span>
+                              <span className="text-sm text-gray-600 font-mono">
+                                {employee.cardNumbers && employee.cardNumbers.length > 0 ? employee.cardNumbers.join(', ') : '-'}
+                              </span>
                             </td>
                             <td className="px-5 py-3.5 whitespace-nowrap text-right">
                               <div className="flex items-center justify-end gap-1.5">
@@ -2004,6 +2116,340 @@ export default function EmployeesPage() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import from Device Modal */}
+      {showImportFromDeviceModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-lg flex flex-col"
+            style={{ width: importStep === 'select' ? 640 : 500, maxHeight: '90vh' }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 flex-shrink-0">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">Import Persons from Device</h3>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {importStep === 'config' && 'Step 1 — Select device and search'}
+                  {importStep === 'select' && `Step 2 — Select persons to import (${importDeviceUsers.length} found)`}
+                  {importStep === 'done' && 'Import complete'}
+                </p>
+              </div>
+              <button
+                onClick={() => { setShowImportFromDeviceModal(false); setImportFromDeviceResult(null); }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <Icon className="w-5 h-5" path="M6 18L18 6M6 6l12 12" />
+              </button>
+            </div>
+
+            {/* ── STEP 1: Config ───────────────────────────────── */}
+            {importStep === 'config' && (
+              <div className="px-6 py-5 space-y-5 overflow-y-auto">
+                {/* Device selector */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Select Device</label>
+                  {sendToDeviceList.length === 0 ? (
+                    <div className="flex items-center gap-2 text-sm text-gray-400 border border-gray-200 rounded-lg px-3 py-2">
+                      <svg className="animate-spin w-4 h-4 text-indigo-400" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                      </svg>
+                      Loading devices…
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={importFromDeviceId}
+                        onChange={e => setImportFromDeviceId(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="">— choose a device —</option>
+                        {sendToDeviceList.map(d => {
+                          const isOnline = d.status === 'Online' || d.status === 'online';
+                          return (
+                            <option key={d.registrationId} value={d.registrationId} disabled={!isOnline}>
+                              {isOnline ? '🟢' : '🔴'} {d.name || d.registrationId} ({d.registrationId}){!isOnline ? ' — Offline' : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+                      {sendToDeviceList.length > 0 && sendToDeviceList.filter(d => d.status === 'Online' || d.status === 'online').length === 0 && (
+                        <p className="mt-1 text-xs text-red-500">No devices are currently online.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* ── STEP 2: Select persons ───────────────────────── */}
+            {importStep === 'select' && (
+              <div className="flex flex-col overflow-hidden flex-1">
+                {/* Filter bar */}
+                <div className="px-6 pt-4 pb-3 flex-shrink-0 space-y-3">
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Icon className="w-4 h-4 text-gray-400" path="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </div>
+                    <input
+                      type="text"
+                      value={importDeviceFilter}
+                      onChange={e => setImportDeviceFilter(e.target.value)}
+                      placeholder="Search by Person ID or Name…"
+                      className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    {importDeviceFilter && (
+                      <button onClick={() => setImportDeviceFilter('')}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-400 hover:text-gray-600">
+                        <Icon className="w-4 h-4" path="M6 18L18 6M6 6l12 12" />
+                      </button>
+                    )}
+                  </div>
+                  {/* Select all / count */}
+                  {(() => {
+                    const filtered = importDeviceUsers.filter(u =>
+                      !importDeviceFilter ||
+                      u.userId.toLowerCase().includes(importDeviceFilter.toLowerCase()) ||
+                      u.name.toLowerCase().includes(importDeviceFilter.toLowerCase())
+                    );
+                    const allFilteredSelected = filtered.length > 0 && filtered.every(u => importSelectedIds.has(u.userId));
+                    return (
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={allFilteredSelected}
+                            onChange={() => {
+                              if (allFilteredSelected) {
+                                setImportSelectedIds(prev => {
+                                  const next = new Set(prev);
+                                  filtered.forEach(u => next.delete(u.userId));
+                                  return next;
+                                });
+                              } else {
+                                setImportSelectedIds(prev => {
+                                  const next = new Set(prev);
+                                  filtered.forEach(u => next.add(u.userId));
+                                  return next;
+                                });
+                              }
+                            }}
+                            className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                          />
+                          Select all ({filtered.length})
+                        </label>
+                        <span className="text-xs text-indigo-600 font-medium">{importSelectedIds.size} selected</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Person list */}
+                <div className="overflow-y-auto flex-1 px-6 pb-4 min-h-0">
+                  {importDeviceUsers.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400 text-sm">No persons found on device</div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {importDeviceUsers
+                        .filter(u =>
+                          !importDeviceFilter ||
+                          u.userId.toLowerCase().includes(importDeviceFilter.toLowerCase()) ||
+                          u.name.toLowerCase().includes(importDeviceFilter.toLowerCase())
+                        )
+                        .map(u => (
+                          <label key={u.userId}
+                            className="flex items-center gap-3 py-2.5 cursor-pointer hover:bg-gray-50 rounded px-1 select-none">
+                            <input
+                              type="checkbox"
+                              checked={importSelectedIds.has(u.userId)}
+                              onChange={() => {
+                                setImportSelectedIds(prev => {
+                                  const next = new Set(prev);
+                                  if (next.has(u.userId)) next.delete(u.userId);
+                                  else next.add(u.userId);
+                                  return next;
+                                });
+                              }}
+                              className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 flex-shrink-0"
+                            />
+                            <div className="w-8 h-8 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-medium flex-shrink-0">
+                              {u.name ? u.name.charAt(0).toUpperCase() : '#'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-800 truncate">{u.name || '—'}</p>
+                              <p className="text-xs text-gray-400">ID: {u.userId} · {u.userType}</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-xs text-gray-400">{u.validBegin}</p>
+                              <p className="text-xs text-gray-400">→ {u.validEnd}</p>
+                            </div>
+                          </label>
+                        ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Import options */}
+                <div className="px-6 py-4 border-t border-gray-100 bg-gray-50 flex-shrink-0 space-y-3">
+                  <div className="flex items-center gap-6">
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Target Person Group</label>
+                      <select
+                        value={importTargetGroup}
+                        onChange={e => setImportTargetGroup(e.target.value)}
+                        className="w-full border border-gray-300 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        <option value="all">All Persons (default)</option>
+                        {personGroups.filter(g => g.id !== 'all').map(g => (
+                          <option key={g.id} value={g.id}>{g.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex-1">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">If already exists locally</label>
+                      <div className="flex gap-4">
+                        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" name="importConflict" value="skip"
+                            checked={importFromDeviceConflict === 'skip'}
+                            onChange={() => setImportFromDeviceConflict('skip')}
+                            className="accent-indigo-600" />
+                          Skip
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" name="importConflict" value="overwrite"
+                            checked={importFromDeviceConflict === 'overwrite'}
+                            onChange={() => setImportFromDeviceConflict('overwrite')}
+                            className="accent-indigo-600" />
+                          Overwrite
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── STEP 3: Done ─────────────────────────────────── */}
+            {importStep === 'done' && importFromDeviceResult && (
+              <div className="px-6 py-5 overflow-y-auto">
+                <div className="bg-green-50 border border-green-200 rounded-xl p-5 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-5 h-5 text-green-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                    <p className="font-semibold text-green-800">Import complete!</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-sm">
+                    <div className="bg-white rounded-lg p-3 border border-green-100">
+                      <p className="text-gray-500 text-xs">Total on device</p>
+                      <p className="text-xl font-bold text-gray-800">{importFromDeviceResult.totalOnDevice}</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-green-100">
+                      <p className="text-gray-500 text-xs">Selected</p>
+                      <p className="text-xl font-bold text-gray-800">{importFromDeviceResult.totalSelected}</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 border border-green-100">
+                      <p className="text-gray-500 text-xs">✅ Imported</p>
+                      <p className="text-xl font-bold text-green-700">{importFromDeviceResult.imported}</p>
+                    </div>
+                    {importFromDeviceResult.updated > 0 && (
+                      <div className="bg-white rounded-lg p-3 border border-green-100">
+                        <p className="text-gray-500 text-xs">🔄 Updated</p>
+                        <p className="text-xl font-bold text-blue-600">{importFromDeviceResult.updated}</p>
+                      </div>
+                    )}
+                    {importFromDeviceResult.skipped > 0 && (
+                      <div className="bg-white rounded-lg p-3 border border-green-100">
+                        <p className="text-gray-500 text-xs">⏭ Skipped</p>
+                        <p className="text-xl font-bold text-gray-500">{importFromDeviceResult.skipped}</p>
+                      </div>
+                    )}
+                    {importFromDeviceResult.failed > 0 && (
+                      <div className="bg-white rounded-lg p-3 border border-red-100">
+                        <p className="text-gray-500 text-xs">❌ Failed</p>
+                        <p className="text-xl font-bold text-red-600">{importFromDeviceResult.failed}</p>
+                      </div>
+                    )}
+                  </div>
+                  {importFromDeviceResult.errors.length > 0 && (
+                    <div className="mt-2 text-red-600 text-xs space-y-0.5 bg-red-50 rounded p-2">
+                      {importFromDeviceResult.errors.map((e, i) => <p key={i}>{e}</p>)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center gap-3 flex-shrink-0">
+              <div>
+                {importStep === 'select' && (
+                  <button
+                    onClick={() => { setImportStep('config'); setImportDeviceUsers([]); setImportSelectedIds(new Set()); }}
+                    className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100"
+                  >
+                    ← Back
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowImportFromDeviceModal(false); setImportFromDeviceResult(null); }}
+                  className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-100"
+                >
+                  {importStep === 'done' ? 'Close' : 'Cancel'}
+                </button>
+
+                {importStep === 'config' && (
+                  <button
+                    onClick={handleSearchDevicePersons}
+                    disabled={!importFromDeviceId || importDeviceSearchLoading}
+                    className="px-5 py-2 text-sm bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {importDeviceSearchLoading ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Searching…
+                      </>
+                    ) : (
+                      <>
+                        <Icon className="w-4 h-4" path="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        Search Persons
+                      </>
+                    )}
+                  </button>
+                )}
+
+                {importStep === 'select' && (
+                  <button
+                    onClick={handleImportFromDevice}
+                    disabled={importSelectedIds.size === 0 || importFromDeviceLoading}
+                    className="px-5 py-2 text-sm bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {importFromDeviceLoading ? (
+                      <>
+                        <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Importing…
+                      </>
+                    ) : (
+                      <>
+                        <Icon className="w-4 h-4" path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        Import {importSelectedIds.size} Person{importSelectedIds.size !== 1 ? 's' : ''}
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -2463,15 +2909,25 @@ export default function EmployeesPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-3 flex-wrap">
-                          {employeeForm.fingerprints.map((fingerprint, index) => (
+                          {employeeForm.fingerprints.map((fingerprint, index) => {
+                            // fingerprint may be a string (SVG data-URL from manual capture)
+                            // or an object { index, dataBase64, packetLen, packetCount } from device import
+                            const isImageUrl = typeof fingerprint === 'string' && fingerprint.startsWith('data:image/svg');
+                            const isDeviceTemplate = typeof fingerprint === 'object' && fingerprint !== null;
+                            return (
                             <div key={index} className="relative group">
                               <div className="w-20 h-20 rounded-lg bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 flex flex-col items-center justify-center overflow-hidden">
-                                {fingerprint.startsWith('data:image/svg') ? (
+                                {isImageUrl ? (
                                   <img src={fingerprint} alt={`Finger ${index + 1}`} className="w-full h-full object-cover" />
                                 ) : (
                                   <Icon className="w-8 h-8 text-blue-600" path="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.116 6.807l.054-.09A13.916 13.916 0 0016 11a4 4 0 10-8 0c0 1.017.07 2.019.203 3" />
                                 )}
-                                <span className="text-xs text-blue-600 mt-1">{index + 1}</span>
+                                <span className="text-xs text-blue-600 mt-1">
+                                  {isDeviceTemplate ? `#${fingerprint.index + 1}` : index + 1}
+                                </span>
+                                {isDeviceTemplate && (
+                                  <span className="text-[9px] text-blue-400 leading-tight">device</span>
+                                )}
                               </div>
                               <button
                                 type="button"
@@ -2481,7 +2937,8 @@ export default function EmployeesPage() {
                                 ×
                               </button>
                             </div>
-                          ))}
+                            );
+                          })}
 
                           {/* Capture Button */}
                           {!isCapturingFingerprint && employeeForm.fingerprints.length < 5 && (
@@ -2520,11 +2977,12 @@ export default function EmployeesPage() {
                       </div>
                     </div>
 
-                    {/* Card Number */}
+                    {/* Cards (dynamic, up to 5) + Password */}
                     <div>
                       <div className="flex items-center gap-2 mb-2">
-                        <label className="text-sm font-medium text-gray-700">Card Number</label>
-                        <div className="relative" ref={cardReaderDropdownRef}>
+                        <label className="text-sm font-medium text-gray-700">Cards</label>
+                        <span className="text-xs text-gray-400">(max 5)</span>
+                        <div className="relative ml-auto" ref={cardReaderDropdownRef}>
                           <button
                             type="button"
                             onClick={() => setShowCardReaderDropdown(!showCardReaderDropdown)}
@@ -2533,30 +2991,18 @@ export default function EmployeesPage() {
                           >
                             <Icon className="w-4 h-4" path="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           </button>
-
                           {showCardReaderDropdown && (
-                            <div className="absolute z-50 left-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg">
+                            <div className="absolute z-50 right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-lg">
                               <div className="p-2">
                                 <p className="text-xs font-medium text-gray-500 px-2 py-1">Select Card Reader</p>
                                 {cardReaderTypes.map((reader) => (
-                                  <button
-                                    key={reader.id}
-                                    type="button"
-                                    onClick={() => {
-                                      setSelectedCardReaderType(reader.id);
-                                      setShowCardReaderDropdown(false);
-                                    }}
-                                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${
-                                      selectedCardReaderType === reader.id
-                                        ? 'bg-blue-50 text-blue-700'
-                                        : 'text-gray-700 hover:bg-gray-50'
-                                    }`}
+                                  <button key={reader.id} type="button"
+                                    onClick={() => { setSelectedCardReaderType(reader.id); setShowCardReaderDropdown(false); }}
+                                    className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${selectedCardReaderType === reader.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
                                   >
                                     <Icon className="w-4 h-4" path={reader.icon} />
                                     <span>{reader.name}</span>
-                                    {selectedCardReaderType === reader.id && (
-                                      <Icon className="w-4 h-4 ml-auto text-blue-600" path="M5 13l4 4L19 7" />
-                                    )}
+                                    {selectedCardReaderType === reader.id && <Icon className="w-4 h-4 ml-auto text-blue-600" path="M5 13l4 4L19 7" />}
                                   </button>
                                 ))}
                               </div>
@@ -2564,27 +3010,72 @@ export default function EmployeesPage() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <input
-                          type="text"
-                          value={employeeForm.cardNumber}
-                          onChange={(e) => setEmployeeForm({ ...employeeForm, cardNumber: e.target.value })}
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                          placeholder={selectedCardReaderType === 'manual' ? 'Enter RFID or smart card number' : 'Or enter card number manually'}
-                        />
-                        {selectedCardReaderType !== 'manual' && (
+
+                      {/* Saved cards */}
+                      <div className="space-y-2 mb-2">
+                        {employeeForm.cardNumbers.map((card, idx) => (
+                          <div key={idx} className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded bg-blue-100 flex items-center justify-center flex-shrink-0">
+                              <Icon className="w-3.5 h-3.5 text-blue-600" path="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                            </div>
+                            <input
+                              type="text"
+                              value={card}
+                              onChange={(e) => {
+                                const updated = [...employeeForm.cardNumbers];
+                                updated[idx] = e.target.value;
+                                setEmployeeForm({ ...employeeForm, cardNumbers: updated });
+                              }}
+                              className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              placeholder="Card number"
+                            />
+                            <button type="button"
+                              onClick={() => setEmployeeForm({ ...employeeForm, cardNumbers: employeeForm.cardNumbers.filter((_, i) => i !== idx) })}
+                              className="w-6 h-6 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                            >×</button>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Add card slot */}
+                      {employeeForm.cardNumbers.length < 5 && (
+                        <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-cyan-700 transition-all shadow-sm flex items-center"
+                            onClick={() => setEmployeeForm({ ...employeeForm, cardNumbers: [...employeeForm.cardNumbers, ''] })}
+                            className="flex items-center gap-1.5 px-3 py-1.5 border-2 border-dashed border-gray-300 rounded-md text-sm text-gray-500 hover:border-blue-400 hover:text-blue-500 hover:bg-blue-50 transition-colors"
                           >
-                            <Icon className="w-4 h-4 mr-1" path="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                            Read Card
+                            <Icon className="w-4 h-4" path="M12 4v16m8-8H4" />
+                            Add Card
                           </button>
-                        )}
-                      </div>
+                          {selectedCardReaderType !== 'manual' && (
+                            <button type="button"
+                              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-md text-sm hover:from-blue-700 hover:to-cyan-700 transition-all"
+                            >
+                              <Icon className="w-3.5 h-3.5" path="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                              Read Card
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       <p className="text-xs text-gray-500 mt-2">
-                        Using: {cardReaderTypes.find(r => r.id === selectedCardReaderType)?.name}
+                        Using: {cardReaderTypes.find(r => r.id === selectedCardReaderType)?.name}. {employeeForm.cardNumbers.length}/5 cards.
                       </p>
+                    </div>
+
+                    {/* Password */}
+                    <div>
+                      <label className="text-sm font-medium text-gray-700 block mb-2">Door Password</label>
+                      <input
+                        type="text"
+                        value={employeeForm.password}
+                        onChange={(e) => setEmployeeForm({ ...employeeForm, password: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm font-mono"
+                        placeholder="Enter door-open PIN"
+                        maxLength={64}
+                      />
+                      <p className="text-xs text-gray-500 mt-1">Used for UserID+password door access.</p>
                     </div>
                   </div>
                 </div>

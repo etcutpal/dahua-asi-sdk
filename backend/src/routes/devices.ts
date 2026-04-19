@@ -126,4 +126,18 @@ router.delete('/:deviceId', async (req: Request, res: Response) => {
   }
 });
 
+// GET /api/devices/:deviceId/users — fetch all persons stored on the device via SDK bridge
+router.get('/:deviceId/users', async (req: Request, res: Response) => {
+  try {
+    const { deviceId } = req.params;
+    logger.info(`[DeviceUsers] Fetching users from device ${deviceId}`);
+    const users = await netSdkService.getDeviceUsers(deviceId);
+    logger.info(`[DeviceUsers] Got ${users.length} users from device ${deviceId}`);
+    res.json({ success: true, count: users.length, users });
+  } catch (error: any) {
+    logger.error(`[DeviceUsers] Error fetching users from device ${req.params.deviceId}:`, error.message);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

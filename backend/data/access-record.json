@@ -5311,8 +5311,53 @@
       "openMethod": "Unknown",
       "status": "Success",
       "storedAt": "2026-04-19T16:26:46.487Z"
+    },
+    {
+      "id": "1776628322056-n3ud8uepy",
+      "deviceId": "600I",
+      "recordNumber": 0,
+      "userID": "448008",
+      "userName": "Utpal Mandal",
+      "cardNumber": "67635",
+      "swipeTime": "2026-04-19T19:52:13Z",
+      "doorNumber": 0,
+      "readerNo": "",
+      "cardType": "Unknown",
+      "openMethod": "Unknown",
+      "status": "Success",
+      "storedAt": "2026-04-19T19:52:02.056Z"
+    },
+    {
+      "id": "1776628328162-jnkwc8xo9",
+      "deviceId": "600I",
+      "recordNumber": 0,
+      "userID": "448008",
+      "userName": "Utpal Mandal",
+      "cardNumber": "67635",
+      "swipeTime": "2026-04-19T19:52:19Z",
+      "doorNumber": 0,
+      "readerNo": "",
+      "cardType": "Unknown",
+      "openMethod": "Unknown",
+      "status": "Success",
+      "storedAt": "2026-04-19T19:52:08.162Z"
+    },
+    {
+      "id": "1776628331234-m03yzny5u",
+      "deviceId": "600I",
+      "recordNumber": 0,
+      "userID": "448008",
+      "userName": "Utpal Mandal",
+      "cardNumber": "67635",
+      "swipeTime": "2026-04-19T19:52:24Z",
+      "doorNumber": 0,
+      "readerNo": "",
+      "cardType": "Unknown",
+      "openMethod": "Unknown",
+      "status": "Success",
+      "storedAt": "2026-04-19T19:52:11.234Z"
     }
   ],
-  "lastUpdated": "2026-04-19T16:26:46.487Z",
-  "count": 387
+  "lastUpdated": "2026-04-19T19:52:11.237Z",
+  "count": 390
 }

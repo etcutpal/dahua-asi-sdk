@@ -10,6 +10,15 @@
       ],
       "createdAt": "2026-04-12T19:20:01.409Z",
       "updatedAt": "2026-04-18T07:40:06.872Z"
+    },
+    {
+      "personId": "448008",
+      "name": "Utpal Mandal",
+      "faceImagePath": null,
+      "fingerprints": [],
+      "cardNumbers": [],
+      "createdAt": "2026-04-19T18:38:52.711Z",
+      "updatedAt": "2026-04-19T18:39:12.886Z"
     }
   ]
 }

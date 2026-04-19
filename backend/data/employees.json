@@ -4,7 +4,7 @@
       "id": "emp_1776540910510_2",
       "personId": "7676",
       "name": "Name10",
-      "department": "group_1776499173184",
+      "department": "all",
       "gender": "Male",
       "effectiveStart": "2026-04-18T00:00",
       "effectiveEnd": "2036-04-18T23:59",
@@ -23,7 +23,7 @@
       "_faceImageFilename": "face_pictures/1776540910516_6f4itor.png",
       "_profileImageFilename": "profile_pictures/1776540910519_oos4su8.png",
       "createdAt": "2026-04-18T19:35:10.524Z",
-      "updatedAt": "2026-04-18T19:35:10.524Z"
+      "updatedAt": "2026-04-19T19:19:26.065Z"
     },
     {
       "id": "emp_1776596866407",
@@ -74,6 +74,48 @@
       "_profileImageFilename": "profile_pictures/1776597842024_5ia9253.png",
       "createdAt": "2026-04-19T11:24:02.029Z",
       "updatedAt": "2026-04-19T11:24:02.029Z"
+    },
+    {
+      "id": "emp_1776628118050_2984r",
+      "personId": "448008",
+      "name": "Utpal Mandal",
+      "department": "group_1776626392657",
+      "gender": "",
+      "effectiveStart": "1970-02-01T00:00",
+      "effectiveEnd": "2037-12-31T23:59",
+      "profilePicture": "/api/employees/images/face_pictures/1776628118048_4lhsaz2.jpg",
+      "facePicture": "/api/employees/images/face_pictures/1776628118048_4lhsaz2.jpg",
+      "password": "8997",
+      "cardNumbers": [
+        "67635",
+        "087646"
+      ],
+      "fingerprints": [
+        {
+          "index": 0,
+          "dataBase64": "xSJuAHyH4lIHyZjE4IaS9f7+VoeAiCMtMEt2Sh+J0yEANhkBl4mTQQdDqgJ8h9uNWE9m0FaGg6Kf0fpJ5IbzoeQ+mdIpifu5/zQHA1KGu8Gf1boMJIljyeh0BwOYicvlGAXGA0qHE/2v28cWNodsCsldxyErh+w94aIYSC2ITFrg6geGQYbMZc/QBEowh8R94V3WBCqJ1In4ecfDP4bUvc/J9YovibzR/3mlQuKGw23kvolLC4erzgKoaKB9iAPGUJFJTKCKbEkP/8kBnYjdRuB+J0QGh5ot/v45hlGGnBav1fTHx4YsLf2+ZYZAhs0Rx8H1zKGKXQXn/gcEpYhVXv9+FwiiiB1l+D4mSCqHZVoPzfZKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAHRPXyREP1UiZLJUFP8yEiL/FGkDMiIvRicTeEWCEyMjKFElZ/ZmL0UjJEMxmGMzQF9IJZT/VTM0d/OfJVNR/vH5Jfo1DwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAbbvpmIhHjk3pVEMC8iK5aESDFZBtLIHAUgsJMAAGOeBAYMyDWcFciIKSYcU4aMxHKYn0TATBgdV04AXMElHYhAdCuYftdI2XLYKEQABDYo6BrIwKMoE4YAmHFko5yAkJFcGEJAwDuQa8QMiHIouBMECAWQjxvMmgxkFtfMGGtcJ1dMjGukOAhADKKUpFhAAONUC4dNVDCca9SBUHUcrROEwDkYgAAAAAAAAAAAAAAAAAAAAAAABcWBQ4NCg8CDAcRCwkEFQgbBhADEhgTFBkfIAAAAM7f",
+          "packetLen": 810,
+          "packetCount": 2
+        },
+        {
+          "index": 1,
+          "dataBase64": "xR5pAJ+I8y7oAbVATIZDOqfbyVKciCM5IEWVgymIi0HvNBVCK4lTqfg51gI6huu5yOPE1DCHK7rhJ9UOoYfb4SdBhkMwhzP+4OPVR6iI5DbvebbBOIbMrdfD9UQsiAy5AEPXgC6I1NLve/bBMId02e/DtoKrhtT6/z4XBKOHpSb4PiWDqYjVGt//xcOkiI025//Wg32G8lLvz2cLRIWrscfJ9IKgidvtD//XwUCF3DHPxfREAIYadf0+aAwmiRUh/8P2hRiHqfb+fjcHAoZiDf4+ZgqDh1oh7812CVOFqrpv0fcHn4ozbQ/+BYIjiZSl+IX2QwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEOBM0KFRUAkVWQ2ZDJzFVKnRzOGkyY0czNWelIiVZQzMzNiQjFhM2Iy8/UhU0EoQ/dv9PeCNkFVAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZaVNaIQDIYFQsMdN5UJxKMFHpU0FJMiThUGBKIBHYRbhVA7C8UbsXKCHcULBbISG7YMsCInIiYJwKIkLmlDAjISKwcMEdIhOtQNESAhHjcBAOJQPpQW4OMEDoUQ4dADCjYG0aEFG2YDZoIcN7YGsCAWXHcoEQBQLbcbEbASHHgw4QgTDeYg0VIFLAUOYlAMKMYcsQAXHUYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAcCBgMFCAAECQEUEwsVCg0MHRIbFhoQFxEAAAAAAJjM",
+          "packetLen": 810,
+          "packetCount": 2
+        }
+      ],
+      "title": "",
+      "nickname": "",
+      "dateOfBirth": "",
+      "phone": "",
+      "occupation": "",
+      "email": "",
+      "address": "",
+      "remarks": "Imported from device 600I",
+      "createdAt": "2026-04-19T19:48:38.050Z",
+      "updatedAt": "2026-04-19T19:48:38.050Z",
+      "_faceImageFilename": "face_pictures/1776628118048_4lhsaz2.jpg",
+      "_profileImageFilename": "face_pictures/1776628118048_4lhsaz2.jpg"
     }
   ]
 }

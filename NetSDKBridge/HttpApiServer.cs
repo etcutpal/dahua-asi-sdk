@@ -500,6 +500,67 @@ namespace NetSDKBridge
                 }
             });
 
+            // Get all users stored on the device (Import from Device feature)
+            _app.MapGet("/api/devices/{deviceId}/users", async context =>
+            {
+                try
+                {
+                    var deviceId = context.Request.RouteValues["deviceId"]?.ToString();
+                    if (string.IsNullOrEmpty(deviceId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "Device ID required" });
+                        return;
+                    }
+
+                    var (users, error) = await _sdkService.GetAllUsersFromDeviceAsync(deviceId);
+                    if (error != null && users.Count == 0)
+                    {
+                        context.Response.StatusCode = 500;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error });
+                        return;
+                    }
+
+                    await context.Response.WriteAsJsonAsync(new { success = true, count = users.Count, users });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
+            // Get card + face details for a single user on a device
+            _app.MapGet("/api/devices/{deviceId}/users/{userId}/details", async context =>
+            {
+                try
+                {
+                    var deviceId = context.Request.RouteValues["deviceId"]?.ToString();
+                    var userId = context.Request.RouteValues["userId"]?.ToString();
+                    if (string.IsNullOrEmpty(deviceId) || string.IsNullOrEmpty(userId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "Device ID and User ID are required" });
+                        return;
+                    }
+
+                    var (details, error) = await _sdkService.GetUserDetailsFromDeviceAsync(deviceId, userId);
+                    if (error != null)
+                    {
+                        context.Response.StatusCode = 500;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error });
+                        return;
+                    }
+
+                    await context.Response.WriteAsJsonAsync(new { success = true, details });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
             // Add person to device
             _app.MapPost("/api/persons/add-to-device", async context =>
             {
