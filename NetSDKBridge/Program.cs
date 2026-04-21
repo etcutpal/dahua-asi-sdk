@@ -1,13 +1,70 @@
 using System;
 using System.IO;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace NetSDKBridge
 {
+    class BridgeConfig
+    {
+        public PortsConfig Ports { get; set; } = new();
+        public NetworkConfig Network { get; set; } = new();
+        public BridgeCredentials Bridge { get; set; } = new();
+    }
+    class PortsConfig
+    {
+        public int Frontend { get; set; } = 3000;
+        public int Backend { get; set; } = 3001;
+        public int Bridge { get; set; } = 5000;
+        public int AutoReg { get; set; } = 9500;
+    }
+    class NetworkConfig
+    {
+        public string LocalAccessIp { get; set; } = "127.0.0.1";
+        public string DeviceRegistrationIp { get; set; } = "127.0.0.1";
+    }
+    class BridgeCredentials
+    {
+        public string PlatformUsername { get; set; } = "admin";
+        public string PlatformPassword { get; set; } = "admin123";
+    }
+
     class Program
     {
+        static BridgeConfig LoadConfig()
+        {
+            // Look for shared/server.config.json relative to the exe or solution root
+            var candidates = new[]
+            {
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "..", "shared", "server.config.json"),
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "shared", "server.config.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", "shared", "server.config.json"),
+            };
+            foreach (var candidate in candidates)
+            {
+                var full = Path.GetFullPath(candidate);
+                if (File.Exists(full))
+                {
+                    try
+                    {
+                        var json = File.ReadAllText(full);
+                        var opts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        var cfg = JsonSerializer.Deserialize<BridgeConfig>(json, opts);
+                        Console.WriteLine($"✅ Loaded config from: {full}");
+                        return cfg ?? new BridgeConfig();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"⚠️  Failed to parse config at {full}: {ex.Message}");
+                    }
+                }
+            }
+            Console.WriteLine("⚠️  shared/server.config.json not found — using defaults");
+            return new BridgeConfig();
+        }
+
         static async Task Main(string[] args)
         {
             Console.WriteLine("╔══════════════════════════════════════════════════════════╗");
@@ -15,6 +72,9 @@ namespace NetSDKBridge
             Console.WriteLine("║     Auto Registration & Device Management Server         ║");
             Console.WriteLine("╚══════════════════════════════════════════════════════════╝");
             Console.WriteLine();
+
+            // Load shared configuration
+            var bridgeCfg = LoadConfig();
 
             // Setup logging with file output
             var services = new ServiceCollection();
@@ -65,8 +125,8 @@ namespace NetSDKBridge
 
             try
             {
-                // Start HTTP API Server (default port 5000)
-                int httpPort = 5000;
+                // Start HTTP API Server (port from config)
+                int httpPort = bridgeCfg.Ports.Bridge;
                 if (args.Length > 0 && int.TryParse(args[0], out int port))
                 {
                     httpPort = port;
@@ -84,20 +144,21 @@ namespace NetSDKBridge
                 // Set the username/password that devices will use to authenticate
                 // These MUST match what you configured on your Access Control Device
                 logger.LogInformation("Setting platform credentials...");
-                sdkService.SetPlatformCredentials("admin", "admin123");
-                logger.LogInformation("✅ Platform credentials set - Username: admin, Password: [HIDDEN]");
+                sdkService.SetPlatformCredentials(bridgeCfg.Bridge.PlatformUsername, bridgeCfg.Bridge.PlatformPassword);
+                logger.LogInformation($"✅ Platform credentials set - Username: {bridgeCfg.Bridge.PlatformUsername}, Password: [HIDDEN]");
 
                 // Configure Webhook URL for real-time status updates (replaces polling)
                 logger.LogInformation("Configuring Webhook for real-time updates...");
-                sdkService.SetBackendWebhookUrl("http://localhost:3001/api/webhooks/device-status");
-                logger.LogInformation("✅ Webhook configured - Backend will receive instant status updates");
+                string webhookUrl = $"http://localhost:{bridgeCfg.Ports.Backend}/api/webhooks/device-status";
+                sdkService.SetBackendWebhookUrl(webhookUrl);
+                logger.LogInformation($"✅ Webhook configured: {webhookUrl}");
 
                 // Auto-initialize SDK
                 logger.LogInformation("Initializing NetSDK...");
                 await sdkService.InitializeSDK();
 
                 logger.LogInformation("Starting Auto Registration Server...");
-                await sdkService.StartAutoRegServer(9500);
+                await sdkService.StartAutoRegServer(bridgeCfg.Ports.AutoReg);
 
                 logger.LogInformation("=".PadRight(60, '='));
                 logger.LogInformation("✅ NetSDK Bridge Service is READY");
@@ -105,16 +166,16 @@ namespace NetSDKBridge
                 logger.LogInformation("");
                 logger.LogInformation("📋 Configuration:");
                 logger.LogInformation($"   Server IP: {serverIP}");
-                logger.LogInformation($"   Auto-Reg Port: 9500");
-                logger.LogInformation($"   Platform Username: admin");
+                logger.LogInformation($"   Auto-Reg Port: {bridgeCfg.Ports.AutoReg}");
+                logger.LogInformation($"   Platform Username: {bridgeCfg.Bridge.PlatformUsername}");
                 logger.LogInformation($"   Platform Password: [HIDDEN]");
                 logger.LogInformation("");
                 logger.LogInformation("📱 Expected Device Configuration:");
                 logger.LogInformation($"   Registration ID: ASI11");
-                logger.LogInformation($"   Device Username: admin");
-                logger.LogInformation($"   Device Password: admin123");
+                logger.LogInformation($"   Device Username: {bridgeCfg.Bridge.PlatformUsername}");
+                logger.LogInformation($"   Device Password: [HIDDEN]");
                 logger.LogInformation($"   Server IP: {serverIP}");
-                logger.LogInformation($"   Server Port: 9500");
+                logger.LogInformation($"   Server Port: {bridgeCfg.Ports.AutoReg}");
                 logger.LogInformation("");
                 logger.LogInformation("🔍 Waiting for device connection...");
                 logger.LogInformation("   Check logs in: " + logFilePath);

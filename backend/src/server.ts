@@ -18,6 +18,7 @@ import accessRecordsRouter from './routes/access-records';
 import personsRouter from './routes/persons';
 import employeesRouter from './routes/employees';
 import attendanceRouter from './routes/attendance/periods';
+import systemRouter from './routes/system';
 
 // Load environment variables
 dotenv.config();
@@ -66,6 +67,7 @@ app.use('/api/access-records', accessRecordsRouter);
 app.use('/api/persons', personsRouter);
 app.use('/api/employees', employeesRouter);
 app.use('/api/attendance', attendanceRouter);
+app.use('/api/system', systemRouter);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

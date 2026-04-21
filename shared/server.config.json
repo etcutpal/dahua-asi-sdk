@@ -1,0 +1,19 @@
+{
+  "ports": {
+    "frontend": 3000,
+    "backend": 3001,
+    "bridge": 5000,
+    "autoReg": 9500
+  },
+  "network": {
+    "localAccessIp": "192.168.1.123",
+    "deviceRegistrationIp": "192.168.1.123",
+    "publicAccessEnabled": false,
+    "publicAccessIp": "",
+    "bindHost": "0.0.0.0"
+  },
+  "bridge": {
+    "platformUsername": "admin",
+    "platformPassword": "admin123"
+  }
+}

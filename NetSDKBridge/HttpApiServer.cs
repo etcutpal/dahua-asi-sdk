@@ -75,6 +75,22 @@ namespace NetSDKBridge
                 }
             });
 
+            // Cleanup SDK — logs out all devices, stops listeners, stops auto-reg
+            _app.MapPost("/api/sdk/cleanup", async context =>
+            {
+                try
+                {
+                    _logger.LogInformation("[API] SDK cleanup requested");
+                    await _sdkService.Cleanup();
+                    await context.Response.WriteAsJsonAsync(new { success = true, message = "SDK cleaned up — all devices logged out" });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
             // Start Auto Registration Server
             _app.MapPost("/api/autoreg/start", async context =>
             {
@@ -84,6 +100,31 @@ namespace NetSDKBridge
                     var port = json?.Port ?? 9500;
                     var result = await _sdkService.StartAutoRegServer(port);
                     await context.Response.WriteAsJsonAsync(new { success = result, message = result ? "Auto Reg Server started" : "Failed to start", port = port });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
+            // Set server IP for auto-registration (live update without full restart)
+            _app.MapPost("/api/autoreg/setip", async context =>
+            {
+                try
+                {
+                    var json = await System.Text.Json.JsonSerializer.DeserializeAsync<SetIpRequest>(
+                        context.Request.Body,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    if (json == null || string.IsNullOrWhiteSpace(json.Ip))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "ip is required" });
+                        return;
+                    }
+                    _sdkService.SetServerIP(json.Ip);
+                    _logger.LogInformation($"[API] Server IP updated to: {json.Ip}");
+                    await context.Response.WriteAsJsonAsync(new { success = true, ip = json.Ip });
                 }
                 catch (Exception ex)
                 {
@@ -669,6 +710,11 @@ namespace NetSDKBridge
     public class StartAutoRegRequest
     {
         public int Port { get; set; } = 9500;
+    }
+
+    public class SetIpRequest
+    {
+        public string Ip { get; set; } = "";
     }
 
     public class PlatformCredentialsRequest

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import io, { Socket } from 'socket.io-client';
+import { useConfig } from './ConfigContext';
 
 interface Device {
   deviceID: string;
@@ -42,10 +43,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
   const [devices, setDevices] = useState<Device[]>([]);
   const [events, setEvents] = useState<Event[]>([]);
   const [accessEvents, setAccessEvents] = useState<any[]>([]);
+  const { apiUrl, isLoaded } = useConfig();
 
   useEffect(() => {
+    if (!isLoaded) return; // Wait until config is loaded
     // Initialize socket connection
-    const socketUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const socketUrl = apiUrl;
     const socketInstance = io(socketUrl, {
       transports: ['websocket', 'polling'],
       reconnection: true,
@@ -111,7 +114,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     return () => {
       socketInstance.disconnect();
     };
-  }, []);
+  }, [apiUrl, isLoaded]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected, devices, events, accessEvents }}>

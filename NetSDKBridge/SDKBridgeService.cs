@@ -1190,11 +1190,12 @@ namespace NetSDKBridge
                 // Only fetch hardware serial if not already fetched this session
                 // This flag is cleared when device goes offline
                 string hardwareSerial;
-                if (_hasFetchedHardwareSerial.ContainsKey(registrationID) && _hasFetchedHardwareSerial[registrationID])
+                if (_hasFetchedHardwareSerial.ContainsKey(registrationID) && _hasFetchedHardwareSerial[registrationID]
+                    && _devices.TryGetValue(registrationID, out var cachedDevice))
                 {
                     // Already fetched this session, use existing serial
                     _logger.LogInformation($"📋 Using cached hardware serial for {registrationID}");
-                    hardwareSerial = _devices[registrationID].SerialNumber;
+                    hardwareSerial = cachedDevice.SerialNumber;
                 }
                 else
                 {
@@ -2049,6 +2050,11 @@ namespace NetSDKBridge
 
                 StopAutoRegServer();
                 NETClient.Cleanup();
+
+                // Clear session state so reconnecting devices start fresh
+                _devices.Clear();
+                _hasFetchedHardwareSerial.Clear();
+                _loginInProgress.Clear();
 
                 _isInitialized = false;
                 _logger.LogInformation("NetSDK cleanup completed");
