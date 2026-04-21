@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
 
 const Icon = ({ path, className = "w-5 h-5" }: { path: string; className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -39,17 +40,31 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
     { name: 'System Settings', path: '/settings/system', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z' },
   ];
 
+  const [isOpen, setIsOpen] = useState(false);
+
   const handleLogout = () => {
     onLogout();
     router.push('/login');
   };
 
-  return (
-    <div className="fixed left-0 top-0 h-full w-64 bg-gradient-to-b from-slate-900 to-slate-800 text-white">
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setIsOpen(false);
+  }, [currentPath]);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsOpen(false); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, []);
+
+  const NavContent = () => (
+    <>
       {/* Logo */}
-      <div className="p-6">
+      <div className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-lg flex items-center justify-center flex-shrink-0">
             <Icon path="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" className="w-6 h-6" />
           </div>
           <div>
@@ -57,6 +72,14 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
             <p className="text-xs text-slate-400">Access Control</p>
           </div>
         </div>
+        {/* Close button — mobile only */}
+        <button
+          onClick={() => setIsOpen(false)}
+          className="lg:hidden p-1 rounded-md text-slate-400 hover:text-white hover:bg-slate-700"
+          aria-label="Close menu"
+        >
+          <Icon path="M6 18L18 6M6 6l12 12" className="w-5 h-5" />
+        </button>
       </div>
 
       {/* Navigation */}
@@ -71,7 +94,7 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
                 : 'text-slate-300 hover:bg-slate-700 hover:text-white'
             }`}
           >
-            <Icon path={item.icon} className="w-5 h-5" />
+            <Icon path={item.icon} className="w-5 h-5 flex-shrink-0" />
             <span className="font-medium">{item.name}</span>
           </Link>
         ))}
@@ -85,7 +108,7 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
               : 'text-slate-300 hover:bg-slate-700 hover:text-white'
           }`}
         >
-          <Icon path="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" className="w-5 h-5" />
+          <Icon path="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" className="w-5 h-5 flex-shrink-0" />
           <span className="font-medium flex-1">Settings</span>
           <Icon path="M9 5l7 7-7 7" className="w-4 h-4" />
 
@@ -115,6 +138,43 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
           <span className="font-medium">Logout</span>
         </button>
       </div>
-    </div>
+    </>
+  );
+
+  return (
+    <>
+      {/* ── Hamburger button — visible only on < lg ─────────────────────── */}
+      <button
+        onClick={() => setIsOpen(true)}
+        className="lg:hidden fixed top-4 left-4 z-40 p-2 rounded-lg bg-slate-900 text-white shadow-lg"
+        aria-label="Open menu"
+      >
+        <Icon path="M4 6h16M4 12h16M4 18h16" className="w-5 h-5" />
+      </button>
+
+      {/* ── Backdrop — mobile only, shown when sidebar open ─────────────── */}
+      {isOpen && (
+        <div
+          className="lg:hidden fixed inset-0 z-40 bg-black/50"
+          onClick={() => setIsOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* ── Sidebar panel ───────────────────────────────────────────────── */}
+      {/* Desktop: always visible, fixed */}
+      {/* Mobile: slides in/out with translate */}
+      <div
+        className={`
+          fixed left-0 top-0 h-full w-64 z-50
+          bg-gradient-to-b from-slate-900 to-slate-800 text-white
+          transition-transform duration-300 ease-in-out
+          ${isOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0
+        `}
+      >
+        <NavContent />
+      </div>
+    </>
   );
 }

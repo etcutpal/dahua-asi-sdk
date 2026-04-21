@@ -90,11 +90,11 @@ export default function SettingsPage() {
       <Sidebar currentPath="/settings" onLogout={logout} />
 
       {/* Main Content - overflow-visible to allow sidebar dropdown to show */}
-      <div className="ml-64 p-8 overflow-visible">
+      <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8 overflow-visible">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Settings</h1>
-          <p className="text-gray-600 mt-2">Configure your AccessPro system preferences and manage integrations</p>
+        <div className="mb-6 lg:mb-8">
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Settings</h1>
+          <p className="text-gray-600 mt-2 text-sm lg:text-base">Configure your AccessPro system preferences and manage integrations</p>
         </div>
 
         {/* Settings Grid */}

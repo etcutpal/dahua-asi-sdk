@@ -1668,15 +1668,15 @@ export default function EmployeesPage() {
       </aside> */}
 
       {/* Main Content */}
-      <main className="ml-64 p-8 overflow-visible">
+      <main className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8 overflow-visible">
         {/* Header */}
-        <header className="mb-8">
-          <div className="flex items-center justify-between">
+        <header className="mb-6 lg:mb-8">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 className="text-2xl font-semibold text-gray-900 tracking-tight">Employees</h2>
+              <h2 className="text-xl lg:text-2xl font-semibold text-gray-900 tracking-tight">Employees</h2>
               <p className="text-sm text-gray-500 mt-1">Manage employee information and access credentials</p>
             </div>
-            <div className="flex gap-3 relative">
+            <div className="flex gap-3 relative flex-wrap">
               <input
                 type="file"
                 accept=".zip"
@@ -1790,7 +1790,7 @@ export default function EmployeesPage() {
 
         <div className="flex gap-6" style={{ minHeight: 'calc(100vh - 160px)' }}>
           {/* Left Column - Person Groups Tree */}
-          <div className="w-1/3 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={{ minHeight: 'calc(100vh - 160px)' }}>
+          <div className="w-1/4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col" style={{ minHeight: 'calc(100vh - 160px)' }}>
             <div className="px-5 py-3.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Person Groups</h3>
               <button

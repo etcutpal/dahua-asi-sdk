@@ -440,21 +440,21 @@ export default function DeviceManagementPage() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" onClick={() => setShowMoreMenu(false)}>
       <Sidebar currentPath="/devices" onLogout={logout} />
 
-      <div className="ml-64">
+      <div className="lg:ml-64">
         {/* ── Full-width heading ──────────────────────────────────────────── */}
-        <div className="px-8 pt-8 pb-4">
-          <div className="flex items-center justify-between">
+        <div className="px-4 lg:px-8 pt-16 lg:pt-8 pb-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Device Management</h1>
-              <p className="text-gray-500 mt-1">
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Device Management</h1>
+              <p className="text-gray-500 mt-1 text-sm lg:text-base">
                 {selectedGroupId === 'all'
                   ? 'All devices'
                   : `Group: ${deviceGroups.find(g => g.id === selectedGroupId)?.name}`}
               </p>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="text-right mr-2">
-                <div className="text-xl font-bold text-gray-800">
+            <div className="flex flex-wrap items-center gap-2 lg:gap-3">
+              <div className="text-right hidden sm:block">
+                <div className="text-base lg:text-xl font-bold text-gray-800">
                   {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                 </div>
                 <div className="text-gray-500 text-xs">
@@ -462,25 +462,23 @@ export default function DeviceManagementPage() {
                 </div>
               </div>
 
-              {/* More button - removed, now in Device Table heading */}
-
               <Button variant="outline" onClick={handleRefresh} disabled={isRefreshing} className="flex items-center gap-2">
                 <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                Refresh
+                <span className="hidden sm:inline">Refresh</span>
               </Button>
               <Button onClick={handleAddDevice} className="flex items-center gap-2">
                 <Plus className="h-4 w-4" />
-                Add Device
+                <span className="hidden sm:inline">Add Device</span>
               </Button>
             </div>
           </div>
         </div>
 
-        {/* ── Two-column body ─────────────────────────────────────────────── */}
-        <div className="flex px-8 pb-8 gap-6" style={{ minHeight: 'calc(100vh - 140px)' }}>
+        {/* ── Body: stacks vertically on small screens ─────────────────────── */}
+        <div className="flex flex-col lg:flex-row px-4 lg:px-8 pb-8 gap-6" style={{ minHeight: 'calc(100vh - 140px)' }}>
 
           {/* Left: Device Groups tree ──────────────────────────────────────── */}
-          <div className="w-80 flex-shrink-0 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col">
+          <div className="w-full lg:w-1/4 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
             <div className="px-5 py-3.5 bg-gray-50 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Device Groups</h3>
               <button
@@ -519,7 +517,7 @@ export default function DeviceManagementPage() {
               const ringOffset = circumference - (offlinePct / 100) * circumference;
 
               return (
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   {/* Total Devices */}
                   <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col justify-between min-h-[130px]">
                     <div className="flex items-center justify-between">

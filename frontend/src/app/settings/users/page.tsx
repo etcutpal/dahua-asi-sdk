@@ -108,7 +108,7 @@ export default function UserManagementPage() {
       <Sidebar currentPath="/settings/users" onLogout={logout} />
 
       {/* Main Content */}
-      <div className="ml-64 p-8">
+      <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
         {showSuccess && (
           <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
             <Icon path="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" className="w-5 h-5 text-green-600" />
@@ -117,15 +117,15 @@ export default function UserManagementPage() {
         )}
 
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-6 lg:mb-8 flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
               <Link href="/settings" className="hover:text-blue-600 transition-colors">Settings</Link>
               <Icon path="M9 5l7 7-7 7" className="w-3 h-3" />
               <span className="text-gray-900 font-medium">User Management</span>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-            <p className="text-gray-600 mt-1">Create, modify, and manage system users</p>
+            <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">User Management</h1>
+            <p className="text-gray-600 mt-1 text-sm lg:text-base">Create, modify, and manage system users</p>
           </div>
           <button
             onClick={handleAddUser}

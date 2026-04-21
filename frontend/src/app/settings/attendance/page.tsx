@@ -766,7 +766,7 @@ export default function AttendanceConfigPage() {
       <Sidebar currentPath="/settings/attendance" onLogout={logout} />
 
       {/* Main Content */}
-      <div className="ml-64 p-8">
+      <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
         {/* Header */}
         <div className="mb-6">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
@@ -774,14 +774,14 @@ export default function AttendanceConfigPage() {
             <Icon path="M9 5l7 7-7 7" className="w-3 h-3" />
             <span className="text-gray-900 font-medium">Attendance Configuration</span>
           </div>
-          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Attendance Configuration</h1>
+          <h1 className="text-xl lg:text-2xl font-semibold text-gray-900 tracking-tight">Attendance Configuration</h1>
           <p className="text-sm text-gray-500 mt-1">Manage attendance rules, periods, shifts, and schedules</p>
         </div>
 
         {/* Tabs */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="border-b border-gray-200">
-            <nav className="flex">
+          <div className="border-b border-gray-200 overflow-x-auto">
+            <nav className="flex min-w-max">
               {tabs.map((tab) => (
                 <button
                   key={tab.id}

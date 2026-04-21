@@ -273,19 +273,19 @@ export default function DashboardPage() {
       <Sidebar currentPath="/" onLogout={logout} />
 
       {/* Main Content */}
-      <div className="ml-64 p-8">
+      <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between">
+        <div className="mb-6 lg:mb-8">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h1 className="text-3xl font-bold text-gray-800">Dashboard</h1>
-              <p className="text-gray-500 mt-1">Overview of your access control system</p>
+              <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Dashboard</h1>
+              <p className="text-gray-500 mt-1 text-sm lg:text-base">Overview of your access control system</p>
             </div>
             <div className="text-right">
-              <div className="text-2xl font-bold text-gray-800">
+              <div className="text-lg lg:text-2xl font-bold text-gray-800">
                 {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
               </div>
-              <div className="text-gray-500">
+              <div className="text-gray-500 text-xs lg:text-sm">
                 {currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
               </div>
             </div>
@@ -293,7 +293,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between">
               <div>
@@ -344,7 +344,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Recent Attendance - Live Access Events */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-100">
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">

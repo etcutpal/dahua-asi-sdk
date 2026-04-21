@@ -228,20 +228,20 @@ export default function SystemSettingsPage() {
         </div>
       )}
 
-      <div className="ml-64 p-8">
+      <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
         {alert && (
           <div className={"mb-4 p-4 rounded-lg flex items-center gap-3 border " + (alert.type === 'success' ? 'bg-green-50 border-green-200' : alert.type === 'warning' ? 'bg-yellow-50 border-yellow-200' : 'bg-red-50 border-red-200')}>
             <span className={"text-sm " + (alert.type === 'success' ? 'text-green-800' : alert.type === 'warning' ? 'text-yellow-800' : 'text-red-800')}>{alert.message}</span>
           </div>
         )}
-        <div className="mb-8">
+        <div className="mb-6 lg:mb-8">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/settings" className="hover:text-blue-600 transition-colors">Settings</Link>
             <span></span>
             <span className="text-gray-900 font-medium">System Settings</span>
           </div>
-          <h1 className="text-3xl font-bold text-gray-900">System Settings</h1>
-          <p className="text-gray-600 mt-1">Configure network access, ports, and bridge credentials</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">System Settings</h1>
+          <p className="text-gray-600 mt-1 text-sm lg:text-base">Configure network access, ports, and bridge credentials</p>
         </div>
         <div className="space-y-6">
           <div className={sec}>
