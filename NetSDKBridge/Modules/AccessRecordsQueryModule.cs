@@ -208,6 +208,7 @@ namespace NetSDKBridge.Modules
                                     DoorNumber = record.nDoor,
                                     ReaderNo = record.szReaderID?.Trim() ?? "",
                                     CardType = GetCardTypeString(record.emCardType),
+                                    OpenMethod = GetOpenMethodString(record.emMethod),
                                     Status = record.bStatus ? "Success" : "Failed"
                                 };
 
@@ -260,6 +261,39 @@ namespace NetSDKBridge.Modules
                 _ => "Unknown"
             };
         }
+
+        /// <summary>
+        /// Convert open door method enum to readable string
+        /// </summary>
+        private string GetOpenMethodString(EM_ACCESS_DOOROPEN_METHOD method)
+        {
+            return method switch
+            {
+                EM_ACCESS_DOOROPEN_METHOD.PWD_ONLY => "Password",
+                EM_ACCESS_DOOROPEN_METHOD.CARD => "Card",
+                EM_ACCESS_DOOROPEN_METHOD.CARD_FIRST => "Card+Password",
+                EM_ACCESS_DOOROPEN_METHOD.PWD_FIRST => "Password+Card",
+                EM_ACCESS_DOOROPEN_METHOD.REMOTE => "Remote Unlock",
+                EM_ACCESS_DOOROPEN_METHOD.BUTTON => "Button",
+                EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT => "Fingerprint",
+                EM_ACCESS_DOOROPEN_METHOD.PWD_CARD_FINGERPRINT => "Password+Card+Fingerprint",
+                EM_ACCESS_DOOROPEN_METHOD.PWD_FINGERPRINT => "Password+Fingerprint",
+                EM_ACCESS_DOOROPEN_METHOD.CARD_FINGERPRINT => "Card+Fingerprint",
+                EM_ACCESS_DOOROPEN_METHOD.PERSONS => "Multi-Person",
+                EM_ACCESS_DOOROPEN_METHOD.KEY => "Key",
+                EM_ACCESS_DOOROPEN_METHOD.COERCE_PWD => "Coercion Password",
+                EM_ACCESS_DOOROPEN_METHOD.QRCODE => "QR Code",
+                EM_ACCESS_DOOROPEN_METHOD.FACE_RECOGNITION => "Face Recognition",
+                EM_ACCESS_DOOROPEN_METHOD.FACEIDCARD => "Face+ID Card",
+                EM_ACCESS_DOOROPEN_METHOD.FACEIDCARD_AND_IDCARD => "Face+ID Card+Card",
+                EM_ACCESS_DOOROPEN_METHOD.BLUETOOTH => "Bluetooth",
+                EM_ACCESS_DOOROPEN_METHOD.CUSTOM_PASSWORD => "Custom Password",
+                EM_ACCESS_DOOROPEN_METHOD.USERID_AND_PWD => "UserID+Password",
+                EM_ACCESS_DOOROPEN_METHOD.FACE_AND_PWD => "Face+Password",
+                EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT_AND_PWD => "Fingerprint+Password",
+                _ => "Unknown"
+            };
+        }
     }
 
     /// <summary>
@@ -276,6 +310,7 @@ namespace NetSDKBridge.Modules
         public int DoorNumber { get; set; }
         public string ReaderNo { get; set; } = "";
         public string CardType { get; set; } = "Unknown";
+        public string OpenMethod { get; set; } = "Unknown";
         public string Status { get; set; } = "";  // "Success" or "Failed"
     }
 }

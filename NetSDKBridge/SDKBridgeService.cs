@@ -1590,6 +1590,7 @@ namespace NetSDKBridge
                 var results = moduleResults.Select(r => new AccessRecordResult
                 {
                     DeviceID = r.DeviceId,
+                    DeviceName = device.Name ?? "",
                     RecordNumber = r.RecordNumber,
                     CardNumber = r.CardNumber,
                     UserID = r.UserID,
@@ -1598,6 +1599,7 @@ namespace NetSDKBridge
                     DoorNumber = r.DoorNumber,
                     ReaderNo = r.ReaderNo,
                     CardType = r.CardType,
+                    OpenMethod = r.OpenMethod,
                     Status = r.Status
                 }).ToList();
 
@@ -3386,6 +3388,7 @@ namespace NetSDKBridge
     public class AccessRecordResult
     {
         public string DeviceID { get; set; }
+        public string DeviceName { get; set; } = "";
         public int RecordNumber { get; set; }
         public string CardNumber { get; set; }
         public string UserID { get; set; }
@@ -3394,6 +3397,7 @@ namespace NetSDKBridge
         public int DoorNumber { get; set; }
         public string ReaderNo { get; set; }
         public string CardType { get; set; }
+        public string OpenMethod { get; set; } = "Unknown";
         public string Status { get; set; }
     }
 

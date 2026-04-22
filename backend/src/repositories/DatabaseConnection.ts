@@ -164,11 +164,14 @@ export class DatabaseConnection {
       switch (cfg.type) {
         case 'sqlserver': {
           const mssql = await import('mssql');
-          const pool = await mssql.connect({
+          // Use an isolated ConnectionPool (NOT mssql.connect global singleton)
+          // so it can be safely closed/reset without affecting other pools.
+          const pool = new mssql.ConnectionPool({
             server: cfg.host, port: cfg.port, database: cfg.database,
             user: cfg.user, password: cfg.password,
             options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true },
           });
+          await pool.connect();
           logger.info('[DB] ✅ SQL Server connected');
           return new MssqlConnection(pool, cfg);
         }

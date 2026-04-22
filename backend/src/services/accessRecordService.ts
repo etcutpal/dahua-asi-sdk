@@ -212,6 +212,7 @@ export class AccessRecordService extends EventEmitter {
     const record: AccessRecord = {
       id: event.id,
       deviceId: eventData.deviceId,
+      deviceName: (eventData as any).deviceName || '',
       recordNumber: rawJsonData.CreateTime || rawJsonData.recordNumber || 0,
       userID: userId,
       userName: userName,
@@ -328,7 +329,8 @@ export class AccessRecordService extends EventEmitter {
         if (status === 'Success' || status === 'Failed') {
           const recordEntry: AccessRecord = {
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${record.RecordNumber || record.recordNumber}`,
-            deviceId: record.DeviceID || record.deviceId || '',
+            deviceId: record.DeviceID || record.deviceId || record.DeviceId || '',
+            deviceName: record.DeviceName || record.deviceName || '',
             recordNumber: record.RecordNumber || record.recordNumber,
             userID: record.UserID || record.userID || '',
             userName: record.UserName || record.userName || '',
@@ -337,7 +339,7 @@ export class AccessRecordService extends EventEmitter {
             doorNumber: record.DoorNumber || record.doorNumber || 0,
             readerNo: record.ReaderNo || record.readerNo || '',
             cardType: record.CardType || record.cardType || 'Unknown',
-            openMethod: record.OpenMethod || 'Unknown',
+            openMethod: record.OpenMethod || record.openMethod || 'Unknown',
             status: status,
             storedAt: new Date().toISOString()
           };

@@ -166,6 +166,7 @@ ${createTable(d)} sync_queue (
 ${createTable(d)} access_records (
   id             ${pkDef(d)},
   device_id      VARCHAR(64),
+  device_name    VARCHAR(255),
   record_number  INT           DEFAULT 0,
   user_id        VARCHAR(64),
   user_name      VARCHAR(255),
@@ -240,7 +241,8 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
   { table: 'employees', column: 'address',           sql: d => `ALTER TABLE employees ADD address ${varcharMax(d)}` },
   { table: 'employees', column: 'remarks',           sql: d => `ALTER TABLE employees ADD remarks ${varcharMax(d)}` },
   { table: 'employees', column: 'group_id',          sql: _d => `ALTER TABLE employees ADD group_id VARCHAR(64)` },
-  { table: 'devices',   column: 'group_id',          sql: _d => `ALTER TABLE devices ADD group_id VARCHAR(64)` },
+  { table: 'devices',        column: 'group_id',    sql: _d => `ALTER TABLE devices ADD group_id VARCHAR(64)` },
+  { table: 'access_records', column: 'device_name', sql: _d => `ALTER TABLE access_records ADD device_name VARCHAR(255)` },
 ];
 
 function loadConfig(): DbConfig | null {
@@ -275,14 +277,17 @@ async function testConnection(cfg: DbConfig): Promise<{ success: boolean; messag
 
   if (cfg.type === 'sqlserver') {
     const mssql = await import('mssql');
-    const pool = await mssql.connect({
+    // Use an isolated ConnectionPool (NOT mssql.connect) so closing it
+    // does NOT destroy the shared global pool used by the repositories.
+    const pool = new mssql.ConnectionPool({
       server: cfg.host,
       port: cfg.port,
       database: cfg.database,
       user: cfg.user,
       password: cfg.password,
       options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true, connectTimeout: 5000 },
-    }).catch((err: any) => { throw err; });
+    });
+    await pool.connect();
     const result = await pool.request().query('SELECT @@VERSION AS version');
     const version = (result.recordset[0] as any)?.version?.split('\n')[0] ?? 'SQL Server';
     await pool.close();

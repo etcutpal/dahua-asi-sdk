@@ -12,6 +12,7 @@ export interface AccessEvent {
 export interface AccessRecord {
   id: string;
   deviceId: string;
+  deviceName?: string;
   recordNumber: number;
   userID: string;
   userName: string;

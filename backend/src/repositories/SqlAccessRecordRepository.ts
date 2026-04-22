@@ -41,6 +41,7 @@ function rowToRecord(row: any): AccessRecord {
   return {
     id:           row.id,
     deviceId:     row.device_id,
+    deviceName:   row.device_name ?? '',
     recordNumber: row.record_number ?? 0,
     userID:       row.user_id   ?? '',
     userName:     row.user_name ?? '',
@@ -135,12 +136,13 @@ export class SqlAccessRecordRepository extends IAccessRepository {
 
     await this.db.query(
       `INSERT INTO access_records
-         (id, device_id, record_number, user_id, user_name, card_number,
+         (id, device_id, device_name, record_number, user_id, user_name, card_number,
           swipe_time, door_number, reader_no, card_type, open_method, status, stored_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         record.id,
         record.deviceId,
+        record.deviceName ?? '',
         record.recordNumber,
         record.userID,
         record.userName,

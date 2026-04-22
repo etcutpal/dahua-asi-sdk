@@ -37,6 +37,7 @@ interface AccessRecord {
   swipeTime: string;
   doorNumber: number;
   deviceId?: string;
+  deviceName?: string;
   readerNo: string;
   cardType: string;
   openMethod?: string;
@@ -448,8 +449,9 @@ export default function AccessRecordsPage() {
                             {(() => {
                               const { icon: Icon, color, label } = getOpenMethodIcon(record.openMethod || '');
                               return (
-                                <div className="flex items-center" title={label}>
-                                  <Icon className={`h-5 w-5 ${color}`} />
+                                <div className="flex items-center gap-1.5">
+                                  <Icon className={`h-4 w-4 ${color}`} />
+                                  <span className={`text-sm ${color}`}>{label}</span>
                                 </div>
                               );
                             })()}
@@ -482,7 +484,7 @@ export default function AccessRecordsPage() {
                             <div className="flex items-center">
                               <Database className="h-4 w-4 mr-2 text-gray-400" />
                               <span className="text-sm text-gray-900">
-                                {getDeviceName(record.deviceId || '') || (record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A')}
+                                {record.deviceName || getDeviceName(record.deviceId || '') || (record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A')}
                               </span>
                             </div>
                           </td>
@@ -511,8 +513,9 @@ export default function AccessRecordsPage() {
                             {(() => {
                               const { icon: Icon, color, label } = getOpenMethodIcon(record.openMethod || '');
                               return (
-                                <div className="flex items-center" title={label}>
-                                  <Icon className={`h-5 w-5 ${color}`} />
+                                <div className="flex items-center gap-1.5">
+                                  <Icon className={`h-4 w-4 ${color}`} />
+                                  <span className={`text-sm ${color}`}>{label}</span>
                                 </div>
                               );
                             })()}
@@ -535,7 +538,7 @@ export default function AccessRecordsPage() {
                             </div>
                             <div>
                               <span className="text-gray-500">Device:</span>
-                              <span className="ml-2">{getDeviceName(record.deviceId || '') || (record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A')}</span>
+                              <span className="ml-2">{record.deviceName || getDeviceName(record.deviceId || '') || (record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A')}</span>
                             </div>
                           </div>
                         </div>
