@@ -19,6 +19,9 @@ import personsRouter from './routes/persons';
 import employeesRouter from './routes/employees';
 import attendanceRouter from './routes/attendance/periods';
 import systemRouter from './routes/system';
+import accessRulesRouter from './routes/access-rules';
+import syncQueueRouter from './routes/sync-queue';
+import syncQueueService from './services/syncQueue.service';
 
 // Load environment variables
 dotenv.config();
@@ -68,6 +71,8 @@ app.use('/api/persons', personsRouter);
 app.use('/api/employees', employeesRouter);
 app.use('/api/attendance', attendanceRouter);
 app.use('/api/system', systemRouter);
+app.use('/api/access-rules', accessRulesRouter);
+app.use('/api/sync-queue', syncQueueRouter);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
@@ -147,6 +152,15 @@ io.on('connection', (socket) => {
 // Event service integration - broadcast events to WebSocket clients
 eventService.on('device:status:changed', (data: any) => {
   io.emit('device:status:changed', data);
+
+  // ── Flush queued_offline jobs when a device comes back online ──────────
+  const status = (data.status || data.Status || '').toLowerCase();
+  const deviceId = data.deviceId || data.DeviceID || data.deviceID;
+  if (status === 'online' && deviceId) {
+    syncQueueService.flushDevice(deviceId).catch((err: any) =>
+      logger.warn(`[SyncQueue] flushDevice error: ${err.message}`)
+    );
+  }
 });
 
 eventService.on('device:event:received', (data: any) => {
@@ -197,6 +211,36 @@ async function startServer() {
 
     // Initialize Access Record Service
     await accessRecordService.initialize();
+
+    // Initialize Sync Queue Service
+    await syncQueueService.initialize();
+
+    // Broadcast sync-queue updates to all connected clients
+    syncQueueService.on('queue:updated', (summary: any) => {
+      io.emit('sync:queue:updated', summary);
+    });
+
+    // ── Auto-resync rules that have no queued jobs (e.g. after a fresh restart) ──
+    // This ensures that if the backend restarts with existing rules but an empty
+    // queue, the persons are re-synced to devices automatically.
+    setImmediate(async () => {
+      try {
+        const accessRuleService = (await import('./services/accessRule.service')).default;
+        const rules = await accessRuleService.getAll();
+        const jobs = syncQueueService.getJobs();
+        for (const rule of rules) {
+          const hasActiveJobs = jobs.some(j => j.ruleId === rule.id && j.status !== 'success');
+          if (!hasActiveJobs) {
+            logger.info(`[Startup] Rule "${rule.name}" has no active jobs — queuing full resync`);
+            await accessRuleService.resync(rule.id).catch((e: any) =>
+              logger.warn(`[Startup] Resync for rule ${rule.id} failed: ${e.message}`)
+            );
+          }
+        }
+      } catch (e: any) {
+        logger.warn(`[Startup] Auto-resync failed: ${e.message}`);
+      }
+    });
 
     const port = parseInt(PORT as string, 10) || 3001;
     server.listen(port, HOST, () => {

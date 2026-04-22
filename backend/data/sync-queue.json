@@ -1,0 +1,74 @@
+[
+  {
+    "id": "job_1776796410468_14ate2",
+    "ruleId": "rule_1776789484182_wdnak",
+    "ruleName": "Access",
+    "personId": "448008",
+    "personName": "Utpal Mandal",
+    "deviceId": "600I",
+    "deviceName": "Main Entry",
+    "operation": "delete",
+    "status": "success",
+    "attempts": 1,
+    "maxAttempts": 3,
+    "failReason": null,
+    "history": [
+      {
+        "attemptAt": "2026-04-21T18:33:30.478Z",
+        "status": "success",
+        "message": "Sent successfully"
+      }
+    ],
+    "createdAt": "2026-04-21T18:33:30.468Z",
+    "lastAttemptAt": "2026-04-21T18:33:30.478Z",
+    "completedAt": "2026-04-21T18:33:30.520Z"
+  },
+  {
+    "id": "job_1776797773180_8xwu5b",
+    "ruleId": "rule_1776797386595_96pds",
+    "ruleName": "Test Access",
+    "personId": "448008",
+    "personName": "Utpal",
+    "deviceId": "600I",
+    "deviceName": "Main Entry",
+    "operation": "delete",
+    "status": "success",
+    "attempts": 1,
+    "maxAttempts": 3,
+    "failReason": null,
+    "history": [
+      {
+        "attemptAt": "2026-04-21T18:56:13.189Z",
+        "status": "success",
+        "message": "Sent successfully"
+      }
+    ],
+    "createdAt": "2026-04-21T18:56:13.180Z",
+    "lastAttemptAt": "2026-04-21T18:56:13.189Z",
+    "completedAt": "2026-04-21T18:56:13.227Z"
+  },
+  {
+    "id": "job_1776797785212_w6adkb",
+    "ruleId": "rule_1776797386595_96pds",
+    "ruleName": "Test Access",
+    "personId": "448008",
+    "personName": "Utpal",
+    "deviceId": "600I",
+    "deviceName": "Main Entry",
+    "operation": "add",
+    "status": "success",
+    "attempts": 1,
+    "maxAttempts": 3,
+    "failReason": null,
+    "history": [
+      {
+        "attemptAt": "2026-04-21T18:56:25.240Z",
+        "status": "success",
+        "message": "Sent successfully"
+      }
+    ],
+    "createdAt": "2026-04-21T18:56:25.212Z",
+    "lastAttemptAt": "2026-04-21T18:56:25.240Z",
+    "completedAt": "2026-04-21T18:56:25.675Z"
+  }
+]

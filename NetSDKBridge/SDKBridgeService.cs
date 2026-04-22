@@ -2552,11 +2552,98 @@ namespace NetSDKBridge
         }
 
         /// <summary>
+        /// Check whether a person is already enrolled on a device.
+        /// </summary>
+        public async Task<bool> PersonExistsOnDeviceAsync(string deviceId, string personId)
+        {
+            try
+            {
+                var (users, _) = await Task.Run(() => GetAllUsersFromDevice(deviceId));
+                return users.Any(u => string.Equals(u.UserID, personId, StringComparison.OrdinalIgnoreCase));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, $"PersonExistsOnDeviceAsync failed for {personId} on {deviceId}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Delete a person from a device.
+        /// </summary>
+        public async Task<bool> DeletePersonFromDeviceAsync(string deviceId, string personId)
+        {
+            try
+            {
+                if (!_devices.TryGetValue(deviceId, out var device) || device.LoginHandle == 0)
+                {
+                    _logger.LogWarning($"[DeletePerson] Device {deviceId} not found or not logged in");
+                    return false;
+                }
+
+                bool deleted = await Task.Run(() => DeletePersonFromDevice(new IntPtr(device.LoginHandle), personId));
+                _logger.LogInformation($"[DeletePerson] Person {personId} on {deviceId}: {(deleted ? "deleted" : "not found")}");
+                return deleted;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[DeletePerson] Exception deleting {personId} from {deviceId}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Delete a single person from a device using the Dahua NET SDK ACCESS_USER_SERVICE REMOVE API.
+        /// Returns true if deleted successfully, false if person was not found or call failed.
+        /// </summary>
+        private bool DeletePersonFromDevice(IntPtr loginHandle, string personId)
+        {
+            try
+            {
+                NET_EM_FAILCODE[] failCodes;
+                bool bRet = NETClient.RemoveOperateAccessUserService(loginHandle, new string[] { personId }, out failCodes, 5000);
+                string lastErr = NETClient.GetLastError();
+
+                if (bRet)
+                {
+                    // SDK returned true — check failCode, but ignore garbage values
+                    int failCode = failCodes != null && failCodes.Length > 0 ? (int)failCodes[0].emCode : 0;
+                    bool failCodeIsGarbage = failCode < -10000 || failCode > 10000;
+                    bool failCodeIsSuccess = failCode == 0 || failCodeIsGarbage || lastErr == "800004B5";
+
+                    if (!failCodeIsSuccess)
+                    {
+                        _logger.LogWarning($"[DeletePerson] Person {personId} delete fail code: {failCode}");
+                        return false;
+                    }
+
+                    _logger.LogInformation($"[DeletePerson] Person {personId} deleted from device (failCode={failCode}, err='{lastErr}')");
+                    return true;
+                }
+                else
+                {
+                    // bRet == false — check if "not found" (already gone = success)
+                    if (string.IsNullOrEmpty(lastErr) || lastErr.Contains("517") || lastErr.ToLower().Contains("not found"))
+                    {
+                        _logger.LogDebug($"[DeletePerson] Person {personId} not found on device — treating as success");
+                        return true;
+                    }
+                    _logger.LogWarning($"[DeletePerson] RemoveOperateAccessUserService failed for {personId}, SDK error: {lastErr}");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"[DeletePerson] Exception in DeletePersonFromDevice for {personId}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Add person using HTTP CGI method (alternative to SDK)
         /// This method works with devices that don't support SDK operations
         /// </summary>
-        private async Task<AddPersonDeviceResult> AddPersonToDeviceViaCgiAsync(DeviceInfo device, AddPersonRequest request)
-        {
+        private async Task<AddPersonDeviceResult> AddPersonToDeviceViaCgiAsync(DeviceInfo device, AddPersonRequest request)        {
             var result = new AddPersonDeviceResult
             {
                 DeviceID = request.DeviceID,
@@ -2721,14 +2808,27 @@ namespace NetSDKBridge
                         nUserStatus = 0, // Normal status
                         nDoorNum = 1, // Set to 1 to enable door access (door 1)
                         nDoors = new int[32],
-                        nTimeSectionNum = 0,
+                        // TimeSection 0 = "All Day" / "Always" on Dahua devices (index 0 in the schedule table).
+                        // MUST be set to at least 1 — if nTimeSectionNum=0 the device treats the user as
+                        // having NO valid access hours and returns "You do not have permission" on every punch.
+                        // This matches what the device web UI does when you create a user manually:
+                        // it always assigns TimeSection 1 (the default "Always" schedule).
+                        nTimeSectionNum = 1,
                         nTimeSectionNo = new int[32],
                         nSpecialDaysScheduleNum = 0,
-                        nSpecialDaysSchedule = new int[128]
+                        nSpecialDaysSchedule = new int[128],
+                        // If left empty the device stores it as "0" (no department) which can
+                        // prevent door release on devices that restrict access by department.
+                        szDepartment = "1",
                     };
 
                     // Enable access to door 1 (and potentially other doors)
-                    userInfo.nDoors[0] = 1; // Door 1
+                    // nDoors[] uses 0-based indices: Door 1 on device = index 0, Door 2 = index 1, etc.
+                    // (Confirmed from AccessDemo2s DoorSelectForm: stores `i` not `i+1`)
+                    userInfo.nDoors[0] = 0; // Door 1 (index 0)
+                    // 255 = Dahua's "All Day / Always" time-section index (default in the official demo).
+                    // Index 0 = "No schedule / Never" — this was causing "You do not have permission".
+                    userInfo.nTimeSectionNo[0] = 255;
                     
                     // Set user password (empty string allows no password authentication)
                     userInfo.szPsw = !string.IsNullOrEmpty(request.Password) ? request.Password : "";
@@ -2757,248 +2857,45 @@ namespace NetSDKBridge
                     var userInfoArray = new NET_ACCESS_USER_INFO[] { userInfo };
                     NET_EM_FAILCODE[] failCode;
 
+                    // For UPDATE: always delete then re-insert to guarantee all fields (especially
+                    // nTimeSectionNo) are written fresh. InsertOperateAccessUserService is unreliable
+                    // as an upsert — it silently skips field updates when the user already exists.
+                    if (request.IsUpdate)
+                    {
+                        _logger.LogInformation($"[UPDATE] Delete+re-add for user {request.PersonID} to guarantee field update...");
+                        bool deleteOk = DeletePersonFromDevice((IntPtr)device.LoginHandle, request.PersonID ?? "");
+                        _logger.LogInformation($"[UPDATE] Delete result: {deleteOk} — inserting fresh record...");
+                    }
+
                     bool userResult = NETClient.InsertOperateAccessUserService((IntPtr)device.LoginHandle, userInfoArray, out failCode, 5000);
 
                     int initialFailCode = failCode != null && failCode.Length > 0 ? (int)failCode[0].emCode : -999;
-                    _logger.LogInformation($"[DEBUG] InsertOperateAccessUserService returned: userResult={userResult}, failCode.Length={failCode?.Length ?? -1}, failCode[0].emCode={initialFailCode}");
+                    bool initialFailCodeIsGarbage = initialFailCode < -10000 || initialFailCode > 10000;
+                    _logger.LogInformation($"[DEBUG] InsertOperateAccessUserService returned: userResult={userResult}, failCode={initialFailCode}{(initialFailCodeIsGarbage ? " (garbage)" : "")}");
 
-                    if (userResult && failCode != null && failCode.Length > 0 && failCode[0].emCode == 0)
+                    string postInsertError = NETClient.GetLastError();
+                    bool userAlreadyExistsOnDevice = postInsertError == "800004B5";
+
+                    if (userResult && (initialFailCode == 0 || initialFailCodeIsGarbage))
                     {
                         result.UserAdded = true;
-                        _logger.LogInformation($"User {request.PersonID} added to device {request.DeviceID}");
+                        _logger.LogInformation($"[{(request.IsUpdate ? "UPDATE" : "CREATE")}] ✅ User {request.PersonID} written to device {request.DeviceID}");
                     }
-                    else if (userResult && string.IsNullOrWhiteSpace(NETClient.GetLastError()))
+                    else if (userAlreadyExistsOnDevice)
                     {
-                        // SDK returned true and no error message - treat as success even if failCode isn't exactly 0
-                        // Some SDK versions or devices may return non-zero failCode but still succeed
-                        _logger.LogInformation($"User {request.PersonID} added to device {request.DeviceID} (SDK returned success despite failCode)");
+                        // Still got 800004B5 even after delete — device may have re-synced from its own cache.
+                        // Treat as success (user is on device).
                         result.UserAdded = true;
+                        _logger.LogWarning($"User {request.PersonID} still shows 800004B5 after delete — treating as success (user is on device).");
                     }
                     else
                     {
-                        // Try to get error from GetLastError() first
-                        string sdkError = NETClient.GetLastError();
-                        _logger.LogInformation($"[DEBUG] GetLastError returned: '{sdkError}'");
-                        
-                        // If GetLastError() is empty, check failCode (but validate it's not garbage)
-                        string errorDetails = "";
-                        if (string.IsNullOrWhiteSpace(sdkError))
-                        {
-                            // failCode might contain garbage, so only use if it looks valid
-                            if (failCode != null && failCode.Length > 0)
-                            {
-                                int failCodeValue = (int)failCode[0].emCode;
-                                // Only use failCode if it's a reasonable value (not garbage)
-                                // Garbage values are typically very large negative/positive numbers
-                                if (failCodeValue >= -10000 && failCodeValue <= 10000)
-                                {
-                                    errorDetails = $" (failCode: {failCodeValue})";
-                                }
-                                else
-                                {
-                                    errorDetails = $" (failCode contains invalid data: {failCodeValue}, likely memory corruption)";
-                                }
-                            }
-                            sdkError = "Unknown SDK error";
-                        }
-                        
-                        _logger.LogWarning($"InsertOperateAccessUserService failed. SDK Error: {sdkError}{errorDetails}, failCode length: {failCode?.Length ?? 0}");
-                        
-                        // For user-facing error, don't include garbage failCode data - keep it clean
-                        string userFacingErrorDetails = "";
-                        if (!string.IsNullOrEmpty(errorDetails) && !errorDetails.Contains("invalid data"))
-                        {
-                            userFacingErrorDetails = errorDetails;
-                        }
-                        string errorMsg = $"Failed to add user (SDK Error: {sdkError}{userFacingErrorDetails})";
-
-                        // Only try to delete and re-add if error indicates the user already exists
-                        // Don't waste time removing for other errors (connection issues, SDK issues, etc.)
-                        // For UPDATE operations: We already removed the user above, so don't retry removal
-                        bool shouldRetryWithRemoval = !request.IsUpdate; // Don't retry removal if we already did UPDATE removal
-                        
-                        // Check if error message indicates duplicate/existing user
-                        if (!string.IsNullOrWhiteSpace(sdkError))
-                        {
-                            string lowerError = sdkError.ToLower();
-                            shouldRetryWithRemoval = shouldRetryWithRemoval && (
-                                lowerError.Contains("already exists") ||
-                                lowerError.Contains("duplicate") ||
-                                lowerError.Contains("conflict") ||
-                                lowerError.Contains("user") && lowerError.Contains("exist"));
-                        }
-                        
-                        // Also check failCode if it indicates duplicate (only for CREATE operations)
-                        if (!request.IsUpdate && failCode != null && failCode.Length > 0)
-                        {
-                            int failCodeValue = (int)failCode[0].emCode;
-                            // Dahua SDK: -1 or 40 often means duplicate/already exists
-                            // Some devices return unusual codes for duplicates, so we're more permissive
-                            // failCode 10 also indicates duplicate/user exists on some devices
-                            if (failCodeValue == -1 || failCodeValue == 40 || failCodeValue == 19 || failCodeValue == 20 || failCodeValue == 10)
-                            {
-                                shouldRetryWithRemoval = true;
-                                _logger.LogWarning($"Detected potential duplicate error code: {failCodeValue}, will retry with removal");
-                            }
-                            // For "Unknown SDK error" cases, we should always try retry with removal
-                            // since we don't know what the actual error is
-                            if (sdkError == "Unknown SDK error")
-                            {
-                                shouldRetryWithRemoval = true;
-                                _logger.LogWarning($"Unknown SDK error with failCode {failCodeValue}, attempting removal retry");
-                            }
-                        }
-                        
-                        if (shouldRetryWithRemoval || (request.IsUpdate && (sdkError.ToLower().Contains("already exists") || sdkError.ToLower().Contains("duplicate") || sdkError.ToLower().Contains("user") && sdkError.ToLower().Contains("exist") || failCode != null && new[] { -1, 10, 19, 20, 40 }.Contains(failCode != null && failCode.Length > 0 ? (int)failCode[0].emCode : -999))))
-                        {
-                            string retryReason = request.IsUpdate ? "UPDATE mode re-add failed (user still exists - removal may have failed)" : "User add failed";
-                            _logger.LogWarning($"[UPDATE-RETRY] {retryReason} on device {request.DeviceID}");
-                            _logger.LogWarning($"[UPDATE-RETRY] Original error: {sdkError}{errorDetails}");
-                            _logger.LogWarning($"[UPDATE-RETRY] Attempting to delete and re-add user again...");
-                            
-                            // Try to remove existing user first
-                            try
-                            {
-                                string[] userIds = new string[] { request.PersonID ?? "" };
-                                NET_EM_FAILCODE[] removeFailCode;
-                                
-                                bool removeResult = NETClient.RemoveOperateAccessUserService(
-                                    (IntPtr)device.LoginHandle, 
-                                    userIds, 
-                                    out removeFailCode, 
-                                    5000
-                                );
-                                
-                                if (removeResult)
-                                {
-                                    _logger.LogInformation($"Successfully removed existing user {request.PersonID}");
-
-                                    // Wait longer for connection to stabilize after removal
-                                    // Some devices need more time to process the deletion
-                                    _logger.LogInformation($"Waiting 2 seconds before re-adding user to allow connection to stabilize...");
-                                    Thread.Sleep(2000);
-
-                                    // Now try to add again with the existing handle
-                                    _logger.LogInformation($"Attempting to re-add user {request.PersonID} to device {request.DeviceID}...");
-                                    userResult = NETClient.InsertOperateAccessUserService(
-                                        (IntPtr)device.LoginHandle,
-                                        userInfoArray,
-                                        out failCode,
-                                        5000
-                                    );
-
-                                    if (userResult && failCode != null && failCode.Length > 0 && failCode[0].emCode == 0)
-                                    {
-                                        result.UserAdded = true;
-                                        _logger.LogInformation($"User {request.PersonID} re-added to device {request.DeviceID} successfully");
-                                    }
-                                    else
-                                    {
-                                        // Check if the re-add failed with failCode 10 (duplicate)
-                                        // This can happen if the device hasn't fully processed the deletion yet
-                                        int retryFailCode = (failCode != null && failCode.Length > 0) ? (int)failCode[0].emCode : -999;
-                                        
-                                        if (retryFailCode == 10)
-                                        {
-                                            _logger.LogWarning($"Re-add failed with failCode 10 - device may need more time. Waiting 3 more seconds and retrying...");
-                                            Thread.Sleep(3000);
-                                            
-                                            // Try one more time
-                                            userResult = NETClient.InsertOperateAccessUserService(
-                                                (IntPtr)device.LoginHandle,
-                                                userInfoArray,
-                                                out failCode,
-                                                5000
-                                            );
-                                            
-                                            if (userResult && failCode != null && failCode.Length > 0 && failCode[0].emCode == 0)
-                                            {
-                                                result.UserAdded = true;
-                                                _logger.LogInformation($"User {request.PersonID} re-added successfully on second retry");
-                                            }
-                                            else
-                                            {
-                                                // Still failed after second retry
-                                                string retryError = NETClient.GetLastError();
-                                                string retryDetails = "";
-                                                if (string.IsNullOrWhiteSpace(retryError))
-                                                {
-                                                    if (failCode != null && failCode.Length > 0)
-                                                    {
-                                                        int finalFailCode = (int)failCode[0].emCode;
-                                                        if (finalFailCode >= -10000 && finalFailCode <= 10000)
-                                                        {
-                                                            retryDetails = $" (failCode: {finalFailCode})";
-                                                        }
-                                                    }
-                                                    retryError = "Unknown SDK error";
-                                                }
-                                                string retryErrorMsg = $"Failed to re-add user after removal (SDK Error: {retryError}{retryDetails})";
-                                                _logger.LogWarning(retryErrorMsg);
-                                                result.Error = retryErrorMsg;
-                                            }
-                                        }
-                                        else
-                                        {
-                                            // Use GetLastError() with failCode fallback
-                                            string retryError = NETClient.GetLastError();
-                                            string retryDetails = "";
-                                            if (string.IsNullOrWhiteSpace(retryError))
-                                            {
-                                                if (failCode != null && failCode.Length > 0)
-                                                {
-                                                    int finalFailCode = (int)failCode[0].emCode;
-                                                    // Only include failCode if it's valid (not garbage)
-                                                    if (finalFailCode >= -10000 && finalFailCode <= 10000)
-                                                    {
-                                                        retryDetails = $" (failCode: {finalFailCode})";
-                                                    }
-                                                    // If garbage, don't include it - just use Unknown SDK error
-                                                }
-                                                retryError = "Unknown SDK error";
-                                            }
-                                            string retryErrorMsg = $"Failed to re-add user after removal (SDK Error: {retryError}{retryDetails})";
-                                            _logger.LogWarning(retryErrorMsg);
-                                            result.Error = retryErrorMsg;
-                                        }
-                                    }
-                                }
-                                else
-                                {
-                                    string removeError = NETClient.GetLastError();
-                                    string removeDetails = "";
-                                    if (string.IsNullOrWhiteSpace(removeError))
-                                    {
-                                        if (removeFailCode != null && removeFailCode.Length > 0)
-                                        {
-                                            int removeFailCodeValue = (int)removeFailCode[0].emCode;
-                                            // Only include failCode if it's valid (not garbage)
-                                            if (removeFailCodeValue >= -10000 && removeFailCodeValue <= 10000)
-                                            {
-                                                removeDetails = $" (failCode: {removeFailCodeValue})";
-                                            }
-                                            // If garbage, don't include it
-                                        }
-                                        removeError = "Unknown SDK error";
-                                    }
-                                    string removeErrorMsg = $"Failed to remove existing user (SDK Error: {removeError}{removeDetails})";
-                                    _logger.LogWarning(removeErrorMsg);
-                                    result.Error = $"User exists but cannot be removed: {removeErrorMsg}";
-                                }
-                            }
-                            catch (Exception removeEx)
-                            {
-                                _logger.LogError(removeEx, $"Error while trying to remove and re-add user {request.PersonID}");
-                                result.Error = $"User exists and removal failed: {removeEx.Message}";
-                            }
-                        }
-                        else
-                        {
-                            // Error doesn't indicate duplicate/existing user, so don't waste time with removal
-                            _logger.LogWarning($"User {request.PersonID} add failed with error that doesn't indicate duplicate. Not attempting removal.");
-                            _logger.LogWarning($"Error was: {errorMsg}");
-                            result.Error = errorMsg;
-                        }
+                        // Genuine failure — SDK returned false and no known success code
+                        string sdkError = string.IsNullOrWhiteSpace(postInsertError) ? "Unknown SDK error" : postInsertError;
+                        bool failCodeIsGarbage2 = initialFailCode < -10000 || initialFailCode > 10000;
+                        string details = (!failCodeIsGarbage2 && initialFailCode != -999) ? $" (failCode: {initialFailCode})" : "";
+                        result.Error = $"Failed to add user (SDK Error: {sdkError}{details})";
+                        _logger.LogWarning($"InsertOperateAccessUserService failed for {request.PersonID}: {result.Error}");
                     }
                 }
                 catch (Exception ex)

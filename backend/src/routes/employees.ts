@@ -3,22 +3,25 @@ import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
 import netSdkService from '../services/netSdkService';
+import accessRuleService from '../services/accessRule.service';
+import syncQueueService from '../services/syncQueue.service';
 import logger from '../utils/logger';
+import { JsonEmployeeRepository, JsonEmployeeGroupRepository } from '../repositories/JsonPersonRepository';
 
 const router = express.Router();
 
 // ─── Paths ────────────────────────────────────────────────────────────────────
 const DATA_DIR = path.join(__dirname, '../../data');
-const EMPLOYEES_FILE = path.join(DATA_DIR, 'employees.json');
-const GROUPS_FILE = path.join(DATA_DIR, 'employee-groups.json');
 const IMAGES_DIR = path.join(DATA_DIR, 'employee_images');
 const FACE_DIR = path.join(IMAGES_DIR, 'face_pictures');
 const PROFILE_DIR = path.join(IMAGES_DIR, 'profile_pictures');
 
-// Ensure directories & files exist
+// ─── Repositories ─────────────────────────────────────────────────────────────
+const employeeRepo = new JsonEmployeeRepository();
+const groupRepo = new JsonEmployeeGroupRepository();
+
+// Ensure image directories exist
 [IMAGES_DIR, FACE_DIR, PROFILE_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });
-if (!fs.existsSync(EMPLOYEES_FILE)) fs.writeFileSync(EMPLOYEES_FILE, JSON.stringify({ employees: [] }, null, 2));
-if (!fs.existsSync(GROUPS_FILE)) fs.writeFileSync(GROUPS_FILE, JSON.stringify({ groups: [] }, null, 2));
 
 // ─── Image helpers ────────────────────────────────────────────────────────────
 /**
@@ -49,30 +52,20 @@ function deleteImageFile(relativePath: string | null | undefined) {
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-function readEmployees(): any[] {
-  try {
-    const raw = fs.readFileSync(EMPLOYEES_FILE, 'utf-8');
-    return JSON.parse(raw).employees || [];
-  } catch {
-    return [];
-  }
+async function readEmployees(): Promise<any[]> {
+  return employeeRepo.findAll();
 }
 
-function writeEmployees(employees: any[]) {
-  fs.writeFileSync(EMPLOYEES_FILE, JSON.stringify({ employees }, null, 2));
+async function writeEmployees(employees: any[]): Promise<void> {
+  await employeeRepo.save(employees);
 }
 
-function readGroups(): any[] {
-  try {
-    const raw = fs.readFileSync(GROUPS_FILE, 'utf-8');
-    return JSON.parse(raw).groups || [];
-  } catch {
-    return [];
-  }
+async function readGroups(): Promise<any[]> {
+  return groupRepo.findAll();
 }
 
-function writeGroups(groups: any[]) {
-  fs.writeFileSync(GROUPS_FILE, JSON.stringify({ groups }, null, 2));
+async function writeGroups(groups: any[]): Promise<void> {
+  await groupRepo.save(groups);
 }
 
 // ─── Multer (face images via multipart upload) ────────────────────────────────
@@ -105,21 +98,21 @@ router.get('/images/*', (req: Request, res: Response) => {
 });
 
 // ─── Groups ───────────────────────────────────────────────────────────────────
-router.get('/groups', (_req: Request, res: Response) => {
+router.get('/groups', async (_req: Request, res: Response) => {
   try {
-    res.json({ success: true, groups: readGroups() });
+    res.json({ success: true, groups: await readGroups() });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.post('/groups', (req: Request, res: Response) => {
+router.post('/groups', async (req: Request, res: Response) => {
   try {
     const { id, name, description, parentId } = req.body;
     if (!id || !name) {
       return res.status(400).json({ success: false, error: 'id and name are required' });
     }
-    const groups = readGroups();
+    const groups = await readGroups();
     if (groups.find((g: any) => g.id === id)) {
       return res.status(409).json({ success: false, error: 'Group ID already exists' });
     }
@@ -131,17 +124,17 @@ router.post('/groups', (req: Request, res: Response) => {
       createdAt: new Date().toISOString()
     };
     groups.push(group);
-    writeGroups(groups);
+    await writeGroups(groups);
     res.status(201).json({ success: true, group });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.delete('/groups/:groupId', (req: Request, res: Response) => {
+router.delete('/groups/:groupId', async (req: Request, res: Response) => {
   try {
-    const groups = readGroups().filter((g: any) => g.id !== req.params.groupId);
-    writeGroups(groups);
+    const groups = (await readGroups()).filter((g: any) => g.id !== req.params.groupId);
+    await writeGroups(groups);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -149,17 +142,17 @@ router.delete('/groups/:groupId', (req: Request, res: Response) => {
 });
 
 // ─── Employees ────────────────────────────────────────────────────────────────
-router.get('/', (_req: Request, res: Response) => {
+router.get('/', async (_req: Request, res: Response) => {
   try {
-    res.json({ success: true, data: readEmployees() });
+    res.json({ success: true, data: await readEmployees() });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-router.get('/:id', (req: Request, res: Response) => {
+router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const emp = readEmployees().find((e: any) => e.id === req.params.id);
+    const emp = (await readEmployees()).find((e: any) => e.id === req.params.id);
     if (!emp) return res.status(404).json({ success: false, error: 'Employee not found' });
     res.json({ success: true, data: emp });
   } catch (err: any) {
@@ -167,7 +160,7 @@ router.get('/:id', (req: Request, res: Response) => {
   }
 });
 
-router.post('/', upload.single('faceImage'), (req: Request, res: Response) => {
+router.post('/', upload.single('faceImage'), async (req: Request, res: Response) => {
   try {
     let employeeData: any;
 
@@ -212,7 +205,7 @@ router.post('/', upload.single('faceImage'), (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'personId and name are required' });
     }
 
-    const employees = readEmployees();
+    const employees = await readEmployees();
 
     // Check duplicate personId
     if (employees.find((e: any) => e.personId === employeeData.personId && e.id !== employeeData.id)) {
@@ -233,7 +226,49 @@ router.post('/', upload.single('faceImage'), (req: Request, res: Response) => {
     } else {
       employees.push(employeeData);
     }
-    writeEmployees(employees);
+    await writeEmployees(employees);
+
+    // ── Trigger access rule sync for the new/updated employee ──────────────
+    // Run asynchronously so response is not delayed
+    setImmediate(async () => {
+      try {
+        const allRules = await accessRuleService.getAll();
+        for (const rule of allRules) {
+          const personIds = await accessRuleService.expandPersonIds(rule);
+          const isInRule = personIds.includes(employeeData.personId);
+          if (!isInRule) continue;
+
+          for (const deviceId of rule.deviceIds) {
+            try {
+              // Resolve device name from devices list
+              let deviceName = deviceId;
+              try {
+                const { default: deviceService } = await import('../services/device.service');
+                const allDevices = await deviceService.getAll();
+                const dev = allDevices.find((d: any) => d.registrationId === deviceId);
+                if (dev) deviceName = dev.name || deviceId;
+              } catch (_) {}
+
+              await syncQueueService.addJob({
+                ruleId: rule.id,
+                ruleName: rule.name,
+                personId: employeeData.personId,
+                personName: employeeData.name,
+                deviceId,
+                deviceName,
+                operation: 'add',
+                force: true,   // new employee — device has never seen them
+              });
+              logger.info(`[EMPLOYEES] Queued sync add for ${employeeData.personId} → device ${deviceId} (rule: ${rule.name})`);
+            } catch (e: any) {
+              logger.warn(`[EMPLOYEES] Failed to queue sync for device ${deviceId}: ${e.message}`);
+            }
+          }
+        }
+      } catch (e: any) {
+        logger.warn(`[EMPLOYEES] Failed to trigger access rule sync: ${e.message}`);
+      }
+    });
 
     res.status(201).json({ success: true, data: employeeData });
   } catch (err: any) {
@@ -242,9 +277,9 @@ router.post('/', upload.single('faceImage'), (req: Request, res: Response) => {
   }
 });
 
-router.put('/:id', upload.single('faceImage'), (req: Request, res: Response) => {
+router.put('/:id', upload.single('faceImage'), async (req: Request, res: Response) => {
   try {
-    const employees = readEmployees();
+    const employees = await readEmployees();
     const idx = employees.findIndex((e: any) => e.id === req.params.id);
     if (idx === -1) return res.status(404).json({ success: false, error: 'Employee not found' });
 
@@ -283,7 +318,46 @@ router.put('/:id', upload.single('faceImage'), (req: Request, res: Response) => 
     employeeData.id = req.params.id;
     employeeData.updatedAt = new Date().toISOString();
     employees[idx] = employeeData;
-    writeEmployees(employees);
+    await writeEmployees(employees);
+
+    // ── Auto-sync: push updated data to every device this employee is assigned to ──
+    // Detect what changed so we know whether to force-update on the device.
+    const oldEmp = employees[idx]; // captured before overwrite above? — no, idx is already overwritten.
+    // We always force=true on update because the device has stale face/card data.
+    const updatedPersonId: string = employeeData.personId;
+    const updatedPersonName: string = employeeData.name;
+
+    setImmediate(async () => {
+      try {
+        const allRules = await accessRuleService.getAll();
+        let jobsQueued = 0;
+        for (const rule of allRules) {
+          const personIds = await accessRuleService.expandPersonIds(rule);
+          if (!personIds.includes(updatedPersonId)) continue;
+
+          for (const deviceId of rule.deviceIds) {
+            let deviceName = deviceId;
+            try {
+              const { default: deviceService } = await import('../services/device.service');
+              const dev = (await deviceService.getAll()).find((d: any) => d.registrationId === deviceId);
+              if (dev) deviceName = dev.name || deviceId;
+            } catch (_) {}
+
+            // force=true: device still has old face/card — must overwrite
+            const job = await syncQueueService.addJob({
+              ruleId: rule.id, ruleName: rule.name,
+              personId: updatedPersonId, personName: updatedPersonName,
+              deviceId, deviceName,
+              operation: 'add', force: true,
+            });
+            if (job) jobsQueued++;
+          }
+        }
+        logger.info(`[EMPLOYEES] Updated employee ${updatedPersonId} — queued ${jobsQueued} force-sync job(s)`);
+      } catch (e: any) {
+        logger.warn(`[EMPLOYEES] Failed to trigger sync after update: ${e.message}`);
+      }
+    });
 
     res.json({ success: true, data: employeeData });
   } catch (err: any) {
@@ -291,17 +365,58 @@ router.put('/:id', upload.single('faceImage'), (req: Request, res: Response) => 
   }
 });
 
-router.delete('/:id', (req: Request, res: Response) => {
+router.delete('/:id', async (req: Request, res: Response) => {
   try {
-    const employees = readEmployees();
+    const employees = await readEmployees();
     const emp = employees.find((e: any) => e.id === req.params.id);
     if (emp) {
+      const personId: string = emp.personId || emp.id;
+      const personName: string = emp.name || personId;
+
+      // ── Queue delete jobs on all devices where this person has access ──
+      try {
+        const rules = await accessRuleService.getAll();
+        const groups: any[] = await readGroups();
+
+        // Determine which groups this employee belongs to
+        const empGroupIds: string[] = [];
+        if (emp.department) empGroupIds.push(emp.department);
+        if (emp.groupId) empGroupIds.push(emp.groupId);
+        if (emp.personGroupId) empGroupIds.push(emp.personGroupId);
+
+        for (const rule of rules) {
+          // Check if this person is covered by this rule
+          const coveredByAll = rule.employeeGroupIds.includes('all');
+          const coveredByGroup = empGroupIds.some(gid => rule.employeeGroupIds.includes(gid));
+          const coveredDirectly = rule.personIds.includes(personId);
+
+          if (coveredByAll || coveredByGroup || coveredDirectly) {
+            for (const deviceId of rule.deviceIds) {
+              const deviceName = deviceId; // best-effort name
+              await syncQueueService.addJob({
+                ruleId: rule.id,
+                ruleName: rule.name,
+                personId,
+                personName,
+                deviceId,
+                deviceName,
+                operation: 'delete',
+                force: true,
+              });
+              logger.info(`[EMPLOYEES] Queued delete for ${personId} (${personName}) → ${deviceId} (rule: ${rule.name})`);
+            }
+          }
+        }
+      } catch (syncErr: any) {
+        logger.error(`[EMPLOYEES] Failed to queue device delete jobs for ${personId}: ${syncErr.message}`);
+      }
+
       deleteImageFile(emp._faceImageFilename);
       deleteImageFile(emp._profileImageFilename);
-      logger.info(`[EMPLOYEES] Deleted images for employee ${emp.personId}`);
+      logger.info(`[EMPLOYEES] Deleted images for employee ${personId}`);
     }
     const updated = employees.filter((e: any) => e.id !== req.params.id);
-    writeEmployees(updated);
+    await writeEmployees(updated);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -316,7 +431,7 @@ router.post('/:id/send-to-device', async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, error: 'deviceId is required' });
     }
 
-    const employee = readEmployees().find((e: any) => e.id === req.params.id);
+    const employee = (await readEmployees()).find((e: any) => e.id === req.params.id);
     if (!employee) {
       return res.status(404).json({ success: false, error: 'Employee not found' });
     }
@@ -466,8 +581,8 @@ router.post('/import-from-device', async (req: Request, res: Response) => {
       ? deviceUsers.filter(u => selectedPersonIds.includes(String(u.userId)))
       : deviceUsers;
 
-    const employees = readEmployees();
-    const existingByPersonId = new Map(employees.map((e: any) => [String(e.personId), e]));
+    const employees: any[] = await readEmployees();
+    const existingByPersonId = new Map<string, any>(employees.map((e: any) => [String(e.personId), e]));
 
     const now = new Date();
     const defaultStart = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}T00:00`;
@@ -593,7 +708,7 @@ router.post('/import-from-device', async (req: Request, res: Response) => {
       }
     }
 
-    writeEmployees(employees);
+    await writeEmployees(employees);
     logger.info(`[ImportFromDevice] Done — imported: ${imported}, updated: ${updated}, skipped: ${skipped}, failed: ${failed}`);
 
     res.json({ success: true, totalOnDevice: deviceUsers.length, totalSelected: usersToImport.length, imported, updated, skipped, failed, errors: errors.slice(0, 20) });

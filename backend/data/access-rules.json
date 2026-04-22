@@ -1,0 +1,18 @@
+{
+  "rules": [
+    {
+      "id": "rule_1776797386595_96pds",
+      "name": "Test Access",
+      "employeeGroupIds": [
+        "all",
+        "group_1776626392657"
+      ],
+      "personIds": [],
+      "deviceIds": [
+        "600I"
+      ],
+      "createdAt": "2026-04-21T18:49:46.595Z",
+      "updatedAt": "2026-04-21T18:56:25.205Z"
+    }
+  ]
+}

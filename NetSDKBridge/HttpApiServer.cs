@@ -692,6 +692,54 @@ namespace NetSDKBridge
                 }
             });
 
+            // Check if person exists on device
+            _app.MapGet("/api/persons/exists", async context =>
+            {
+                try
+                {
+                    var deviceId = context.Request.Query["deviceId"].ToString();
+                    var personId = context.Request.Query["personId"].ToString();
+                    if (string.IsNullOrWhiteSpace(deviceId) || string.IsNullOrWhiteSpace(personId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "deviceId and personId are required" });
+                        return;
+                    }
+                    var exists = await _sdkService.PersonExistsOnDeviceAsync(deviceId, personId);
+                    await context.Response.WriteAsJsonAsync(new { success = true, exists });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
+            // Delete person from device
+            _app.MapPost("/api/persons/delete-from-device", async context =>
+            {
+                try
+                {
+                    var json = await System.Text.Json.JsonSerializer.DeserializeAsync<DeletePersonRequest>(
+                        context.Request.Body,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                    );
+                    if (json == null || string.IsNullOrWhiteSpace(json.DeviceId) || string.IsNullOrWhiteSpace(json.PersonId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "deviceId and personId are required" });
+                        return;
+                    }
+                    var ok = await _sdkService.DeletePersonFromDeviceAsync(json.DeviceId, json.PersonId);
+                    await context.Response.WriteAsJsonAsync(new { success = ok, message = ok ? "Deleted" : "Person not found on device" });
+                }
+                catch (Exception ex)
+                {
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
             _logger.LogInformation($"HTTP API Server starting on port {_port}");
             await _app.RunAsync();
         }
@@ -742,5 +790,11 @@ namespace NetSDKBridge
     {
         public string EventType { get; set; } = string.Empty;
         public string EventData { get; set; } = string.Empty;
+    }
+
+    public class DeletePersonRequest
+    {
+        public string DeviceId { get; set; } = string.Empty;
+        public string PersonId { get; set; } = string.Empty;
     }
 }

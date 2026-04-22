@@ -1,6 +1,8 @@
 import express, { Request, Response } from 'express';
 import deviceService from '../services/device.service';
 import netSdkService from '../services/netSdkService';
+import syncQueueService from '../services/syncQueue.service';
+import accessRuleService from '../services/accessRule.service';
 import logger from '../utils/logger';
 import { Device } from '../types';
 
@@ -97,11 +99,40 @@ router.post('/', async (req: Request, res: Response) => {
 // PUT update device
 router.put('/:deviceId', async (req: Request, res: Response) => {
   try {
+    // Capture old registrationId before update
+    const oldDevice = await deviceService.getById(req.params.deviceId);
+    const oldRegistrationId = oldDevice?.registrationId;
+
     const device = await deviceService.update(req.params.deviceId, req.body);
+
     // Push updated credentials to bridge if username/password changed
     if (device.registrationId && (req.body.username !== undefined || req.body.password !== undefined)) {
       await netSdkService.pushDeviceCredentials(device.registrationId, device.username || 'admin', device.password || '');
     }
+
+    // ── Propagate registrationId change to rules and sync queue ────────────
+    const newRegistrationId = device.registrationId;
+    if (oldRegistrationId && newRegistrationId && oldRegistrationId !== newRegistrationId) {
+      logger.info(`[Devices] registrationId changed: ${oldRegistrationId} → ${newRegistrationId} — updating rules and sync queue`);
+
+      // Update all access rules that reference the old registrationId
+      const allRules = await accessRuleService.getAll();
+      for (const rule of allRules) {
+        if (rule.deviceIds.includes(oldRegistrationId)) {
+          const updatedDeviceIds = rule.deviceIds.map(id => id === oldRegistrationId ? newRegistrationId : id);
+          await accessRuleService.update(rule.id, { deviceIds: updatedDeviceIds }).catch((e: any) =>
+            logger.warn(`[Devices] Failed to update rule ${rule.id}: ${e.message}`)
+          );
+        }
+      }
+
+      // Update all queued jobs referencing the old registrationId
+      await syncQueueService.renameDevice(oldRegistrationId, newRegistrationId, device.name);
+
+      // Push new credentials to bridge under the new registrationId
+      await netSdkService.pushDeviceCredentials(newRegistrationId, device.username || 'admin', device.password || '');
+    }
+
     res.json({ success: true, device });
   } catch (error: any) {
     if (error.message === 'Device not found') {
