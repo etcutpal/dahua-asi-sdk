@@ -49,6 +49,7 @@ interface EventSimulationParams {
 class NetSdkService {
   private bridgeUrl: string;
   private isInitialized: boolean;
+  private isShuttingDown: boolean = false;
   private devices: Device[];
   private credentialsPushed: boolean = false;
 
@@ -90,6 +91,7 @@ class NetSdkService {
    * This ensures the Backend state matches the Bridge state on startup.
    */
   async syncDevices(): Promise<void> {
+    if (this.isShuttingDown) return;
     try {
       const response = await axios.get<Device[]>(`${this.bridgeUrl}/api/devices`);
       const devices = response.data || [];
@@ -110,7 +112,9 @@ class NetSdkService {
 
       logger.info(`Device state synced from Bridge: ${this.devices.length} devices found.`);
     } catch (error: any) {
-      logger.error('Failed to sync devices from Bridge:', error.message);
+      if (!this.isShuttingDown) {
+        logger.error('Failed to sync devices from Bridge:', error.message);
+      }
     }
   }
 
@@ -566,10 +570,10 @@ class NetSdkService {
   }
 
   async cleanup(): Promise<void> {
+    this.isShuttingDown = true;
     try {
       if (this.isInitialized) {
         logger.info('Cleaning up NetSDK Service...');
-        // Optionally call cleanup endpoint on bridge
         this.isInitialized = false;
       }
     } catch (error: any) {
