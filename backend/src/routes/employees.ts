@@ -17,11 +17,10 @@ const FACE_DIR = path.join(IMAGES_DIR, 'face_pictures');
 const PROFILE_DIR = path.join(IMAGES_DIR, 'profile_pictures');
 
 // ─── Repositories ─────────────────────────────────────────────────────────────
-// Use RepositoryFactory so that when the DB backend changes, these automatically
-// pick up the new implementation.  RepositoryFactory.initialize() is called in
-// server.ts before any route handlers run.
-const employeeRepo = RepositoryFactory.employees();
-const groupRepo = RepositoryFactory.employeeGroups();
+// Called as functions (not cached constants) so RepositoryFactory's singleton
+// is resolved at request time, after initialize() has run in startServer().
+function employeeRepo() { return RepositoryFactory.employees(); }
+function groupRepo()    { return RepositoryFactory.employeeGroups(); }
 
 // Ensure image directories exist
 [IMAGES_DIR, FACE_DIR, PROFILE_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });
@@ -56,19 +55,19 @@ function deleteImageFile(relativePath: string | null | undefined) {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 async function readEmployees(): Promise<any[]> {
-  return employeeRepo.findAll();
+  return employeeRepo().findAll();
 }
 
 async function writeEmployees(employees: any[]): Promise<void> {
-  await employeeRepo.save(employees);
+  await employeeRepo().save(employees);
 }
 
 async function readGroups(): Promise<any[]> {
-  return groupRepo.findAll();
+  return groupRepo().findAll();
 }
 
 async function writeGroups(groups: any[]): Promise<void> {
-  await groupRepo.save(groups);
+  await groupRepo().save(groups);
 }
 
 // ─── Multer (face images via multipart upload) ────────────────────────────────
@@ -460,19 +459,32 @@ router.post('/:id/send-to-device', async (req: Request, res: Response) => {
     let faceImageBuffer: Buffer | null = null;
     let faceImageFilename: string | null = null;
 
-    // Try disk file first (_faceImageFilename is relative to IMAGES_DIR)
-    if (employee._faceImageFilename) {
-      const faceFilePath = path.join(IMAGES_DIR, employee._faceImageFilename);
-      if (fs.existsSync(faceFilePath)) {
-        faceImageBuffer = fs.readFileSync(faceFilePath);
-        faceImageFilename = path.basename(employee._faceImageFilename);
-        logger.info(`[EMPLOYEE SEND-TO-DEVICE] Face read from disk: ${employee._faceImageFilename}, size: ${(faceImageBuffer.length / 1024).toFixed(2)} KB`);
-      } else {
-        logger.warn(`[EMPLOYEE SEND-TO-DEVICE] Face file not found on disk: ${faceFilePath}`);
+    // Helper: try to read a relative path under IMAGES_DIR
+    const tryReadFaceFromRelPath = (relPath: string | null | undefined): boolean => {
+      if (!relPath) return false;
+      const abs = path.join(IMAGES_DIR, relPath);
+      if (fs.existsSync(abs)) {
+        faceImageBuffer = fs.readFileSync(abs);
+        faceImageFilename = path.basename(relPath);
+        logger.info(`[EMPLOYEE SEND-TO-DEVICE] Face read from disk: ${relPath}, size: ${(faceImageBuffer.length / 1024).toFixed(2)} KB`);
+        return true;
+      }
+      logger.warn(`[EMPLOYEE SEND-TO-DEVICE] Face file not found: ${abs}`);
+      return false;
+    };
+
+    // 1. Try _faceImageFilename (relative to IMAGES_DIR — set for in-memory/JSON employees)
+    if (!tryReadFaceFromRelPath(employee._faceImageFilename)) {
+      // 2. Derive relative path from facePicture URL  "/api/employees/images/<relPath>"
+      const facePictureUrl: string = employee.facePicture || employee.profilePicture || '';
+      const IMAGE_URL_PREFIX = '/api/employees/images/';
+      if (facePictureUrl.startsWith(IMAGE_URL_PREFIX)) {
+        const relPath = facePictureUrl.slice(IMAGE_URL_PREFIX.length);
+        tryReadFaceFromRelPath(relPath);
       }
     }
 
-    // Fall back to inline base64 (legacy records that haven't been migrated)
+    // 3. Fall back to inline base64 (legacy records)
     if (!faceImageBuffer) {
       const faceData: string = employee.facePicture || employee.profilePicture || '';
       if (faceData && faceData.startsWith('data:')) {
@@ -672,14 +684,21 @@ router.post('/import-from-device', async (req: Request, res: Response) => {
             logger.warn(`[ImportFromDevice] Details fetch failed for ${u.userId}: ${detailErr.message}`);
           }
 
+          // SDK returns "0000-00-00", "1900-01-01" or "1970-xx-xx" for unset dates — treat as "not set"
+          const isValidSdkDate = (s: string) => {
+            if (!s) return false;
+            const year = parseInt(s.substring(0, 4), 10);
+            return year >= 2000;
+          };
           const newEmp: any = {
             id: `emp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
             personId: u.userId,
             name: u.name || u.userId,
             department: targetGroup,
+            groupId: targetGroup,
             gender: '',
-            effectiveStart: u.validBegin ? `${u.validBegin}T00:00` : defaultStart,
-            effectiveEnd: u.validEnd ? `${u.validEnd}T23:59` : defaultEnd,
+            effectiveStart: isValidSdkDate(u.validBegin) ? `${u.validBegin}T00:00` : defaultStart,
+            effectiveEnd: isValidSdkDate(u.validEnd) ? `${u.validEnd}T23:59` : defaultEnd,
             profilePicture,
             facePicture,
             password,

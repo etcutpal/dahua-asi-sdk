@@ -73,15 +73,25 @@ ${createTable(d)} persons (
     name: 'employees',
     sql: (d) => `
 ${createTable(d)} employees (
-  id                   VARCHAR(64)   PRIMARY KEY,
-  person_id            VARCHAR(64)   NOT NULL UNIQUE,
-  name                 VARCHAR(255)  NOT NULL,
+  id                   VARCHAR(64)    PRIMARY KEY,
+  person_id            VARCHAR(64)    NOT NULL UNIQUE,
+  name                 VARCHAR(255)   NOT NULL,
   department           VARCHAR(64),
   group_id             VARCHAR(64),
-  card_number          VARCHAR(64),
-  face_image_path      VARCHAR(512),
-  profile_image_path   VARCHAR(512),
+  card_numbers         ${varcharMax(d)},
+  face_picture         VARCHAR(512),
+  profile_picture      VARCHAR(512),
   password             VARCHAR(128),
+  fingerprints         ${varcharMax(d)},
+  gender               VARCHAR(16),
+  title                VARCHAR(32),
+  nickname             VARCHAR(128),
+  date_of_birth        VARCHAR(32),
+  phone                VARCHAR(64),
+  occupation           VARCHAR(128),
+  email                VARCHAR(255),
+  address              ${varcharMax(d)},
+  remarks              ${varcharMax(d)},
   effective_start      ${datetime(d)},
   effective_end        ${datetime(d)},
   created_at           ${datetime(d)} NOT NULL,
@@ -154,20 +164,41 @@ ${createTable(d)} sync_queue (
     name: 'access_records',
     sql: (d) => `
 ${createTable(d)} access_records (
-  id              ${pkDef(d)},
-  event_id        VARCHAR(64)   UNIQUE,
-  device_id       VARCHAR(64),
-  device_name     VARCHAR(255),
-  person_id       VARCHAR(64),
-  person_name     VARCHAR(255),
-  card_number     VARCHAR(64),
-  event_type      VARCHAR(64),
-  direction       VARCHAR(16),
-  door_number     INT,
-  access_result   VARCHAR(32),
-  snapshot_path   VARCHAR(512),
-  event_time      ${datetime(d)},
-  created_at      ${datetime(d)} NOT NULL
+  id             ${pkDef(d)},
+  device_id      VARCHAR(64),
+  record_number  INT           DEFAULT 0,
+  user_id        VARCHAR(64),
+  user_name      VARCHAR(255),
+  card_number    VARCHAR(64),
+  swipe_time     ${datetime(d)},
+  door_number    INT           DEFAULT 0,
+  reader_no      VARCHAR(32),
+  card_type      VARCHAR(64),
+  open_method    VARCHAR(64),
+  status         VARCHAR(32)   DEFAULT 'Failed',
+  stored_at      ${datetime(d)} NOT NULL
+);`.trim(),
+  },
+  {
+    name: 'device_groups',
+    sql: (d) => `
+${createTable(d)} device_groups (
+  id          VARCHAR(64)   PRIMARY KEY,
+  name        VARCHAR(255)  NOT NULL,
+  parent_id   VARCHAR(64),
+  created_at  ${datetime(d)} NOT NULL
+);`.trim(),
+  },
+  {
+    name: 'access_events',
+    sql: (d) => `
+${createTable(d)} access_events (
+  id         VARCHAR(64)    PRIMARY KEY,
+  type       VARCHAR(64)    NOT NULL,
+  device_id  VARCHAR(64)    NOT NULL,
+  timestamp  ${datetime(d)} NOT NULL,
+  data       ${varcharMax(d)},
+  stored_at  ${datetime(d)} NOT NULL
 );`.trim(),
   },
 ];
@@ -183,6 +214,33 @@ export interface DbConfig {
   password: string;
   useSSL?: boolean;
 }
+
+// ─── Column migrations (add missing columns to existing tables) ───────────────
+// These run AFTER table creation to add columns introduced in schema updates.
+// Each entry is idempotent: we check if the column exists before ALTERing.
+
+interface ColumnMigration {
+  table: string;
+  column: string;
+  sql: (dialect: DbType) => string;  // full ALTER TABLE ... ADD COLUMN ... statement
+}
+
+const COLUMN_MIGRATIONS: ColumnMigration[] = [
+  { table: 'employees', column: 'card_numbers',      sql: d => `ALTER TABLE employees ADD card_numbers ${varcharMax(d)}` },
+  { table: 'employees', column: 'face_picture',      sql: _d => `ALTER TABLE employees ADD face_picture VARCHAR(512)` },
+  { table: 'employees', column: 'profile_picture',   sql: _d => `ALTER TABLE employees ADD profile_picture VARCHAR(512)` },
+  { table: 'employees', column: 'fingerprints',      sql: d => `ALTER TABLE employees ADD fingerprints ${varcharMax(d)}` },
+  { table: 'employees', column: 'gender',            sql: _d => `ALTER TABLE employees ADD gender VARCHAR(16)` },
+  { table: 'employees', column: 'title',             sql: _d => `ALTER TABLE employees ADD title VARCHAR(32)` },
+  { table: 'employees', column: 'nickname',          sql: _d => `ALTER TABLE employees ADD nickname VARCHAR(128)` },
+  { table: 'employees', column: 'date_of_birth',     sql: _d => `ALTER TABLE employees ADD date_of_birth VARCHAR(32)` },
+  { table: 'employees', column: 'phone',             sql: _d => `ALTER TABLE employees ADD phone VARCHAR(64)` },
+  { table: 'employees', column: 'occupation',        sql: _d => `ALTER TABLE employees ADD occupation VARCHAR(128)` },
+  { table: 'employees', column: 'email',             sql: _d => `ALTER TABLE employees ADD email VARCHAR(255)` },
+  { table: 'employees', column: 'address',           sql: d => `ALTER TABLE employees ADD address ${varcharMax(d)}` },
+  { table: 'employees', column: 'remarks',           sql: d => `ALTER TABLE employees ADD remarks ${varcharMax(d)}` },
+  { table: 'employees', column: 'group_id',          sql: _d => `ALTER TABLE employees ADD group_id VARCHAR(64)` },
+];
 
 function loadConfig(): DbConfig | null {
   try {
@@ -304,9 +362,41 @@ async function runMigrations(cfg: DbConfig): Promise<MigrateResult[]> {
       } else {
         await execSQL.run(sql);
         results.push({ table: table.name, status: 'created' });
+
+        // ── Seed default rows for freshly-created tables ──────────────────
+        if (table.name === 'employee_groups') {
+          const now = new Date().toISOString();
+          await execSQL.run(
+            cfg.type === 'sqlserver'
+              ? `INSERT INTO employee_groups (id, name, description, parent_id, created_at) VALUES ('all', 'All Employees', 'Default group — all employees', NULL, '${now}')`
+              : `INSERT INTO employee_groups (id, name, description, parent_id, created_at) VALUES ('all', 'All Employees', 'Default group — all employees', NULL, '${now}')`
+          );
+          logger.info('[Migration] Seeded default employee group "All Employees"');
+        }
+
+        if (table.name === 'device_groups') {
+          const now = new Date().toISOString();
+          await execSQL.run(
+            `INSERT INTO device_groups (id, name, parent_id, created_at) VALUES ('all', 'All Devices', NULL, '${now}')`
+          );
+          logger.info('[Migration] Seeded default device group "All Devices"');
+        }
       }
     } catch (err: any) {
       results.push({ table: table.name, status: 'error', error: err.message });
+    }
+  }
+
+  // Run column migrations (add missing columns to existing tables)
+  for (const cm of COLUMN_MIGRATIONS) {
+    try {
+      const hasCol = await execSQL.columnExists(cm.table, cm.column);
+      if (!hasCol) {
+        await execSQL.run(cm.sql(cfg.type));
+        logger.info(`[Migration] Added column ${cm.table}.${cm.column}`);
+      }
+    } catch (err: any) {
+      logger.warn(`[Migration] Failed to add column ${cm.table}.${cm.column}: ${err.message}`);
     }
   }
 
@@ -318,14 +408,23 @@ async function runMigrations(cfg: DbConfig): Promise<MigrateResult[]> {
 async function buildSQLExecutor(cfg: DbConfig) {
   if (cfg.type === 'sqlserver') {
     const mssql = await import('mssql');
-    const pool = await mssql.connect({
+    // Use an isolated ConnectionPool (NOT mssql.connect) so closing it
+    // does NOT destroy the shared global pool used by DatabaseConnection.
+    const pool = new mssql.ConnectionPool({
       server: cfg.host, port: cfg.port, database: cfg.database, user: cfg.user, password: cfg.password,
       options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true },
     });
+    await pool.connect();
     return {
       tableExists: async (name: string) => {
         const r = await pool.request().query(
           `SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='dbo' AND TABLE_NAME='${name}'`
+        );
+        return r.recordset.length > 0;
+      },
+      columnExists: async (table: string, column: string) => {
+        const r = await pool.request().query(
+          `SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='${table}' AND COLUMN_NAME='${column}'`
         );
         return r.recordset.length > 0;
       },
@@ -348,6 +447,13 @@ async function buildSQLExecutor(cfg: DbConfig) {
         );
         return (rows as any[]).length > 0;
       },
+      columnExists: async (table: string, column: string) => {
+        const [rows] = await conn.query(
+          `SELECT 1 FROM information_schema.columns WHERE table_schema=? AND table_name=? AND column_name=?`,
+          [cfg.database, table, column],
+        );
+        return (rows as any[]).length > 0;
+      },
       run: async (sql: string) => conn.query(sql),
       close: async () => conn.end(),
     };
@@ -365,6 +471,13 @@ async function buildSQLExecutor(cfg: DbConfig) {
       const r = await client.query(
         `SELECT 1 FROM information_schema.tables WHERE table_schema='public' AND table_name=$1`,
         [name],
+      );
+      return r.rows.length > 0;
+    },
+    columnExists: async (table: string, column: string) => {
+      const r = await client.query(
+        `SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 AND column_name=$2`,
+        [table, column],
       );
       return r.rows.length > 0;
     },
@@ -478,3 +591,23 @@ router.get('/status', (_req: Request, res: Response) => {
 });
 
 export default router;
+
+/**
+ * Run schema migrations automatically at server startup.
+ * Only applies when a SQL database is configured.
+ * Safe to call every time — all operations are idempotent.
+ */
+export async function autoMigrateOnStartup(): Promise<void> {
+  const cfg = loadConfig();
+  if (!cfg || cfg.type === 'mongodb') return;   // JSON or MongoDB — no SQL migrations needed
+  try {
+    const results = await runMigrations(cfg);
+    const created = results.filter(r => r.status === 'created').map(r => r.table);
+    const errors  = results.filter(r => r.status === 'error');
+    if (created.length) logger.info(`[AutoMigrate] Created tables: ${created.join(', ')}`);
+    if (errors.length)  logger.warn(`[AutoMigrate] Errors: ${errors.map(r => `${r.table}: ${r.error}`).join('; ')}`);
+    logger.info('[AutoMigrate] Schema up-to-date.');
+  } catch (err: any) {
+    logger.warn(`[AutoMigrate] Migration skipped: ${err.message}`);
+  }
+}

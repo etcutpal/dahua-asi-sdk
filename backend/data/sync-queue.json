@@ -46,5 +46,29 @@
     "createdAt": "2026-04-22T11:42:35.647Z",
     "lastAttemptAt": "2026-04-22T13:03:29.028Z",
     "completedAt": "2026-04-22T13:03:29.166Z"
+  },
+  {
+    "id": "job_1776865921802_f7911q",
+    "ruleId": "rule_1776863371157_o7qt7",
+    "ruleName": "All Access",
+    "personId": "564",
+    "personName": "fgds",
+    "deviceId": "600I",
+    "deviceName": "600I",
+    "operation": "add",
+    "status": "success",
+    "attempts": 1,
+    "maxAttempts": 3,
+    "failReason": null,
+    "history": [
+      {
+        "attemptAt": "2026-04-22T13:52:01.814Z",
+        "status": "success",
+        "message": "Sent successfully"
+      }
+    ],
+    "createdAt": "2026-04-22T13:52:01.802Z",
+    "lastAttemptAt": "2026-04-22T13:52:01.814Z",
+    "completedAt": "2026-04-22T13:52:01.989Z"
   }
 ]

@@ -12,14 +12,14 @@
 
 import { EventEmitter } from 'events';
 import logger from '../utils/logger';
-import FileRepository from '../repositories/FileRepository';
 import { IAccessRepository, AccessEvent, AccessRecord, WebhookEventData, RecordFilters, PaginationInfo } from '../types';
+import RepositoryFactory from '../repositories/RepositoryFactory';
 import fs from 'fs/promises';
 import path from 'path';
 
 export class AccessRecordService extends EventEmitter {
   private static instance: AccessRecordService | null = null;
-  private repository: IAccessRepository;
+  protected repository: IAccessRepository;
   private cardTypeMap: Record<number, string>;
   private userCache: Record<string, string>;
   private userCachePath: string;
@@ -49,10 +49,21 @@ export class AccessRecordService extends EventEmitter {
    */
   static getInstance(): AccessRecordService {
     if (!AccessRecordService.instance) {
-      const repository = new FileRepository();
+      const repository = RepositoryFactory.accessRecords();
       AccessRecordService.instance = new AccessRecordService(repository);
     }
     return AccessRecordService.instance;
+  }
+
+  /**
+   * Swap the underlying repository to the one now provided by RepositoryFactory.
+   * Call this in startServer() after RepositoryFactory.initialize() so the
+   * already-exported singleton switches to the SQL backend without needing
+   * a new object reference.
+   */
+  static reinitialize(): void {
+    const svc = AccessRecordService.getInstance();
+    svc.repository = RepositoryFactory.accessRecords();
   }
 
   /**

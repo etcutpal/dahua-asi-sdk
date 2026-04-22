@@ -22,20 +22,20 @@ import systemRouter from './routes/system';
 import accessRulesRouter from './routes/access-rules';
 import syncQueueRouter from './routes/sync-queue';
 import databaseSettingsRouter from './routes/database-settings';
+import { autoMigrateOnStartup } from './routes/database-settings';
 import syncQueueService from './services/syncQueue.service';
 import RepositoryFactory from './repositories/RepositoryFactory';
 
 // Load environment variables
 dotenv.config();
 
-// Get singleton instance (creates with FileRepository automatically)
-const accessRecordService = AccessRecordService.getInstance();
-
-// For backward compatibility - alias as eventService
-const eventService = accessRecordService;
-
-// Export for other modules (if needed)
-export { accessRecordService, eventService };
+// accessRecordService singleton — created lazily in startServer() after
+// RepositoryFactory.initialize() so the correct DB backend is used.
+// Exported so routes and services can import it before startup completes;
+// they must only call methods during request handling (not at import time).
+export const accessRecordService = AccessRecordService.getInstance();
+// For backward compatibility
+export const eventService = accessRecordService;
 
 const app = express();
 const server = http.createServer(app);
@@ -199,6 +199,43 @@ async function startServer() {
   try {
     // Initialize repository backend (JSON / SQL / MongoDB)
     await RepositoryFactory.initialize();
+
+    // ── Auto-migrate SQL schema (add missing tables/columns) ─────────────────
+    // Runs every startup — all operations are idempotent.
+    await autoMigrateOnStartup();
+
+    // ── Seed default groups if none exist ────────────────────────────────────
+    // Handles first-run on JSON backend, and SQL databases that were migrated
+    // before the seeding logic was added to the migration script.
+    try {
+      const grpRepo = RepositoryFactory.employeeGroups();
+      const existingGroups = await grpRepo.findAll();
+      if (existingGroups.length === 0) {
+        await grpRepo.save([
+          { id: 'all', name: 'All Employees', description: 'Default group — all employees', parentId: null, createdAt: new Date().toISOString() },
+        ]);
+        logger.info('[Startup] Seeded default employee group "All Employees"');
+      }
+    } catch (e: any) {
+      logger.warn(`[Startup] Could not seed employee groups: ${e.message}`);
+    }
+
+    try {
+      const devGrpRepo = RepositoryFactory.deviceGroups();
+      const existingDevGroups = await devGrpRepo.findAll();
+      if (existingDevGroups.length === 0) {
+        await devGrpRepo.save([
+          { id: 'all', name: 'All Devices', parentId: null, createdAt: new Date().toISOString() },
+        ]);
+        logger.info('[Startup] Seeded default device group "All Devices"');
+      }
+    } catch (e: any) {
+      logger.warn(`[Startup] Could not seed device groups: ${e.message}`);
+    }
+
+    // Swap the AccessRecordService's internal repository to the SQL backend
+    // (the exported singleton was created at module load before the DB was ready)
+    AccessRecordService.reinitialize();
 
     // Initialize NetSDK Service
     await netSdkService.initialize();

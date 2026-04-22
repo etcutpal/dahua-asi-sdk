@@ -67,24 +67,16 @@ const MAX_DEVICES_PARALLEL  = 10;
 const MAX_ATTEMPTS          = 3;
 
 class SyncQueueService extends EventEmitter {
-  private repo: ISyncQueueRepository;
-  private empRepo: IEmployeeRepository;
+  private get repo()    { return RepositoryFactory.syncQueue(); }
+  private get empRepo() { return RepositoryFactory.employees(); }
   private jobs: SyncJob[] = [];
   private timer: NodeJS.Timer | null = null;
   private processing = false;
   private initialized = false;
 
-  /**
-   * Pass a custom repository to use a different storage backend (e.g. SQL).
-   * Defaults to the JSON file implementation.
-   */
-  constructor(
-    repo?: ISyncQueueRepository,
-    empRepo?: IEmployeeRepository,
-  ) {
+  constructor(_repo?: ISyncQueueRepository, _empRepo?: IEmployeeRepository) {
     super();
-    this.repo = repo ?? RepositoryFactory.syncQueue();
-    this.empRepo = empRepo ?? RepositoryFactory.employees();
+    // repos resolved lazily via getters
   }
 
   // ── Init & Persistence ───────────────────────────────────────────────────

@@ -1,126 +1,78 @@
-import fs from 'fs/promises';
-import path from 'path';
 import { Device, DeviceInput } from '../types';
+import RepositoryFactory from '../repositories/RepositoryFactory';
 
 class DeviceService {
-  private dataPath: string;
-  private devices: Device[];
-  private lock: Promise<void>;
-
-  constructor() {
-    this.dataPath = path.join(__dirname, '..', '..', 'data', 'devices.json');
-    this.devices = [];
-    this.lock = Promise.resolve();
+  private get repo() {
+    return RepositoryFactory.devices();
   }
 
-  async load(): Promise<Device[]> {
-    try {
-      const data = await fs.readFile(this.dataPath, 'utf-8');
-      const parsed = JSON.parse(data);
-      this.devices = parsed.devices || [];
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
-        this.devices = [];
-      } else {
-        console.error('Error loading devices:', error);
-        this.devices = [];
-      }
-    }
-    return this.devices;
-  }
-
-  async save(): Promise<void> {
-    try {
-      await fs.writeFile(this.dataPath, JSON.stringify({ devices: this.devices }, null, 2), 'utf-8');
-    } catch (error) {
-      console.error('Error saving devices:', error);
-      throw error;
-    }
-  }
-
-  generateDeviceId(): string {
-    // Generate 8-digit unique number
+  private generateDeviceId(existing: Device[]): string {
     let id: string;
     let attempts = 0;
     do {
       id = Math.floor(10000000 + Math.random() * 90000000).toString();
-      attempts++;
-      if (attempts > 100) {
-        throw new Error('Unable to generate unique device ID');
-      }
-    } while (this.devices.some(d => d.deviceId === id));
+      if (++attempts > 100) throw new Error('Unable to generate unique device ID');
+    } while (existing.some(d => d.deviceId === id));
     return id;
   }
 
   async getAll(): Promise<Device[]> {
-    await this.load();
-    return this.devices;
+    return this.repo.findAll();
   }
 
   async getById(deviceId: string): Promise<Device | undefined> {
-    await this.load();
-    return this.devices.find(d => d.deviceId === deviceId);
+    return this.repo.findById(deviceId);
   }
 
   async create(deviceData: DeviceInput): Promise<Device> {
-    await this.load();
+    const all = await this.repo.findAll();
 
-    // Check for duplicate registrationId
-    if (deviceData.registrationId && this.devices.some(d => d.registrationId === deviceData.registrationId)) {
+    if (deviceData.registrationId && all.some(d => d.registrationId === deviceData.registrationId)) {
       throw new Error('Registration ID already exists');
     }
 
     const device: Device = {
-      deviceId: this.generateDeviceId(),
-      name: deviceData.name || '',
+      deviceId:       this.generateDeviceId(all),
+      name:           deviceData.name           || '',
       registrationId: deviceData.registrationId || '',
-      username: deviceData.username || 'admin',
-      password: deviceData.password || '',
-      ip: deviceData.ip || '',
-      serial: deviceData.serial || '',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString()
+      username:       deviceData.username        || 'admin',
+      password:       deviceData.password        || '',
+      ip:             deviceData.ip              || '',
+      serial:         deviceData.serial          || '',
+      createdAt:      new Date().toISOString(),
+      updatedAt:      new Date().toISOString(),
     };
 
-    this.devices.push(device);
-    await this.save();
-    return device;
+    return this.repo.create(device);
   }
 
   async update(deviceId: string, deviceData: DeviceInput): Promise<Device> {
-    await this.load();
+    const existing = await this.repo.findById(deviceId);
+    if (!existing) throw new Error('Device not found');
 
-    const index = this.devices.findIndex(d => d.deviceId === deviceId);
-    if (index === -1) {
-      throw new Error('Device not found');
-    }
-
-    // Check for duplicate registrationId (excluding current device)
-    if (deviceData.registrationId && this.devices.some(d => d.registrationId === deviceData.registrationId && d.deviceId !== deviceId)) {
+    const all = await this.repo.findAll();
+    if (
+      deviceData.registrationId &&
+      all.some(d => d.registrationId === deviceData.registrationId && d.deviceId !== deviceId)
+    ) {
       throw new Error('Registration ID already exists');
     }
 
-    this.devices[index] = {
-      ...this.devices[index],
+    const updated: Device = {
+      ...existing,
       ...deviceData,
-      updatedAt: new Date().toISOString()
+      deviceId,
+      updatedAt: new Date().toISOString(),
     };
 
-    await this.save();
-    return this.devices[index];
+    return this.repo.update(updated);
   }
 
   async delete(deviceId: string): Promise<Device> {
-    await this.load();
-
-    const index = this.devices.findIndex(d => d.deviceId === deviceId);
-    if (index === -1) {
-      throw new Error('Device not found');
-    }
-
-    const [deleted] = this.devices.splice(index, 1);
-    await this.save();
-    return deleted;
+    const existing = await this.repo.findById(deviceId);
+    if (!existing) throw new Error('Device not found');
+    await this.repo.delete(deviceId);
+    return existing;
   }
 }
 

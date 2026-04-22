@@ -31,16 +31,20 @@ import dbConnection, { DatabaseConnection, IDbConnection } from './DatabaseConne
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 import { IAccessRuleRepository, ISyncQueueRepository } from './IAccessRuleRepository';
 import { IEmployeeRepository, IEmployeeGroupRepository, IPersonRepository } from './IPersonRepository';
-import { IDeviceRepository } from './IDeviceRepository';
+import { IDeviceRepository, IDeviceGroupRepository } from './IDeviceRepository';
+import { IAccessRepository } from './IAccessRepository';
 
 // ─── JSON implementations (current default) ──────────────────────────────────
 import { JsonAccessRuleRepository, JsonSyncQueueRepository } from './JsonAccessRuleRepository';
 import { JsonEmployeeRepository, JsonEmployeeGroupRepository, JsonPersonRepository } from './JsonPersonRepository';
-import { JsonDeviceRepository } from './JsonDeviceRepository';
+import { JsonDeviceRepository, JsonDeviceGroupRepository } from './JsonDeviceRepository';
+import FileRepository from './FileRepository';
 
-// ─── SQL implementations (future — placeholders until implemented) ────────────
-// These will be created when you're ready to migrate.
-// For now, the factory falls back to JSON if no SQL impl exists.
+// ─── SQL implementations ──────────────────────────────────────────────────────
+import { SqlPersonRepository, SqlEmployeeRepository, SqlEmployeeGroupRepository } from './SqlPersonRepository';
+import { SqlDeviceRepository, SqlDeviceGroupRepository } from './SqlDeviceRepository';
+import { SqlAccessRuleRepository, SqlSyncQueueRepository } from './SqlAccessRuleRepository';
+import { SqlAccessRecordRepository } from './SqlAccessRecordRepository';
 
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
@@ -58,6 +62,8 @@ class RepositoryFactoryClass {
   private _accessRules: IAccessRuleRepository | null = null;
   private _syncQueue: ISyncQueueRepository | null = null;
   private _devices: IDeviceRepository | null = null;
+  private _deviceGroups: IDeviceGroupRepository | null = null;
+  private _accessRecords: IAccessRepository | null = null;
 
   /**
    * Call once at app startup (in server.ts).
@@ -65,6 +71,17 @@ class RepositoryFactoryClass {
    */
   async initialize(): Promise<void> {
     if (this.initialized) return;
+
+    // Clear any singletons cached before initialize() ran
+    // (e.g. AccessRecordService.getInstance() called at module load)
+    this._employees     = null;
+    this._employeeGroups = null;
+    this._persons       = null;
+    this._accessRules   = null;
+    this._syncQueue     = null;
+    this._devices       = null;
+    this._deviceGroups  = null;
+    this._accessRecords = null;
 
     const cfg = DatabaseConnection.loadConfig();
 
@@ -97,6 +114,8 @@ class RepositoryFactoryClass {
     this._accessRules = null;
     this._syncQueue = null;
     this._devices = null;
+    this._deviceGroups = null;
+    this._accessRecords = null;
 
     await this.initialize();
     logger.info('[RepositoryFactory] Re-initialized with new database config');
@@ -109,69 +128,78 @@ class RepositoryFactoryClass {
 
   // ── Repository accessors ───────────────────────────────────────────────────
   // Each accessor returns a cached singleton.
-  // Right now they all return JSON implementations.
-  // When SQL implementations are ready, add them here under `case 'sql':`.
+  // SQL/Mongo backends are used when a connection is available.
 
   employees(): IEmployeeRepository {
     if (!this._employees) {
-      // future: if (this.backend === 'sql') this._employees = new SqlEmployeeRepository(this.conn!);
-      // future: if (this.backend === 'mongodb') this._employees = new MongoEmployeeRepository(this.conn!);
-      this._employees = new JsonEmployeeRepository();
-      if (this.backend !== 'json') {
-        logger.warn('[RepositoryFactory] SQL/Mongo EmployeeRepository not yet implemented — using JSON');
-      }
+      this._employees = this.conn && this.backend === 'sql'
+        ? new SqlEmployeeRepository(this.conn)
+        : new JsonEmployeeRepository();
     }
     return this._employees;
   }
 
   employeeGroups(): IEmployeeGroupRepository {
     if (!this._employeeGroups) {
-      this._employeeGroups = new JsonEmployeeGroupRepository();
-      if (this.backend !== 'json') {
-        logger.warn('[RepositoryFactory] SQL/Mongo EmployeeGroupRepository not yet implemented — using JSON');
-      }
+      this._employeeGroups = this.conn && this.backend === 'sql'
+        ? new SqlEmployeeGroupRepository(this.conn)
+        : new JsonEmployeeGroupRepository();
     }
     return this._employeeGroups;
   }
 
   persons(): IPersonRepository {
     if (!this._persons) {
-      this._persons = new JsonPersonRepository();
-      if (this.backend !== 'json') {
-        logger.warn('[RepositoryFactory] SQL/Mongo PersonRepository not yet implemented — using JSON');
-      }
+      this._persons = this.conn && this.backend === 'sql'
+        ? new SqlPersonRepository(this.conn)
+        : new JsonPersonRepository();
     }
     return this._persons;
   }
 
   accessRules(): IAccessRuleRepository {
     if (!this._accessRules) {
-      this._accessRules = new JsonAccessRuleRepository();
-      if (this.backend !== 'json') {
-        logger.warn('[RepositoryFactory] SQL/Mongo AccessRuleRepository not yet implemented — using JSON');
-      }
+      this._accessRules = this.conn && this.backend === 'sql'
+        ? new SqlAccessRuleRepository(this.conn)
+        : new JsonAccessRuleRepository();
     }
     return this._accessRules;
   }
 
   syncQueue(): ISyncQueueRepository {
     if (!this._syncQueue) {
-      this._syncQueue = new JsonSyncQueueRepository();
-      if (this.backend !== 'json') {
-        logger.warn('[RepositoryFactory] SQL/Mongo SyncQueueRepository not yet implemented — using JSON');
-      }
+      this._syncQueue = this.conn && this.backend === 'sql'
+        ? new SqlSyncQueueRepository(this.conn)
+        : new JsonSyncQueueRepository();
     }
     return this._syncQueue;
   }
 
   devices(): IDeviceRepository {
     if (!this._devices) {
-      this._devices = new JsonDeviceRepository();
-      if (this.backend !== 'json') {
-        logger.warn('[RepositoryFactory] SQL/Mongo DeviceRepository not yet implemented — using JSON');
-      }
+      this._devices = this.conn && this.backend === 'sql'
+        ? new SqlDeviceRepository(this.conn)
+        : new JsonDeviceRepository();
     }
     return this._devices;
+  }
+
+  deviceGroups(): IDeviceGroupRepository {
+    if (!this._deviceGroups) {
+      this._deviceGroups = this.conn && this.backend === 'sql'
+        ? new SqlDeviceGroupRepository(this.conn)
+        : new JsonDeviceGroupRepository();
+    }
+    return this._deviceGroups;
+  }
+
+  accessRecords(): IAccessRepository {
+    if (!this._accessRecords) {
+      this._accessRecords = this.conn && this.backend === 'sql'
+        ? new SqlAccessRecordRepository(this.conn)
+        : new FileRepository();
+    }
+    return this._accessRecords;
   }
 }
 

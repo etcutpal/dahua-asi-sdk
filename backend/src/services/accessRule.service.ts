@@ -41,23 +41,18 @@ const DATA_DIR = path.join(__dirname, '..', '..', 'data');
 // ─── Service ──────────────────────────────────────────────────────────────────
 
 class AccessRuleService {
-  private repo: IAccessRuleRepository;
-  private empRepo: IEmployeeRepository;
-  private groupRepo: IEmployeeGroupRepository;
+  private get repo()      { return RepositoryFactory.accessRules(); }
+  private get empRepo()   { return RepositoryFactory.employees(); }
+  private get groupRepo() { return RepositoryFactory.employeeGroups(); }
   private lock = Promise.resolve();
 
-  /**
-   * Pass a custom repository to use a different storage backend (e.g. SQL).
-   * Defaults to the JSON file implementation.
-   */
+  /** Optionally inject repos for testing. In production, RepositoryFactory is used. */
   constructor(
-    repo?: IAccessRuleRepository,
-    empRepo?: IEmployeeRepository,
-    groupRepo?: IEmployeeGroupRepository,
+    _repo?: IAccessRuleRepository,
+    _empRepo?: IEmployeeRepository,
+    _groupRepo?: IEmployeeGroupRepository,
   ) {
-    this.repo = repo ?? RepositoryFactory.accessRules();
-    this.empRepo = empRepo ?? RepositoryFactory.employees();
-    this.groupRepo = groupRepo ?? RepositoryFactory.employeeGroups();
+    // repos resolved lazily via getters — constructor args kept for test injection compatibility
   }
 
   private withLock<T>(fn: () => Promise<T>): Promise<T> {

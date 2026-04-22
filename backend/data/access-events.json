@@ -1,160 +1,6 @@
 {
   "events": [
     {
-      "id": "1776628328162-jnkwc8xo9",
-      "type": "access_control_event_sdk",
-      "deviceId": "600I",
-      "timestamp": "2026-04-19T19:52:19Z",
-      "data": {
-        "eventType": "Fingerprint",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "67635",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-19T19:52:08.162Z"
-    },
-    {
-      "id": "1776628331234-m03yzny5u",
-      "type": "access_control_event_sdk",
-      "deviceId": "600I",
-      "timestamp": "2026-04-19T19:52:24Z",
-      "data": {
-        "eventType": "Fingerprint",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "67635",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-19T19:52:11.234Z"
-    },
-    {
-      "id": "1776628337915-elp9pyrey",
-      "type": "access_control_event_sdk",
-      "deviceId": "600I",
-      "timestamp": "2026-04-19T19:52:29Z",
-      "data": {
-        "eventType": "Fingerprint",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "67635",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-19T19:52:17.915Z"
-    },
-    {
-      "id": "1776628341667-nxjg79a58",
-      "type": "access_control_event_sdk",
-      "deviceId": "600I",
-      "timestamp": "2026-04-19T19:52:34Z",
-      "data": {
-        "eventType": "Fingerprint",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "67635",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-19T19:52:21.667Z"
-    },
-    {
-      "id": "1776628802063-d9k7iqzd0",
-      "type": "access_control_event_sdk",
-      "deviceId": "600I",
-      "timestamp": "2026-04-19T20:00:02Z",
-      "data": {
-        "eventType": "ChassisIntrusion",
-        "alarmEventType": "ALARM_CHASSISINTRUDED",
-        "userId": "",
-        "cardNumber": "",
-        "cardName": null,
-        "isSuccess": false,
-        "door": 0,
-        "readerId": null,
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-19T20:00:02.063Z"
-    },
-    {
-      "id": "1776628869441-3dvy187xq",
-      "type": "access_control_event_sdk",
-      "deviceId": "600I",
-      "timestamp": "2026-04-19T20:01:20Z",
-      "data": {
-        "eventType": "Fingerprint",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "67635",
-        "cardName": "",
-        "isSuccess": false,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 18,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-19T20:01:09.441Z"
-    },
-    {
-      "id": "1776628870354-bfw5w74a7",
-      "type": "access_control_event_sdk",
-      "deviceId": "600I",
-      "timestamp": "2026-04-19T20:01:23Z",
-      "data": {
-        "eventType": "Fingerprint",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "67635",
-        "cardName": "",
-        "isSuccess": false,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 18,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-19T20:01:10.354Z"
-    },
-    {
       "id": "1776628883028-wu50oxc2z",
       "type": "access_control_event_sdk",
       "deviceId": "600I",
@@ -2199,8 +2045,162 @@
         "source": "SDK_STARTLISTEN"
       },
       "storedAt": "2026-04-22T13:03:30.252Z"
+    },
+    {
+      "id": "1776865113251-4hjvi7qgr",
+      "type": "access_control_event_sdk",
+      "deviceId": "600I",
+      "timestamp": "2026-04-22T13:38:33Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-22T13:38:33.251Z"
+    },
+    {
+      "id": "1776865265510-ptqndc9rb",
+      "type": "access_control_event_sdk",
+      "deviceId": "600I",
+      "timestamp": "2026-04-22T13:41:21Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": "",
+        "isSuccess": false,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 16,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-22T13:41:05.510Z"
+    },
+    {
+      "id": "1776865469337-v1gt1yteu",
+      "type": "access_control_event_sdk",
+      "deviceId": "600I",
+      "timestamp": "2026-04-22T13:44:44Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "21213",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-22T13:44:29.337Z"
+    },
+    {
+      "id": "1776865542051-5r7isxn80",
+      "type": "access_control_event_sdk",
+      "deviceId": "600I",
+      "timestamp": "2026-04-22T13:45:57Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "21213",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-22T13:45:42.051Z"
+    },
+    {
+      "id": "1776865873678-ieq021bfv",
+      "type": "access_control_event_sdk",
+      "deviceId": "600I",
+      "timestamp": "2026-04-22T13:51:13Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-22T13:51:13.678Z"
+    },
+    {
+      "id": "1776866296419-lpvtggbjz",
+      "type": "access_control_event_sdk",
+      "deviceId": "600I",
+      "timestamp": "2026-04-22T13:58:16Z",
+      "data": {
+        "eventType": "ChassisIntrusion",
+        "alarmEventType": "ALARM_CHASSISINTRUDED",
+        "userId": "",
+        "cardNumber": "",
+        "cardName": null,
+        "isSuccess": false,
+        "door": 0,
+        "readerId": null,
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-22T13:58:16.419Z"
+    },
+    {
+      "id": "1776866627485-j3o90wbhm",
+      "type": "access_control_event_sdk",
+      "deviceId": "600I",
+      "timestamp": "2026-04-22T14:04:03Z",
+      "data": {
+        "eventType": "Face",
+        "alarmEventType": "ENTRY",
+        "userId": "448008",
+        "cardNumber": "21213",
+        "cardName": "",
+        "isSuccess": true,
+        "door": 0,
+        "readerId": "1",
+        "errorCode": 0,
+        "hasSnapshot": false,
+        "snapshotBase64": "",
+        "snapshotUrl": "",
+        "source": "SDK_STARTLISTEN"
+      },
+      "storedAt": "2026-04-22T14:03:47.485Z"
     }
   ],
-  "lastUpdated": "2026-04-22T13:03:30.252Z",
+  "lastUpdated": "2026-04-22T14:03:47.485Z",
   "count": 100
 }

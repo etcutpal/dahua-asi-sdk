@@ -200,6 +200,28 @@ export default function EmployeesPage() {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
+  /**
+   * Normalize any date string (ISO UTC, ISO with seconds, or already datetime-local)
+   * to the "YYYY-MM-DDTHH:mm" format required by <input type="datetime-local">.
+   * Returns '' for invalid/missing dates or dates before year 2000 (SDK sentinel values).
+   */
+  const toDateTimeLocal = (value: string | null | undefined): string => {
+    if (!value) return '';
+    // Already in datetime-local format (no Z, no seconds beyond HH:mm)
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value)) {
+      const year = parseInt(value.substring(0, 4), 10);
+      return year >= 2000 ? value : '';
+    }
+    try {
+      const d = new Date(value);
+      if (isNaN(d.getTime())) return '';
+      if (d.getFullYear() < 2000) return '';   // reject SDK sentinel dates (1970, 1900, 0000…)
+      return formatDateTimeLocal(d);
+    } catch {
+      return '';
+    }
+  };
+
   // Helper to get full image URL
   const getImageUrl = (imagePath: string) => {
     if (!imagePath) return '';
@@ -629,13 +651,13 @@ export default function EmployeesPage() {
       name: employee.name,
       department: employee.department,
       gender: employee.gender || '',
-      effectiveStart: employee.effectiveStart,
-      effectiveEnd: employee.effectiveEnd,
+      effectiveStart: toDateTimeLocal(employee.effectiveStart),
+      effectiveEnd: toDateTimeLocal(employee.effectiveEnd),
       profilePicture: employee.profilePicture,
       facePicture: employee.facePicture,
       cardNumbers: employee.cardNumbers || [],
       password: employee.password || '',
-      fingerprints: employee.fingerprints,
+      fingerprints: employee.fingerprints || [],
       title: employee.title || 'Mr.',
       nickname: employee.nickname || '',
       dateOfBirth: employee.dateOfBirth || '',
@@ -1476,11 +1498,11 @@ export default function EmployeesPage() {
           gender: employee.gender || '',
           profilePicture: profilePictureName,
           faceImage: faceImageName,
-          fingerprint1: employee.fingerprints[0] || '',
-          fingerprint2: employee.fingerprints[1] || '',
-          fingerprint3: employee.fingerprints[2] || '',
-          fingerprint4: employee.fingerprints[3] || '',
-          fingerprint5: employee.fingerprints[4] || '',
+          fingerprint1: (employee.fingerprints || [])[0] || '',
+          fingerprint2: (employee.fingerprints || [])[1] || '',
+          fingerprint3: (employee.fingerprints || [])[2] || '',
+          fingerprint4: (employee.fingerprints || [])[3] || '',
+          fingerprint5: (employee.fingerprints || [])[4] || '',
           dateOfBirth: employee.dateOfBirth || '',
           phone: employee.phone || '',
           email: employee.email || '',

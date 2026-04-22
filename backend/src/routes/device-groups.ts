@@ -2,16 +2,14 @@ import express, { Request, Response } from 'express';
 
 const router = express.Router();
 
-import { JsonDeviceGroupRepository } from '../repositories/JsonDeviceRepository';
-
-const groupRepo = new JsonDeviceGroupRepository();
+import RepositoryFactory from '../repositories/RepositoryFactory';
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
 // GET all device groups
 router.get('/', async (_req: Request, res: Response) => {
   try {
-    res.json({ success: true, groups: await groupRepo.findAll() });
+    res.json({ success: true, groups: await RepositoryFactory.deviceGroups().findAll() });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -24,7 +22,8 @@ router.post('/', async (req: Request, res: Response) => {
     if (!id || !name) {
       return res.status(400).json({ success: false, error: 'id and name are required' });
     }
-    const groups = await groupRepo.findAll();
+    const repo = RepositoryFactory.deviceGroups();
+    const groups = await repo.findAll();
     if (groups.find((g: any) => g.id === id)) {
       return res.status(409).json({ success: false, error: 'Group ID already exists' });
     }
@@ -35,7 +34,7 @@ router.post('/', async (req: Request, res: Response) => {
       createdAt: new Date().toISOString(),
     };
     groups.push(group);
-    await groupRepo.save(groups);
+    await repo.save(groups);
     res.status(201).json({ success: true, group });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
@@ -45,8 +44,9 @@ router.post('/', async (req: Request, res: Response) => {
 // DELETE a device group
 router.delete('/:groupId', async (req: Request, res: Response) => {
   try {
-    const groups = (await groupRepo.findAll()).filter((g: any) => g.id !== req.params.groupId);
-    await groupRepo.save(groups);
+    const repo = RepositoryFactory.deviceGroups();
+    const groups = (await repo.findAll()).filter((g: any) => g.id !== req.params.groupId);
+    await repo.save(groups);
     res.json({ success: true });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
