@@ -2177,30 +2177,8 @@
         "source": "SDK_STARTLISTEN"
       },
       "storedAt": "2026-04-22T13:58:16.419Z"
-    },
-    {
-      "id": "1776866627485-j3o90wbhm",
-      "type": "access_control_event_sdk",
-      "deviceId": "600I",
-      "timestamp": "2026-04-22T14:04:03Z",
-      "data": {
-        "eventType": "Face",
-        "alarmEventType": "ENTRY",
-        "userId": "448008",
-        "cardNumber": "21213",
-        "cardName": "",
-        "isSuccess": true,
-        "door": 0,
-        "readerId": "1",
-        "errorCode": 0,
-        "hasSnapshot": false,
-        "snapshotBase64": "",
-        "snapshotUrl": "",
-        "source": "SDK_STARTLISTEN"
-      },
-      "storedAt": "2026-04-22T14:03:47.485Z"
     }
   ],
   "lastUpdated": "2026-04-22T14:03:47.485Z",
-  "count": 100
+  "count": 99
 }
