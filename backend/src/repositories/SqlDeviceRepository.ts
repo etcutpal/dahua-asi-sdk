@@ -75,8 +75,8 @@ export class SqlDeviceRepository implements IDeviceRepository {
   async create(device: Device): Promise<Device> {
     await this.db.query(
       `INSERT INTO devices
-         (id, registration_id, name, ip, port, username, password, status, created_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`,
+         (id, registration_id, name, ip, port, username, password, status, group_id, created_at, updated_at)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
       [
         device.deviceId,
         device.registrationId,
@@ -86,6 +86,7 @@ export class SqlDeviceRepository implements IDeviceRepository {
         device.username  ?? null,
         device.password  ?? null,
         device.status    ?? 'Offline',
+        device.groupId   ?? null,
         toDate(device.createdAt) ?? new Date(),
         toDate(device.updatedAt) ?? new Date(),
       ],
@@ -96,7 +97,7 @@ export class SqlDeviceRepository implements IDeviceRepository {
   async update(device: Device): Promise<Device> {
     await this.db.query(
       `UPDATE devices SET
-         name=?, ip=?, username=?, password=?, status=?, updated_at=?
+         name=?, ip=?, username=?, password=?, status=?, group_id=?, updated_at=?
        WHERE id=?`,
       [
         device.name,
@@ -104,6 +105,7 @@ export class SqlDeviceRepository implements IDeviceRepository {
         device.username ?? null,
         device.password ?? null,
         device.status   ?? 'Offline',
+        device.groupId  ?? null,
         toDate(device.updatedAt) ?? new Date(),
         device.deviceId,
       ],

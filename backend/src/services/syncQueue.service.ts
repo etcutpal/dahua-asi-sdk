@@ -458,15 +458,30 @@ class SyncQueueService extends EventEmitter {
       }
       logger.info(`[SyncQueue] Using employees.json record for ${job.personId}`);
 
-      // Resolve face image from _faceImageFilename (relative to employee_images dir)
-      if (emp._faceImageFilename) {
+      // Resolve face image — try _faceImageFilename first (in-memory/JSON employees),
+      // then derive the path from the facePicture URL (SQL employees store a URL like
+      // "/api/employees/images/face_pictures/abc.jpg").
+      const IMAGE_URL_PREFIX = '/api/employees/images/';
+      const tryReadFace = async (relPath: string): Promise<boolean> => {
         try {
-          const absPath = path.join(EMP_IMAGES_DIR, emp._faceImageFilename);
+          const absPath = path.join(EMP_IMAGES_DIR, relPath);
           faceBuffer = await fs.readFile(absPath);
           faceName = path.basename(absPath);
           logger.info(`[SyncQueue] Face image loaded: ${absPath} (${faceBuffer.length} bytes)`);
+          return true;
         } catch {
-          logger.warn(`[SyncQueue] Could not read face image for ${job.personId} at ${emp._faceImageFilename}`);
+          logger.warn(`[SyncQueue] Could not read face image for ${job.personId} at ${relPath}`);
+          return false;
+        }
+      };
+
+      if (emp._faceImageFilename) {
+        await tryReadFace(emp._faceImageFilename);
+      }
+      if (!faceBuffer) {
+        const faceUrl: string = emp.facePicture || emp.profilePicture || '';
+        if (faceUrl.startsWith(IMAGE_URL_PREFIX)) {
+          await tryReadFace(faceUrl.slice(IMAGE_URL_PREFIX.length));
         }
       }
       cardNumbers = Array.isArray(emp.cardNumbers) ? emp.cardNumbers : (emp.cardNumbers ? [emp.cardNumbers] : []);

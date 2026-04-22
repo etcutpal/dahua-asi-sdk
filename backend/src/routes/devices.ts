@@ -171,4 +171,20 @@ router.get('/:deviceId/users', async (req: Request, res: Response) => {
   }
 });
 
+// PATCH move device to group
+router.patch('/:deviceId/group', async (req: Request, res: Response) => {
+  try {
+    const { groupId } = req.body;
+    if (typeof groupId === 'undefined') return res.status(400).json({ success: false, error: 'groupId is required' });
+
+    const device = await deviceService.getById(req.params.deviceId);
+    if (!device) return res.status(404).json({ success: false, error: 'Device not found' });
+
+    const updated = await deviceService.update(req.params.deviceId, { groupId });
+    res.json({ success: true, device: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 export default router;

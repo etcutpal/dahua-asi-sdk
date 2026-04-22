@@ -34,6 +34,7 @@ export interface DeviceInput {
   password?: string;
   ip?: string;
   serial?: string;
+  groupId?: string; // allow assigning to a group on create
 }
 
 // Device update input (all fields optional)

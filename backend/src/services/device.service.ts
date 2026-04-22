@@ -39,6 +39,7 @@ class DeviceService {
       password:       deviceData.password        || '',
       ip:             deviceData.ip              || '',
       serial:         deviceData.serial          || '',
+      groupId:        deviceData.groupId        ?? undefined,
       createdAt:      new Date().toISOString(),
       updatedAt:      new Date().toISOString(),
     };

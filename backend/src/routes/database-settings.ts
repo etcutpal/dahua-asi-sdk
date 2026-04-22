@@ -240,6 +240,7 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
   { table: 'employees', column: 'address',           sql: d => `ALTER TABLE employees ADD address ${varcharMax(d)}` },
   { table: 'employees', column: 'remarks',           sql: d => `ALTER TABLE employees ADD remarks ${varcharMax(d)}` },
   { table: 'employees', column: 'group_id',          sql: _d => `ALTER TABLE employees ADD group_id VARCHAR(64)` },
+  { table: 'devices',   column: 'group_id',          sql: _d => `ALTER TABLE devices ADD group_id VARCHAR(64)` },
 ];
 
 function loadConfig(): DbConfig | null {
