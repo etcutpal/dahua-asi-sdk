@@ -646,13 +646,17 @@ export default function EmployeesPage() {
 
   const handleEditEmployee = (employee: Employee) => {
     setEditingEmployee(employee);
+    // Use default dates when the stored value is missing or an SDK sentinel (1970/1900/0000)
+    const now = new Date();
+    const defaultStart = formatDateTimeLocal(new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0));
+    const defaultEnd   = formatDateTimeLocal(new Date(now.getFullYear() + 10, now.getMonth(), now.getDate(), 23, 59, 0));
     setEmployeeForm({
       personId: employee.personId,
       name: employee.name,
       department: employee.department,
       gender: employee.gender || '',
-      effectiveStart: toDateTimeLocal(employee.effectiveStart),
-      effectiveEnd: toDateTimeLocal(employee.effectiveEnd),
+      effectiveStart: toDateTimeLocal(employee.effectiveStart) || defaultStart,
+      effectiveEnd:   toDateTimeLocal(employee.effectiveEnd)   || defaultEnd,
       profilePicture: employee.profilePicture,
       facePicture: employee.facePicture,
       cardNumbers: employee.cardNumbers || [],

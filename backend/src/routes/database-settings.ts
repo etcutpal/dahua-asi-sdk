@@ -606,6 +606,27 @@ export async function autoMigrateOnStartup(): Promise<void> {
     const errors  = results.filter(r => r.status === 'error');
     if (created.length) logger.info(`[AutoMigrate] Created tables: ${created.join(', ')}`);
     if (errors.length)  logger.warn(`[AutoMigrate] Errors: ${errors.map(r => `${r.table}: ${r.error}`).join('; ')}`);
+
+    // ── Data cleanup: null-out SDK sentinel dates (1970/1900/0000) ──────────
+    // These are stored when Dahua device returns zero-initialized NET_TIME structs.
+    try {
+      const execSQL = await buildSQLExecutor(cfg);
+      await execSQL.run(
+        cfg.type === 'sqlserver'
+          ? `UPDATE employees SET effective_start = NULL WHERE effective_start < '2000-01-01'`
+          : `UPDATE employees SET effective_start = NULL WHERE effective_start < '2000-01-01 00:00:00'`
+      );
+      await execSQL.run(
+        cfg.type === 'sqlserver'
+          ? `UPDATE employees SET effective_end = NULL WHERE effective_end < '2000-01-01'`
+          : `UPDATE employees SET effective_end = NULL WHERE effective_end < '2000-01-01 00:00:00'`
+      );
+      await execSQL.close();
+      logger.info('[AutoMigrate] Cleaned up SDK sentinel dates.');
+    } catch (cleanErr: any) {
+      logger.warn(`[AutoMigrate] Date cleanup skipped: ${cleanErr.message}`);
+    }
+
     logger.info('[AutoMigrate] Schema up-to-date.');
   } catch (err: any) {
     logger.warn(`[AutoMigrate] Migration skipped: ${err.message}`);
