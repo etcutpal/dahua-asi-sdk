@@ -6,7 +6,7 @@ import netSdkService from '../services/netSdkService';
 import accessRuleService from '../services/accessRule.service';
 import syncQueueService from '../services/syncQueue.service';
 import logger from '../utils/logger';
-import { JsonEmployeeRepository, JsonEmployeeGroupRepository } from '../repositories/JsonPersonRepository';
+import RepositoryFactory from '../repositories/RepositoryFactory';
 
 const router = express.Router();
 
@@ -17,8 +17,11 @@ const FACE_DIR = path.join(IMAGES_DIR, 'face_pictures');
 const PROFILE_DIR = path.join(IMAGES_DIR, 'profile_pictures');
 
 // ─── Repositories ─────────────────────────────────────────────────────────────
-const employeeRepo = new JsonEmployeeRepository();
-const groupRepo = new JsonEmployeeGroupRepository();
+// Use RepositoryFactory so that when the DB backend changes, these automatically
+// pick up the new implementation.  RepositoryFactory.initialize() is called in
+// server.ts before any route handlers run.
+const employeeRepo = RepositoryFactory.employees();
+const groupRepo = RepositoryFactory.employeeGroups();
 
 // Ensure image directories exist
 [IMAGES_DIR, FACE_DIR, PROFILE_DIR].forEach(d => { if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true }); });

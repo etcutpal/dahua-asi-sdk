@@ -1,0 +1,9 @@
+{
+  "type": "sqlserver",
+  "host": "localhost",
+  "port": 1433,
+  "database": "acs",
+  "user": "sa",
+  "password": "admin@123",
+  "useSSL": true
+}

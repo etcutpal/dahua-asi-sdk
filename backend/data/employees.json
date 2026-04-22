@@ -1,29 +1,3 @@
 {
-  "employees": [
-    {
-      "id": "emp_1776797459851",
-      "personId": "448008",
-      "name": "Utpal",
-      "department": "all",
-      "gender": "",
-      "effectiveStart": "2026-04-22T00:00",
-      "effectiveEnd": "2036-04-22T23:59",
-      "profilePicture": "",
-      "facePicture": "/api/employees/images/face_pictures/1776797459859_9wgx0k8.jpg",
-      "cardNumbers": [],
-      "password": "",
-      "fingerprints": [],
-      "title": "Mr.",
-      "nickname": "",
-      "dateOfBirth": "",
-      "phone": "",
-      "occupation": "",
-      "email": "",
-      "address": "",
-      "remarks": "",
-      "_faceImageFilename": "face_pictures/1776797459859_9wgx0k8.jpg",
-      "createdAt": "2026-04-21T18:50:59.863Z",
-      "updatedAt": "2026-04-21T18:50:59.863Z"
-    }
-  ]
+  "employees": []
 }

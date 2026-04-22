@@ -11,10 +11,9 @@ import logger from '../utils/logger';
 import syncQueueService from './syncQueue.service';
 import personService from './person.service';
 import deviceService from './device.service';
-import { JsonAccessRuleRepository } from '../repositories/JsonAccessRuleRepository';
 import { IAccessRuleRepository } from '../repositories/IAccessRuleRepository';
 import { IEmployeeRepository, IEmployeeGroupRepository } from '../repositories/IPersonRepository';
-import { JsonEmployeeRepository, JsonEmployeeGroupRepository } from '../repositories/JsonPersonRepository';
+import RepositoryFactory from '../repositories/RepositoryFactory';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,13 +51,13 @@ class AccessRuleService {
    * Defaults to the JSON file implementation.
    */
   constructor(
-    repo: IAccessRuleRepository = new JsonAccessRuleRepository(),
-    empRepo: IEmployeeRepository = new JsonEmployeeRepository(),
-    groupRepo: IEmployeeGroupRepository = new JsonEmployeeGroupRepository(),
+    repo?: IAccessRuleRepository,
+    empRepo?: IEmployeeRepository,
+    groupRepo?: IEmployeeGroupRepository,
   ) {
-    this.repo = repo;
-    this.empRepo = empRepo;
-    this.groupRepo = groupRepo;
+    this.repo = repo ?? RepositoryFactory.accessRules();
+    this.empRepo = empRepo ?? RepositoryFactory.employees();
+    this.groupRepo = groupRepo ?? RepositoryFactory.employeeGroups();
   }
 
   private withLock<T>(fn: () => Promise<T>): Promise<T> {

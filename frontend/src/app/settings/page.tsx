@@ -71,6 +71,13 @@ export default function SettingsPage() {
       icon: 'M8 9l3 3-3 3m5 0h3.586a1 1 0 001-1V5a1 1 0 00-1-1H9a1 1 0 00-1 1v12a1 1 0 001 1z',
       path: '/api-tester',
       color: 'indigo'
+    },
+    {
+      title: 'Database Settings',
+      description: 'Configure database connection (SQL Server, MySQL, PostgreSQL, MongoDB) and initialize application tables.',
+      icon: 'M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4',
+      path: '/settings/database',
+      color: 'teal'
     }
   ];
 
@@ -81,6 +88,7 @@ export default function SettingsPage() {
       purple: { bg: 'bg-purple-50', text: 'text-purple-700', icon: 'text-purple-600', hover: 'hover:bg-purple-100' },
       orange: { bg: 'bg-orange-50', text: 'text-orange-700', icon: 'text-orange-600', hover: 'hover:bg-orange-100' },
       indigo: { bg: 'bg-indigo-50', text: 'text-indigo-700', icon: 'text-indigo-600', hover: 'hover:bg-indigo-100' },
+      teal:   { bg: 'bg-teal-50',   text: 'text-teal-700',   icon: 'text-teal-600',   hover: 'hover:bg-teal-100' },
     };
     return colors[color] || colors.blue;
   };

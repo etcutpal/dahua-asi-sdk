@@ -17,10 +17,9 @@ import logger from '../utils/logger';
 import netSdkService from './netSdkService';
 import personService from './person.service';
 import deviceService from './device.service';
-import { JsonSyncQueueRepository } from '../repositories/JsonAccessRuleRepository';
 import { ISyncQueueRepository } from '../repositories/IAccessRuleRepository';
 import { IEmployeeRepository } from '../repositories/IPersonRepository';
-import { JsonEmployeeRepository } from '../repositories/JsonPersonRepository';
+import RepositoryFactory from '../repositories/RepositoryFactory';
 
 // ─── Employee images dir ──────────────────────────────────────────────────────
 const EMP_IMAGES_DIR = path.join(__dirname, '..', '..', 'data', 'employee_images');
@@ -80,12 +79,12 @@ class SyncQueueService extends EventEmitter {
    * Defaults to the JSON file implementation.
    */
   constructor(
-    repo: ISyncQueueRepository = new JsonSyncQueueRepository(),
-    empRepo: IEmployeeRepository = new JsonEmployeeRepository(),
+    repo?: ISyncQueueRepository,
+    empRepo?: IEmployeeRepository,
   ) {
     super();
-    this.repo = repo;
-    this.empRepo = empRepo;
+    this.repo = repo ?? RepositoryFactory.syncQueue();
+    this.empRepo = empRepo ?? RepositoryFactory.employees();
   }
 
   // ── Init & Persistence ───────────────────────────────────────────────────

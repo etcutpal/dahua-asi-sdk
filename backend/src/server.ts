@@ -21,7 +21,9 @@ import attendanceRouter from './routes/attendance/periods';
 import systemRouter from './routes/system';
 import accessRulesRouter from './routes/access-rules';
 import syncQueueRouter from './routes/sync-queue';
+import databaseSettingsRouter from './routes/database-settings';
 import syncQueueService from './services/syncQueue.service';
+import RepositoryFactory from './repositories/RepositoryFactory';
 
 // Load environment variables
 dotenv.config();
@@ -73,6 +75,7 @@ app.use('/api/attendance', attendanceRouter);
 app.use('/api/system', systemRouter);
 app.use('/api/access-rules', accessRulesRouter);
 app.use('/api/sync-queue', syncQueueRouter);
+app.use('/api/database', databaseSettingsRouter);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {
@@ -194,6 +197,9 @@ const HOST = process.env.HOST || '0.0.0.0'; // Bind to all interfaces by default
 
 async function startServer() {
   try {
+    // Initialize repository backend (JSON / SQL / MongoDB)
+    await RepositoryFactory.initialize();
+
     // Initialize NetSDK Service
     await netSdkService.initialize();
 
