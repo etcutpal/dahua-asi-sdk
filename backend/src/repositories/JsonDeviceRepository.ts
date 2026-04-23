@@ -69,6 +69,15 @@ export class JsonDeviceRepository implements IDeviceRepository {
     if (filtered.length === devices.length) throw new Error(`Device ${deviceId} not found`);
     await this.write(filtered);
   }
+
+  async updateLastOnlineAt(registrationId: string, timestamp: string): Promise<void> {
+    const devices = await this.read();
+    const idx = devices.findIndex(d => d.registrationId === registrationId);
+    if (idx !== -1) {
+      devices[idx] = { ...devices[idx], lastOnlineAt: timestamp };
+      await this.write(devices);
+    }
+  }
 }
 
 // ─── Device Groups ────────────────────────────────────────────────────────────

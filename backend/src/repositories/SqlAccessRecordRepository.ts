@@ -194,10 +194,19 @@ export class SqlAccessRecordRepository extends IAccessRepository {
         ],
       );
     } catch (err: any) {
-      // Unique constraint violation = concurrent insert of the same swipe — treat as duplicate, not an error
+      // Unique / Primary-key constraint violation = duplicate record — treat as already-stored, not an error.
+      // SQL Server raises error 2627 (PK) or 2601 (unique index); mssql driver may nest the
+      // number under err.originalError?.number rather than err.number.
       const msg: string = err?.message ?? '';
-      if (msg.includes('UNIQUE') || msg.includes('unique') || msg.includes('duplicate') || msg.includes('Duplicate') || err?.number === 2627 || err?.number === 2601) {
-        logger.debug(`[SqlRepo] Duplicate swipe ignored (race condition): ${record.registrationId} ${record.swipeTime} ${record.userID}`);
+      const errNum: number = err?.number ?? err?.originalError?.number ?? err?.originalError?.info?.number ?? 0;
+      const isDupe =
+        errNum === 2627 || errNum === 2601 ||
+        msg.includes('PRIMARY KEY') ||
+        msg.includes('UNIQUE') || msg.includes('unique') ||
+        msg.includes('duplicate') || msg.includes('Duplicate') ||
+        msg.includes('Cannot insert duplicate key');
+      if (isDupe) {
+        logger.debug(`[SqlRepo] Duplicate record ignored (id=${record.id}): ${record.registrationId} ${record.swipeTime} ${record.userID}`);
         return;
       }
       throw err;

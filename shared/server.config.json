@@ -15,5 +15,10 @@
   "bridge": {
     "platformUsername": "admin",
     "platformPassword": "admin123"
+  },
+  "autoFetch": {
+    "enabled": true,
+    "delaySeconds": 5,
+    "offsetBeforeOfflineSeconds": 15
   }
 }

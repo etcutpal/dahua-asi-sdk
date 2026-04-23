@@ -122,3 +122,19 @@ process.on('SIGINT', () => {
   children.forEach((c) => c.kill());
   process.exit(0);
 });
+
+// Keep bootstrap alive so it can relay child exit events and respond to SIGINT.
+// Without this the Node event loop drains immediately after spawn() calls return.
+const keepAlive = setInterval(() => {}, 1 << 30);
+
+// If ALL children exit (e.g. during dev restart), exit bootstrap too.
+let exitedCount = 0;
+children.forEach((c) => {
+  c.on('exit', () => {
+    exitedCount++;
+    if (exitedCount >= children.length) {
+      console.log('⚠️  All services have exited — shutting down bootstrap.');
+      clearInterval(keepAlive);
+    }
+  });
+});

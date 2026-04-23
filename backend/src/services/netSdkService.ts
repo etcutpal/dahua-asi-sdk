@@ -4,6 +4,8 @@ import path from 'path';
 import logger from '../utils/logger';
 import AccessRecordService from './accessRecordService';
 import { Device } from '../types';
+// Imported lazily inside updateDeviceStatus to avoid circular dependency
+// import offlineRecordFetchService from './offlineRecordFetchService';
 
 // ─── AutoReg credentials persistence ─────────────────────────────────────────
 const AUTOREG_CONFIG_FILE = path.join(__dirname, '../../data/autoreg-config.json');
@@ -52,6 +54,12 @@ class NetSdkService {
   private isShuttingDown: boolean = false;
   private devices: Device[];
   private credentialsPushed: boolean = false;
+  /**
+   * Tracks the last webhook status we PROCESSED for each device.
+   * Used to detect genuine Offline→Online transitions even when the
+   * bridge fires repeated "Online" webhooks from Type 5 keep-alives.
+   */
+  private _lastWebhookStatus = new Map<string, string>();
 
   constructor() {
     this.bridgeUrl = process.env.NETSDK_BRIDGE_URL || 'http://localhost:5000';
@@ -349,27 +357,38 @@ class NetSdkService {
    */
   async updateDeviceStatus(deviceId: string, status: string, timestamp?: string): Promise<boolean> {
     try {
-      logger.info(`🔔 Device status changed via Webhook: ${deviceId} -> ${status}`);
+      const newStatus = status.toLowerCase();
 
-      // Update local cache immediately for responsiveness
-      let deviceIndex = this.devices.findIndex(d =>
+      // ── Deduplicate using persistent map — guard against Type 5 keep-alives ──
+      // The C# bridge fires "Online" webhooks on every Type 5 heartbeat packet
+      // (every few seconds) even when the device is already online.
+      // We only act on genuine status TRANSITIONS.
+      const previousStatus = (this._lastWebhookStatus.get(deviceId) ?? '').toLowerCase();
+
+      if (newStatus === previousStatus) {
+        // Same status as last time — skip emit and auto-fetch, just acknowledge
+        logger.debug(`[Webhook] Device ${deviceId} status unchanged (${status}) — skipping`);
+        return true;
+      }
+
+      // Record the new status before anything async
+      this._lastWebhookStatus.set(deviceId, newStatus);
+
+      logger.info(`🔔 Device status changed via Webhook: ${deviceId} -> ${status} (was: ${previousStatus || 'unknown'})`);
+
+      // Update in-memory cache if device is present
+      const deviceIndex = this.devices.findIndex(d =>
         d.DeviceID === deviceId ||
         d.deviceID === deviceId ||
         d.registrationId === deviceId ||
         d.deviceId === deviceId
       );
-
       if (deviceIndex !== -1) {
-        // Update existing device in cache
         this.devices[deviceIndex].status = status as any;
         this.devices[deviceIndex].Status = status as any;
-        logger.debug(`Updated device in cache: ${deviceId} -> ${status}`);
-      } else {
-        // Device not in cache yet - fetch it from Bridge or create a placeholder
-        logger.warn(`Device ${deviceId} not found in cache, will be included in next sync`);
       }
 
-      // Emit socket event to frontend immediately
+      // Emit socket event to frontend
       AccessRecordService.getInstance().emit('device:status:changed', {
         deviceID: deviceId,
         deviceId: deviceId,
@@ -377,8 +396,14 @@ class NetSdkService {
         timestamp: timestamp || new Date().toISOString()
       });
 
-      // Async refresh full list from Bridge to ensure all data is up to date
-      // This will repopulate the cache with fresh data including status
+      // ── Auto-fetch: only on genuine Offline → Online transition ────────
+      if (newStatus === 'online' && previousStatus !== 'online') {
+        logger.info(`[AutoFetch] Device ${deviceId} came ONLINE (was: ${previousStatus || 'unknown'}) — scheduling auto-fetch`);
+        const offlineRecordFetchService = (await import('./offlineRecordFetchService')).default;
+        offlineRecordFetchService.triggerAutoFetch(deviceId);
+      }
+
+      // Async refresh full list from Bridge
       this.syncDevices().catch(err => logger.error('Sync after status update failed:', err.message));
 
       return true;

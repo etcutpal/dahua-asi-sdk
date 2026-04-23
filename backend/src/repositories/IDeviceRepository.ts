@@ -28,6 +28,8 @@ export interface IDeviceRepository {
   create(device: Device): Promise<Device>;
   update(device: Device): Promise<Device>;
   delete(deviceId: string): Promise<void>;
+  /** Update last_online_at timestamp for a device identified by registrationId */
+  updateLastOnlineAt(registrationId: string, timestamp: string): Promise<void>;
 }
 
 // ─── Device Groups ────────────────────────────────────────────────────────────

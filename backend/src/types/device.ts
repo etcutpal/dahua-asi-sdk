@@ -10,6 +10,7 @@ export interface Device {
   groupId?: string;   // device group membership (null/undefined = "All Devices" default)
   createdAt?: string;
   updatedAt?: string;
+  lastOnlineAt?: string;  // ISO timestamp of last time device was seen online
   // Additional runtime fields from SDK (PascalCase for compatibility)
   status?: 'online' | 'offline' | 'connecting' | string;
   lastSeen?: string;

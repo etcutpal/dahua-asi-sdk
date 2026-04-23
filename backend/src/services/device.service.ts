@@ -24,6 +24,9 @@ class DeviceService {
     return this.repo.findById(deviceId);
   }
 
+  async getByRegistrationId(registrationId: string): Promise<Device | undefined> {
+    return this.repo.findByRegistrationId(registrationId);
+  }
   async create(deviceData: DeviceInput): Promise<Device> {
     const all = await this.repo.findAll();
 
@@ -74,6 +77,11 @@ class DeviceService {
     if (!existing) throw new Error('Device not found');
     await this.repo.delete(deviceId);
     return existing;
+  }
+
+  /** Record the moment a device came online — used for auto-fetch gap window */
+  async updateLastOnlineAt(registrationId: string, timestamp: string): Promise<void> {
+    await this.repo.updateLastOnlineAt(registrationId, timestamp);
   }
 }
 

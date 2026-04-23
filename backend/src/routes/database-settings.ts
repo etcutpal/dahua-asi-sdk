@@ -246,6 +246,7 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
   { table: 'employees', column: 'group_id',          sql: _d => `ALTER TABLE employees ADD group_id VARCHAR(64)` },
   { table: 'devices',        column: 'group_id',          sql: _d => `ALTER TABLE devices ADD group_id VARCHAR(64)` },
   { table: 'devices',        column: 'serial',             sql: _d => `ALTER TABLE devices ADD serial VARCHAR(128)` },
+  { table: 'devices',        column: 'last_online_at',     sql: d  => `ALTER TABLE devices ADD last_online_at ${d === 'mysql' ? 'DATETIME' : d === 'postgresql' ? 'TIMESTAMPTZ' : 'DATETIME2'}` },
   { table: 'access_records', column: 'device_name',        sql: _d => `ALTER TABLE access_records ADD device_name VARCHAR(255)` },
   // Schema v2: rename old device_id → registration_id, add device_id_internal
   { table: 'access_records', column: 'registration_id',    sql: _d => `ALTER TABLE access_records ADD registration_id VARCHAR(64)` },

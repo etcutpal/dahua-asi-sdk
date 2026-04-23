@@ -90,6 +90,15 @@ export default function AccessRecordsPage() {
   const [loading, setLoading] = useState<boolean>(false);
   const [fetching, setFetching] = useState<boolean>(false);
   const [devices, setDevices] = useState<any[]>([]);
+  const [autoFetchNotif, setAutoFetchNotif] = useState<{
+    deviceName: string; fetched: number; stored: number; startDate: string; endDate: string;
+  } | null>(null);
+  const [showAutoFetchNotifications, setShowAutoFetchNotifications] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('autoFetchNotifications') !== 'false';
+    }
+    return true;
+  });
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -106,6 +115,27 @@ export default function AccessRecordsPage() {
       if (payload.record) {
         setRecords(prev => [payload.record as AccessRecord, ...prev]);
       }
+    });
+
+    socket.on('device:auto-fetch:complete', (payload: {
+      registrationId: string; deviceName: string; fetched: number; stored: number;
+      startDate: string; endDate: string; timestamp: string;
+    }) => {
+      // Auto-refresh the record list
+      fetchRecords();
+      // Show notification if enabled
+      setShowAutoFetchNotifications(prev => {
+        if (prev) {
+          setAutoFetchNotif({
+            deviceName: payload.deviceName || payload.registrationId,
+            fetched: payload.fetched,
+            stored: payload.stored,
+            startDate: payload.startDate,
+            endDate: payload.endDate,
+          });
+        }
+        return prev;
+      });
     });
 
     return () => {
@@ -349,6 +379,36 @@ export default function AccessRecordsPage() {
       {/* Sidebar */}
       <Sidebar currentPath="/access-records" onLogout={() => { logout(); router.push('/login'); }} />
 
+      {/* Auto-fetch notification toast */}
+      {autoFetchNotif && (
+        <div className="fixed top-4 right-4 z-50 max-w-sm w-full animate-in slide-in-from-top-2">
+          <div className="bg-white border border-green-200 rounded-xl shadow-lg p-4 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
+              <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-900">Auto-fetch Complete</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                <span className="font-medium text-gray-700">{autoFetchNotif.deviceName}</span>
+                {' — '}{autoFetchNotif.stored} new record{autoFetchNotif.stored !== 1 ? 's' : ''} stored
+                {autoFetchNotif.fetched !== autoFetchNotif.stored && ` (${autoFetchNotif.fetched} fetched)`}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">Records list has been refreshed.</p>
+            </div>
+            <button
+              onClick={() => setAutoFetchNotif(null)}
+              className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main Content */}
       <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
         {/* Header */}
@@ -358,14 +418,37 @@ export default function AccessRecordsPage() {
               <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Access Records</h1>
               <p className="text-gray-500 mt-1 text-sm lg:text-base">View and manage access control logs</p>
             </div>
-            <Button
-              onClick={fetchAndStoreRecords}
-              disabled={fetching}
-              className="flex items-center space-x-2"
-            >
-              <RefreshCw className={`h-4 w-4 ${fetching ? 'animate-spin' : ''}`} />
-              <span>{fetching ? 'Fetching...' : 'Fetch from Devices'}</span>
-            </Button>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Auto-fetch notification toggle */}
+              <button
+                onClick={() => {
+                  setShowAutoFetchNotifications(prev => {
+                    const next = !prev;
+                    if (typeof window !== 'undefined') localStorage.setItem('autoFetchNotifications', String(next));
+                    return next;
+                  });
+                }}
+                title={showAutoFetchNotifications ? 'Disable auto-fetch notifications' : 'Enable auto-fetch notifications'}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 text-xs rounded-lg border transition-colors ${
+                  showAutoFetchNotifications
+                    ? 'bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100'
+                    : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600'
+                }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {showAutoFetchNotifications ? 'Notifs On' : 'Notifs Off'}
+              </button>
+              <Button
+                onClick={fetchAndStoreRecords}
+                disabled={fetching}
+                className="flex items-center space-x-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${fetching ? 'animate-spin' : ''}`} />
+                <span>{fetching ? 'Fetching...' : 'Fetch from Devices'}</span>
+              </Button>
+            </div>
           </div>
         </div>
 

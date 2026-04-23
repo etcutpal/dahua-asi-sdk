@@ -874,27 +874,54 @@ namespace NetSDKBridge
                         // Check if device already exists
                         if (_devices.TryGetValue(registrationID, out var existingDevice))
                         {
-                            // Device reconnected - update IP and status
+                            bool wasOffline = existingDevice.Status != "Online";
                             string oldIP = existingDevice.IP;
+
                             _logger.LogInformation($"🔄 DEVICE RECONNECTION DETECTED");
                             _logger.LogInformation($"   Registration ID: {registrationID}");
                             _logger.LogInformation($"   Old IP: {oldIP}");
                             _logger.LogInformation($"   New IP: {ip}");
                             _logger.LogInformation($"   Previous Status: {existingDevice.Status}");
-                            
+
+                            // Always update IP/port
                             existingDevice.IP = ip;
                             existingDevice.Port = wPort;
-                            existingDevice.Status = "Online";
-                            existingDevice.LoginTime = DateTime.UtcNow;
 
-                            _logger.LogInformation($"✅ Device reconnected successfully");
-
-                            DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
+                            if (wasOffline)
                             {
-                                DeviceID = registrationID,
-                                Status = "Online",
-                                Timestamp = DateTime.UtcNow
-                            });
+                                existingDevice.Status = "Online";
+                                existingDevice.LoginTime = DateTime.UtcNow;
+
+                                _logger.LogInformation($"✅ Device was OFFLINE — firing Online webhook and re-logging in");
+
+                                DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
+                                {
+                                    DeviceID = registrationID,
+                                    Status = "Online",
+                                    Timestamp = DateTime.UtcNow
+                                });
+
+                                // Re-login to get a fresh login handle
+                                if (_loginInProgress.TryAdd(registrationID, true))
+                                {
+                                    _ = Task.Run(async () =>
+                                    {
+                                        try
+                                        {
+                                            await Task.Delay(200);
+                                            await LoginAutoRegDevice(registrationID, ip, wPort);
+                                        }
+                                        finally
+                                        {
+                                            _loginInProgress.TryRemove(registrationID, out _);
+                                        }
+                                    });
+                                }
+                            }
+                            else
+                            {
+                                _logger.LogDebug($"💓 KEEP-ALIVE (SERIAL_RETURN): {registrationID} already online — no action");
+                            }
                         }
                         else
                         {
@@ -1007,19 +1034,49 @@ namespace NetSDKBridge
                             // Check if device already exists
                             if (_devices.TryGetValue(registrationID, out var deviceType5))
                             {
-                                // Device reconnected
-                                _logger.LogInformation($"🔄 DEVICE RECONNECTION DETECTED (Type 5)");
+                                bool wasOffline = deviceType5.Status != "Online";
+
+                                // Always update IP/port in case device moved
                                 deviceType5.IP = ip;
                                 deviceType5.Port = wPort;
-                                deviceType5.Status = "Online";
-                                deviceType5.LoginTime = DateTime.UtcNow;
 
-                                DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
+                                if (wasOffline)
                                 {
-                                    DeviceID = registrationID,
-                                    Status = "Online",
-                                    Timestamp = DateTime.UtcNow
-                                });
+                                    // Genuine reconnection — device was offline
+                                    _logger.LogInformation($"🔄 DEVICE RECONNECTION DETECTED (Type 5): {registrationID} (was offline → now online)");
+                                    deviceType5.Status = "Online";
+                                    deviceType5.LoginTime = DateTime.UtcNow;
+
+                                    // Fire webhook so Node.js triggers auto-fetch
+                                    DeviceStatusChanged?.Invoke(this, new DeviceStatusChangedEventArgs
+                                    {
+                                        DeviceID = registrationID,
+                                        Status = "Online",
+                                        Timestamp = DateTime.UtcNow
+                                    });
+
+                                    // Re-login to get a fresh login handle — old handle may be stale
+                                    if (_loginInProgress.TryAdd(registrationID, true))
+                                    {
+                                        _ = Task.Run(async () =>
+                                        {
+                                            try
+                                            {
+                                                _logger.LogInformation($"🔑 Re-logging in device {registrationID} after reconnection...");
+                                                await LoginAutoRegDevice(registrationID, ip, wPort);
+                                            }
+                                            finally
+                                            {
+                                                _loginInProgress.TryRemove(registrationID, out _);
+                                            }
+                                        });
+                                    }
+                                }
+                                else
+                                {
+                                    // Device is already Online — this is just a keep-alive heartbeat
+                                    _logger.LogDebug($"💓 KEEP-ALIVE (Type 5): {registrationID} already online — no action");
+                                }
                             }
                             else
                             {

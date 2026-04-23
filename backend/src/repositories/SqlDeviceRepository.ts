@@ -26,12 +26,15 @@ function rowToDevice(row: any): Device {
     deviceId:       row.id ?? row.device_id,
     name:           row.name,
     registrationId: row.registration_id,
-    username:       row.username  ?? undefined,
-    password:       row.password  ?? undefined,
-    ip:             row.ip        ?? undefined,
-    serial:         row.serial    ?? undefined,
-    groupId:        row.group_id  ?? undefined,
-    status:         row.status    ?? 'Offline',
+    username:       row.username    ?? undefined,
+    password:       row.password    ?? undefined,
+    ip:             row.ip          ?? undefined,
+    serial:         row.serial      ?? undefined,
+    groupId:        row.group_id    ?? undefined,
+    status:         row.status      ?? 'Offline',
+    lastOnlineAt:   row.last_online_at instanceof Date
+                      ? row.last_online_at.toISOString()
+                      : (row.last_online_at ?? undefined),
     createdAt:      row.created_at instanceof Date ? row.created_at.toISOString() : (row.created_at ?? undefined),
     updatedAt:      row.updated_at instanceof Date ? row.updated_at.toISOString() : (row.updated_at ?? undefined),
   };
@@ -117,6 +120,13 @@ export class SqlDeviceRepository implements IDeviceRepository {
 
   async delete(deviceId: string): Promise<void> {
     await this.db.query('DELETE FROM devices WHERE id = ?', [deviceId]);
+  }
+
+  async updateLastOnlineAt(registrationId: string, timestamp: string): Promise<void> {
+    await this.db.query(
+      'UPDATE devices SET last_online_at = ? WHERE registration_id = ?',
+      [new Date(timestamp), registrationId],
+    );
   }
 }
 
