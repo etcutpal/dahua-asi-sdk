@@ -240,13 +240,24 @@ namespace NetSDKBridge.Modules
                     Timestamp = accessInfo.stuTime.ToDateTime().ToString("yyyy-MM-ddTHH:mm:ssZ"),
                     UserID = accessInfo.szUserID ?? "",
                     CardNumber = accessInfo.szCardNo ?? "",
-                    CardName = "", // Not available in this struct
+                    CardName = accessInfo.szCardName?.Trim() ?? "",
                     Door = accessInfo.nDoor,
                     ReaderID = accessInfo.szReaderID ?? "",
                     IsSuccess = accessInfo.bStatus,
                     ErrorCode = accessInfo.nErrorCode,
                     EventType = accessInfo.emEventType.ToString(),
-                    HasSnapshotImage = false, // Alarm events don't include snapshots
+                    RecordNumber = accessInfo.nPunchingRecNo,
+                    CardType = accessInfo.emCardType switch
+                    {
+                        EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_GENERAL   => "Normal",
+                        EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_VIP       => "VIP",
+                        EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_GUEST     => "Guest",
+                        EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_PATROL    => "Patrol",
+                        EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_BLACKLIST => "Blacklisted",
+                        EM_A_NET_ACCESSCTLCARD_TYPE.NET_ACCESSCTLCARD_TYPE_CORCE     => "Coercion",
+                        _ => "Unknown"
+                    },
+                    HasSnapshotImage = false,
                     SnapshotUrl = ""
                 };
 
@@ -262,19 +273,35 @@ namespace NetSDKBridge.Modules
                 // Determine open method (face/card/fingerprint/etc)
                 eventData.OpenMethod = accessInfo.emOpenMethod switch
                 {
-                    EM_ACCESS_DOOROPEN_METHOD.PWD_ONLY => "Password",
-                    EM_ACCESS_DOOROPEN_METHOD.CARD => "Card",
-                    EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT => "Fingerprint",
-                    EM_ACCESS_DOOROPEN_METHOD.FACE_RECOGNITION => "Face",
-                    EM_ACCESS_DOOROPEN_METHOD.CARD_AND_FACE => "Card+Face",
-                    EM_ACCESS_DOOROPEN_METHOD.CARD_FINGERPRINT => "Card+Fingerprint",
-                    EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT_AND_FACE => "Face+Fingerprint",
-                    EM_ACCESS_DOOROPEN_METHOD.PWD_CARD_FINGERPRINT => "Password+Card+Fingerprint",
-                    EM_ACCESS_DOOROPEN_METHOD.REMOTE => "Remote",
-                    EM_ACCESS_DOOROPEN_METHOD.BUTTON => "LocalButton",
-                    EM_ACCESS_DOOROPEN_METHOD.QRCODE => "QRCode",
-                    EM_ACCESS_DOOROPEN_METHOD.BLUETOOTH => "Bluetooth",
-                    _ => $"Unknown({(int)accessInfo.emOpenMethod})"
+                    EM_ACCESS_DOOROPEN_METHOD.PWD_ONLY              => "Password",
+                    EM_ACCESS_DOOROPEN_METHOD.CARD                  => "Card",
+                    EM_ACCESS_DOOROPEN_METHOD.CARD_FIRST            => "Card+Password",
+                    EM_ACCESS_DOOROPEN_METHOD.PWD_FIRST             => "Password+Card",
+                    EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT           => "Fingerprint",
+                    EM_ACCESS_DOOROPEN_METHOD.FACE_RECOGNITION      => "Face",
+                    EM_ACCESS_DOOROPEN_METHOD.FACEIDCARD            => "Face+IDCard",
+                    EM_ACCESS_DOOROPEN_METHOD.FACEIDCARD_AND_IDCARD => "IDCard+Face+IDCard",
+                    EM_ACCESS_DOOROPEN_METHOD.CARD_AND_FACE         => "Card+Face",
+                    EM_ACCESS_DOOROPEN_METHOD.CARD_FINGERPRINT      => "Card+Fingerprint",
+                    EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT_AND_FACE  => "Fingerprint+Face",
+                    EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT_AND_PWD   => "Fingerprint+Password",
+                    EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT_OR_PWD    => "Fingerprint/Password",
+                    EM_ACCESS_DOOROPEN_METHOD.FINGERPRINT_OR_FACE   => "Fingerprint/Face",
+                    EM_ACCESS_DOOROPEN_METHOD.FACE_AND_PWD          => "Face+Password",
+                    EM_ACCESS_DOOROPEN_METHOD.FACE_OR_PWD           => "Face/Password",
+                    EM_ACCESS_DOOROPEN_METHOD.PWD_CARD_FINGERPRINT  => "Password+Card+Fingerprint",
+                    EM_ACCESS_DOOROPEN_METHOD.PWD_FINGERPRINT       => "Password+Fingerprint",
+                    EM_ACCESS_DOOROPEN_METHOD.CUSTOM_PASSWORD       => "CustomPassword",
+                    EM_ACCESS_DOOROPEN_METHOD.USERID_AND_PWD        => "UserID+Password",
+                    EM_ACCESS_DOOROPEN_METHOD.PERSONS               => "MultiPerson",
+                    EM_ACCESS_DOOROPEN_METHOD.KEY                   => "Key",
+                    EM_ACCESS_DOOROPEN_METHOD.COERCE_PWD            => "DuressPassword",
+                    EM_ACCESS_DOOROPEN_METHOD.REMOTE                => "Remote",
+                    EM_ACCESS_DOOROPEN_METHOD.BUTTON                => "LocalButton",
+                    EM_ACCESS_DOOROPEN_METHOD.QRCODE                => "QRCode",
+                    EM_ACCESS_DOOROPEN_METHOD.BLUETOOTH             => "Bluetooth",
+                    EM_ACCESS_DOOROPEN_METHOD.UNKNOWN               => "Unknown",
+                    _ => $"Other({(int)accessInfo.emOpenMethod})"
                 };
 
                 // Log the event
@@ -602,6 +629,8 @@ namespace NetSDKBridge.Modules
                         userId = eventData.UserID,
                         cardNumber = eventData.CardNumber,
                         cardName = eventData.CardName,
+                        cardType = eventData.CardType,
+                        recordNumber = eventData.RecordNumber,
                         isSuccess = eventData.IsSuccess,
                         door = eventData.Door,
                         readerId = eventData.ReaderID,

@@ -186,6 +186,32 @@ class FileRepository extends IAccessRepository {
    * Store a formatted access record
    */
   async storeRecord(record: AccessRecord): Promise<void> {
+    // ── Dedup strategy ────────────────────────────────────────────────────
+    // A physical swipe is uniquely identified by (registrationId, swipeTime).
+    // Live events have recordNumber=null; fetch events have a real recordNumber.
+    // Cross-path: if a live row exists, enrich it with the fetch recordNumber
+    // rather than inserting a duplicate.
+    if (record.registrationId && record.swipeTime) {
+      const existingIdx = this.records.findIndex(
+        r => r.registrationId === record.registrationId &&
+             r.swipeTime      === record.swipeTime &&
+             (r.userID ?? '')  === (record.userID ?? '')
+      );
+      if (existingIdx !== -1) {
+        const existingRow = this.records[existingIdx];
+        // Enrich: stored row has no recordNumber but incoming fetch record does
+        if (existingRow.recordNumber == null && record.recordNumber != null) {
+          this.records[existingIdx] = { ...existingRow, recordNumber: record.recordNumber, id: record.id };
+          logger.debug(`[FileRepo] Enriched live record ${existingRow.id} → recordNumber=${record.recordNumber}`);
+          await this.saveRecords();
+        }
+        return; // Either enriched or fully duplicate — do not insert
+      }
+    } else {
+      // Fallback: dedup by id
+      if (this.records.some(r => r.id === record.id)) return;
+    }
+
     this.records.push(record);
 
     // Trim old records if exceeding limit
@@ -273,7 +299,11 @@ class FileRepository extends IAccessRepository {
       total: totalRecords,
       page: currentPage,
       limit,
-      totalPages
+      totalPages,
+      totalRecords,
+      currentPage,
+      hasNextPage: currentPage < totalPages,
+      hasPrevPage: currentPage > 1,
     };
 
     return {
@@ -315,6 +345,23 @@ class FileRepository extends IAccessRepository {
     this.records = [];
     await this.saveRecords();
     logger.info('All records cleared');
+  }
+
+  async renameDevice(oldRegistrationId: string, newRegistrationId: string): Promise<number> {
+    // Migrate all historical records to the new registrationId
+    let count = 0;
+    this.records = this.records.map(r => {
+      if (r.registrationId === oldRegistrationId) {
+        count++;
+        return { ...r, registrationId: newRegistrationId };
+      }
+      return r;
+    });
+    if (count > 0) {
+      await this.saveRecords();
+      logger.info(`[FileRepository] Renamed registration_id ${oldRegistrationId} → ${newRegistrationId} for ${count} records`);
+    }
+    return count;
   }
 }
 

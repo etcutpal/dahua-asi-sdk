@@ -64,6 +64,13 @@ export abstract class IAccessRepository implements IAccessRepo {
   abstract clearRecords(): Promise<void>;
 
   /**
+   * Migrate all access records from oldRegistrationId to newRegistrationId.
+   * Called when a device's Registration ID is changed (e.g. broken device replaced).
+   * Returns the number of records migrated.
+   */
+  abstract renameDevice(oldRegistrationId: string, newRegistrationId: string): Promise<number>;
+
+  /**
    * Initialize repository (load data, create tables, etc.)
    */
   abstract initialize(): Promise<void>;

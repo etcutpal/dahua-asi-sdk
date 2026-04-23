@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/Sidebar';
@@ -26,16 +26,21 @@ import {
   Lock,
   QrCode,
   KeyRound,
+  LogIn,
+  LogOut,
+  Monitor,
 } from 'lucide-react';
+import io from 'socket.io-client';
 
 interface AccessRecord {
   id: string;
-  recordNumber: number;
+  recordNumber: number | null;
   cardNumber: string;
   userID: string;
   userName: string;
   swipeTime: string;
   doorNumber: number;
+  registrationId?: string;
   deviceId?: string;
   deviceName?: string;
   readerNo: string;
@@ -64,14 +69,21 @@ export default function AccessRecordsPage() {
     hasNextPage: false,
     hasPrevPage: false,
   });
-  const [selectedDate, setSelectedDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
-  );
+  const toLocalDateString = (d: Date) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
   const [startDate, setStartDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
+    (() => {
+      const d = new Date();
+      d.setDate(d.getDate() - 7);
+      return toLocalDateString(d);
+    })()
   );
   const [endDate, setEndDate] = useState<string>(
-    new Date().toISOString().split('T')[0]
+    toLocalDateString(new Date())
   );
   const [filter, setFilter] = useState<string>('all');
   const [page, setPage] = useState<number>(1);
@@ -84,6 +96,22 @@ export default function AccessRecordsPage() {
       router.push('/login');
     }
   }, [isAuthenticated, router]);
+
+  // Real-time: listen for SDK access control events and prepend to the list
+  useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const socket = io(API_URL, { transports: ['websocket', 'polling'] });
+
+    socket.on('access:control:event', (payload: { event: any; record?: AccessRecord }) => {
+      if (payload.record) {
+        setRecords(prev => [payload.record as AccessRecord, ...prev]);
+      }
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   // Fetch devices list for name lookup
   useEffect(() => {
@@ -244,26 +272,43 @@ export default function AccessRecordsPage() {
   };
 
   const getOpenMethodIcon = (method: string) => {
-    const methodLower = method.toLowerCase();
+    const m = method.toLowerCase();
 
-    if (methodLower.includes('face')) {
+    // Compound biometric + password
+    if (m.includes('face') && m.includes('password'))
+      return { icon: ScanFace, color: 'text-purple-600', label: 'Face + Password' };
+    if (m.includes('fingerprint') && m.includes('password'))
+      return { icon: Fingerprint, color: 'text-green-600', label: 'Fingerprint + Password' };
+    if (m.includes('fingerprint') && m.includes('face'))
+      return { icon: Fingerprint, color: 'text-teal-600', label: 'Fingerprint + Face' };
+    if (m.includes('card') && (m.includes('password') || m.includes('pwd')))
+      return { icon: CreditCard, color: 'text-blue-600', label: 'Card + Password' };
+    if (m.includes('face') && m.includes('idcard'))
+      return { icon: ScanFace, color: 'text-violet-600', label: 'Face + ID Card' };
+    // Compound user+password (no biometric)
+    if (m.includes('userid') && m.includes('password'))
+      return { icon: KeyRound, color: 'text-orange-600', label: 'UserID + Password' };
+    // Single methods
+    if (m.includes('face'))
       return { icon: ScanFace, color: 'text-purple-600', label: 'Face Recognition' };
-    }
-    if (methodLower.includes('fingerprint') || methodLower.includes('finger')) {
+    if (m.includes('fingerprint') || m.includes('finger'))
       return { icon: Fingerprint, color: 'text-green-600', label: 'Fingerprint' };
-    }
-    if (methodLower.includes('card') || methodLower.includes('swipe')) {
+    if (m.includes('card') || m.includes('swipe'))
       return { icon: CreditCard, color: 'text-blue-600', label: 'Card Swipe' };
-    }
-    if (methodLower.includes('password') || methodLower.includes('pwd') || methodLower.includes('pin')) {
+    if (m.includes('password') || m.includes('pwd') || m.includes('pin'))
       return { icon: KeyRound, color: 'text-orange-600', label: 'Password/PIN' };
-    }
-    if (methodLower.includes('qr') || methodLower.includes('code')) {
+    if (m.includes('qr') || m.includes('qrcode'))
       return { icon: QrCode, color: 'text-cyan-600', label: 'QR Code' };
-    }
-    if (methodLower.includes('remote') || methodLower.includes('unlock')) {
+    if (m.includes('remote') || m.includes('unlock'))
       return { icon: Lock, color: 'text-yellow-600', label: 'Remote Unlock' };
-    }
+    if (m.includes('bluetooth'))
+      return { icon: Lock, color: 'text-sky-600', label: 'Bluetooth' };
+    if (m.includes('duress') || m.includes('coerce'))
+      return { icon: KeyRound, color: 'text-red-600', label: 'Duress' };
+    if (m.includes('key'))
+      return { icon: KeyRound, color: 'text-amber-600', label: 'Key' };
+    if (m.includes('multi') || m.includes('persons'))
+      return { icon: ScanFace, color: 'text-indigo-600', label: 'Multi-Person' };
 
     return { icon: DoorOpen, color: 'text-gray-600', label: method || 'Unknown' };
   };
@@ -278,14 +323,25 @@ export default function AccessRecordsPage() {
       Coercion: 'bg-orange-100 text-orange-800',
       Unknown: 'bg-gray-100 text-gray-800',
     };
-
     const colorClass = colors[cardType] || colors.Unknown;
+    return <Badge className={`${colorClass} hover:${colorClass}`}>{cardType}</Badge>;
+  };
 
-    return (
-      <Badge className={`${colorClass} hover:${colorClass}`}>
-        {cardType}
-      </Badge>
-    );
+  // reader_no "1" = Enter, "2" = Exit, anything else = Unknown
+  const getDirection = (readerNo: string) => {
+    if (readerNo === '1' || readerNo === '01')
+      return { label: 'Enter', icon: LogIn,  color: 'text-emerald-600', bg: 'bg-emerald-50 text-emerald-700' };
+    if (readerNo === '2' || readerNo === '02')
+      return { label: 'Exit',  icon: LogOut, color: 'text-rose-600',    bg: 'bg-rose-50 text-rose-700' };
+    return   { label: '—',     icon: Monitor, color: 'text-gray-400',   bg: 'bg-gray-100 text-gray-500' };
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const d = new Date(dateString);
+    return {
+      date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+      time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
+    };
   };
 
   return (
@@ -416,135 +472,131 @@ export default function AccessRecordsPage() {
                   <table className="w-full">
                     <thead className="border-b">
                       <tr className="bg-gray-50">
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Auth Method
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          User
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Card
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Card Type
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Device
-                        </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Time
-                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Device</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Auth Method</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Direction</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
-                      {records.map((record) => (
-                        <tr key={record.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {getStatusBadge(record.status)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {(() => {
-                              const { icon: Icon, color, label } = getOpenMethodIcon(record.openMethod || '');
-                              return (
-                                <div className="flex items-center gap-1.5">
-                                  <Icon className={`h-4 w-4 ${color}`} />
-                                  <span className={`text-sm ${color}`}>{label}</span>
-                                </div>
-                              );
-                            })()}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <User className="h-4 w-4 mr-2 text-gray-400" />
-                              <div>
-                                <div className="text-sm font-medium text-gray-900">
-                                  {record.userID || 'N/A'}
-                                </div>
-                                {record.userName && (
-                                  <div className="text-sm text-gray-500">{record.userName}</div>
-                                )}
+                      {records.map((record) => {
+                        const { date, time } = formatDateTime(record.swipeTime);
+                        const { icon: MethodIcon, color: methodColor, label: methodLabel } = getOpenMethodIcon(record.openMethod || '');
+                        const { icon: DirIcon, label: dirLabel, bg: dirBg } = getDirection(record.readerNo || '');
+                        const deviceLabel = record.deviceName || getDeviceName(record.registrationId || record.deviceId || '') || '—';
+                        return (
+                          <tr key={record.id} className="hover:bg-gray-50 transition-colors">
+                            {/* Date */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 text-sm text-gray-900">
+                                <Calendar className="h-3.5 w-3.5 text-gray-400" />
+                                {date}
                               </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <CreditCard className="h-4 w-4 mr-2 text-gray-400" />
-                              <span className="text-sm text-gray-900">
-                                {record.cardNumber || 'N/A'}
+                            </td>
+                            {/* Time */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 text-sm text-gray-900">
+                                <Clock className="h-3.5 w-3.5 text-gray-400" />
+                                {time}
+                              </div>
+                            </td>
+                            {/* User */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-2">
+                                <User className="h-4 w-4 text-gray-400 shrink-0" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">{record.userName || record.userID || 'N/A'}</div>
+                                  {record.userName && record.userID && (
+                                    <div className="text-xs text-gray-400">ID: {record.userID}</div>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            {/* Device */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className="flex items-center gap-1.5 text-sm text-gray-900">
+                                <Monitor className="h-3.5 w-3.5 text-gray-400" />
+                                {deviceLabel}
+                              </div>
+                            </td>
+                            {/* Auth Method */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <div className={`flex items-center gap-1.5 text-sm ${methodColor}`}>
+                                <MethodIcon className="h-4 w-4" />
+                                {methodLabel}
+                              </div>
+                            </td>
+                            {/* Direction */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${dirBg}`}>
+                                <DirIcon className="h-3 w-3" />
+                                {dirLabel}
                               </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            {getCardTypeBadge(record.cardType)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <Database className="h-4 w-4 mr-2 text-gray-400" />
-                              <span className="text-sm text-gray-900">
-                                {record.deviceName || getDeviceName(record.deviceId || '') || (record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A')}
-                              </span>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <Clock className="h-4 w-4 mr-2 text-gray-400" />
-                              <span className="text-sm text-gray-900">
-                                {formatDate(record.swipeTime)}
-                              </span>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+                            {/* Status */}
+                            <td className="px-4 py-3 whitespace-nowrap">
+                              {getStatusBadge(record.status)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
 
                 {/* Mobile Cards */}
-                <div className="md:hidden space-y-4">
-                  {records.map((record) => (
-                    <Card key={record.id}>
-                      <CardContent className="py-4">
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
+                <div className="md:hidden space-y-3">
+                  {records.map((record) => {
+                    const { date, time } = formatDateTime(record.swipeTime);
+                    const { icon: MethodIcon, color: methodColor, label: methodLabel } = getOpenMethodIcon(record.openMethod || '');
+                    const { icon: DirIcon, label: dirLabel, bg: dirBg } = getDirection(record.readerNo || '');
+                    const deviceLabel = record.deviceName || getDeviceName(record.registrationId || record.deviceId || '') || '—';
+                    return (
+                      <Card key={record.id} className="overflow-hidden">
+                        <CardContent className="p-4">
+                          {/* Top row: date/time + status */}
+                          <div className="flex items-center justify-between mb-3">
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">{date}</div>
+                              <div className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
+                                <Clock className="h-3 w-3" />{time}
+                              </div>
+                            </div>
                             {getStatusBadge(record.status)}
-                            {(() => {
-                              const { icon: Icon, color, label } = getOpenMethodIcon(record.openMethod || '');
-                              return (
-                                <div className="flex items-center gap-1.5">
-                                  <Icon className={`h-4 w-4 ${color}`} />
-                                  <span className={`text-sm ${color}`}>{label}</span>
-                                </div>
-                              );
-                            })()}
                           </div>
-                          <div className="text-xs text-gray-500 text-right -mt-1">
-                            {formatDate(record.swipeTime)}
-                          </div>
-                          <div className="grid grid-cols-2 gap-2 text-sm">
+                          {/* User */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <User className="h-4 w-4 text-gray-400 shrink-0" />
                             <div>
-                              <span className="text-gray-500">User:</span>
-                              <span className="ml-2 font-medium">{record.userID || 'N/A'}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Card:</span>
-                              <span className="ml-2 font-medium">{record.cardNumber || 'N/A'}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Type:</span>
-                              <span className="ml-2">{record.cardType}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Device:</span>
-                              <span className="ml-2">{record.deviceName || getDeviceName(record.deviceId || '') || (record.doorNumber !== undefined ? `Door ${record.doorNumber}` : 'N/A')}</span>
+                              <span className="text-sm font-medium text-gray-900">{record.userName || record.userID || 'N/A'}</span>
+                              {record.userName && record.userID && (
+                                <span className="text-xs text-gray-400 ml-1">({record.userID})</span>
+                              )}
                             </div>
                           </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          {/* Device */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <Monitor className="h-4 w-4 text-gray-400 shrink-0" />
+                            <span className="text-sm text-gray-700">{deviceLabel}</span>
+                          </div>
+                          {/* Auth method + Direction */}
+                          <div className="flex items-center gap-3 mt-2">
+                            <div className={`flex items-center gap-1 text-sm ${methodColor}`}>
+                              <MethodIcon className="h-4 w-4" />
+                              {methodLabel}
+                            </div>
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${dirBg}`}>
+                              <DirIcon className="h-3 w-3" />
+                              {dirLabel}
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
 
                 {/* Pagination */}

@@ -424,6 +424,10 @@ namespace NetSDKBridge.Modules
         public int SnapshotImageSize { get; set; }
         public string SnapshotImageType { get; set; }
         public string SnapshotUrl { get; set; } // URL from device before download (CGI only)
+        /// <summary>Punching record number from nPunchingRecNo — the device's own log sequence number.</summary>
+        public int RecordNumber { get; set; }
+        /// <summary>Card type string derived from emCardType enum (Normal/VIP/Guest/Patrol/Blacklisted/Coercion).</summary>
+        public string CardType { get; set; } = "Unknown";
     }
 
     /// <summary>

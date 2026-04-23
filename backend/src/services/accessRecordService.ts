@@ -14,6 +14,7 @@ import { EventEmitter } from 'events';
 import logger from '../utils/logger';
 import { IAccessRepository, AccessEvent, AccessRecord, WebhookEventData, RecordFilters, PaginationInfo } from '../types';
 import RepositoryFactory from '../repositories/RepositoryFactory';
+import deviceCache from './deviceCache';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -153,22 +154,47 @@ export class AccessRecordService extends EventEmitter {
       await this.repository.storeEvent(event);
 
       // Extract and store access record if it has isSuccess field
+      let record: AccessRecord | undefined;
       if (eventData.data && typeof eventData.data.isSuccess === 'boolean') {
-        const record = this.formatAccessRecord(eventData, event);
+        record = this.formatAccessRecord(eventData, event);
         await this.repository.storeRecord(record);
         logger.info(`✅ Access record stored: ${record.userID || 'N/A'} - ${record.status}`);
       }
 
       logger.info(`✅ Access event stored: ${eventData.deviceId} - ${eventData.type}`);
 
-      // Emit event for real-time WebSocket broadcast
-      this.emit('access:control:event', event);
+      // Emit event for real-time WebSocket broadcast — include enriched record if available
+      this.emit('access:control:event', { event, record });
 
       return event;
     } catch (error: any) {
       logger.error('❌ Error storing access event:', error.message);
       throw error;
     }
+  }
+
+  /**
+   * Derive a card type label from the open method when the device does not
+   * supply a numeric CardType (e.g. real-time SDK StartListen callback).
+   */
+  private deriveCardType(openMethod: string): string {
+    const m = openMethod.toLowerCase();
+    if (m.includes('face'))                       return 'Face';
+    if (m.includes('fingerprint'))                return 'Fingerprint';
+    if (m.includes('userid+password')
+     || m.includes('userid and password')
+     || m.includes('custompassword')
+     || m.includes('custom_password')
+     || m === 'password')                         return 'Password';
+    if (m.includes('password'))                   return 'Password';
+    if (m.includes('card'))                       return 'Card';
+    if (m.includes('qrcode') || m.includes('qr')) return 'QRCode';
+    if (m.includes('bluetooth'))                  return 'Bluetooth';
+    if (m.includes('remote'))                     return 'Remote';
+    if (m.includes('button'))                     return 'LocalButton';
+    if (m.includes('key'))                        return 'Key';
+    if (m.includes('duress'))                     return 'Duress';
+    return 'Unknown';
   }
 
   /**
@@ -206,21 +232,38 @@ export class AccessRecordService extends EventEmitter {
     }
 
     // Get open method
-    const openMethod = data.openMethod || rawJsonData.Method || rawJsonData.OpenMethod || 'Unknown';
+    // SDK callback (StartListen) sends it as data.eventType
+    // Fetch path sends it as data.openMethod or rawJson.Method / rawJson.OpenMethod
+    const openMethod = data.openMethod || data.eventType || rawJsonData.Method || rawJsonData.OpenMethod || 'Unknown';
+
+    // Enrich with device info from in-memory cache (loaded from `devices` table)
+    const registrationId = eventData.deviceId;
+    const cachedDevice = deviceCache.get(registrationId);
+    const internalDeviceId = cachedDevice?.deviceId ?? '';
+    // Device name comes ONLY from the devices DB — never from the webhook payload
+    const deviceName = cachedDevice?.name ?? '';
 
     // Create formatted record
+    const swipeTimestamp = data.timestamp || eventData.timestamp;
     const record: AccessRecord = {
       id: event.id,
-      deviceId: eventData.deviceId,
-      deviceName: (eventData as any).deviceName || '',
-      recordNumber: rawJsonData.CreateTime || rawJsonData.recordNumber || 0,
+      registrationId,
+      deviceId: internalDeviceId,
+      deviceName,
+      // recordNumber: live path sends nPunchingRecNo as data.recordNumber.
+      // Real-time alarm events (StartListen) always return 0 for nPunchingRecNo —
+      // the SDK only populates it in FindRecord (fetch path).
+      // Store null when not available so it doesn't conflict with real fetch-path
+      // record numbers (e.g. 427). Both paths now store the real device value.
+      recordNumber: (data.recordNumber || rawJsonData.recordNumber || null) as number | null,
       userID: userId,
       userName: userName,
       cardNumber: data.cardNumber || rawJsonData.CardNo || rawJsonData.SN || '',
-      swipeTime: data.timestamp || eventData.timestamp,
-      doorNumber: rawJsonData.Door !== undefined ? rawJsonData.Door : 0,
-      readerNo: rawJsonData.ReaderID || rawJsonData.readID || '',
-      cardType: this.cardTypeMap[rawJsonData.CardType] || 'Unknown',
+      swipeTime: swipeTimestamp,
+      doorNumber: rawJsonData.Door !== undefined ? rawJsonData.Door : (data.door ?? 0),
+      readerNo: rawJsonData.ReaderID || rawJsonData.readID || data.readerId || '',
+      // cardType: live path now sends emCardType string directly as data.cardType
+      cardType: data.cardType || this.cardTypeMap[rawJsonData.CardType] || this.deriveCardType(openMethod),
       openMethod: openMethod,
       status: data.isSuccess ? 'Success' : 'Failed',
       storedAt: event.storedAt
@@ -316,6 +359,19 @@ export class AccessRecordService extends EventEmitter {
   }
 
   /**
+   * Migrate all access records from old registrationId to new registrationId.
+   * Called when a device's Registration ID is changed (e.g. broken device replaced).
+   */
+  async renameDevice(oldRegistrationId: string, newRegistrationId: string): Promise<number> {
+    try {
+      return await this.repository.renameDevice(oldRegistrationId, newRegistrationId);
+    } catch (error: any) {
+      logger.error('Error renaming device in access records:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * Fetch and store records from SDK (for existing implementation)
    */
   async storeSdkRecords(newRecords: any[]): Promise<number> {
@@ -327,16 +383,68 @@ export class AccessRecordService extends EventEmitter {
         // SDK returns lowercase 'status' due to JSON camelCase serialization
         const status = record.Status || record.status;
         if (status === 'Success' || status === 'Failed') {
+
+          // ── Device enrichment ──────────────────────────────────────────
+          // deviceCache is loaded from the `devices` table at startup and
+          // refreshed on every device create/update/delete.
+          // Cache: registrationId → { deviceId (internal UUID), name, registrationId }
+          //
+          // The bridge's DeviceID = the registrationId we passed to QueryRecords.
+          // Secondary serial lookup handles the edge case where a device was
+          // registered in the DB using its hardware serial as the registrationId.
+          const rawId = record.DeviceID || record.deviceId || record.DeviceId || '';
+          const serialFromBridge = record.SerialNumber || record.serialNumber || '';
+
+          const cachedDevice =
+            deviceCache.get(rawId) ||
+            (serialFromBridge ? deviceCache.get(serialFromBridge) : null);
+
+          // Always use the canonical registrationId from the devices DB if found.
+          // This ensures access_records.registration_id always equals devices.registration_id.
+          const registrationId = cachedDevice?.registrationId || rawId;
+          const internalDeviceId = cachedDevice?.deviceId ?? '';
+          // Device name comes ONLY from the devices DB (what the user entered).
+          // Never use the bridge's DeviceName (which is the hardware serial) or
+          // the serial number itself as a name.
+          const deviceName = cachedDevice?.name ?? '';
+
+          if (!cachedDevice) {
+            logger.warn(`[storeSdkRecords] No device cache match for id="${rawId}" serial="${serialFromBridge}" — deviceName/deviceId will be empty`);
+          }
+
+          // ── User name enrichment ───────────────────────────────────────
+          // The SDK fetch path (FindRecord) may return an empty CardName.
+          // Fall back to the user name cache (populated by real-time events).
+          const userId = record.UserID || record.userID || '';
+          let userName = record.UserName || record.userName || '';
+          if (!userName && userId) {
+            userName = this.getUserName(userId);
+          }
+          // Cache the name so future records for this user are also enriched
+          if (userName && userId) {
+            this.cacheUser(userId, userName);
+          }
+
+          const swipeTimeRaw = record.SwipeTime || record.swipeTime || '';
+          const rawRecordNumber = record.RecordNumber ?? record.recordNumber ?? null;
+          // FindRecord (fetch path) returns real nRecNo values from device.
+          // Use null (not a timestamp fallback) when not available, so both paths
+          // store consistent types — real sequential numbers or null.
+          const recordNumber: number | null = rawRecordNumber || null;
+
           const recordEntry: AccessRecord = {
-            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${record.RecordNumber || record.recordNumber}`,
-            deviceId: record.DeviceID || record.deviceId || record.DeviceId || '',
-            deviceName: record.DeviceName || record.deviceName || '',
-            recordNumber: record.RecordNumber || record.recordNumber,
-            userID: record.UserID || record.userID || '',
-            userName: record.UserName || record.userName || '',
+            // Deterministic ID: device+recordNumber+swipeTime so the same physical
+            // record is never inserted twice (works for both SQL and file repos).
+            id: `sdk-${registrationId}-${recordNumber ?? 'null'}-${swipeTimeRaw.replace(/[^0-9]/g, '')}`,
+            registrationId,
+            deviceId: internalDeviceId,
+            deviceName,
+            recordNumber,
+            userID: userId,
+            userName,
             cardNumber: record.CardNumber || record.cardNumber || '',
-            swipeTime: record.SwipeTime || record.swipeTime,
-            doorNumber: record.DoorNumber || record.doorNumber || 0,
+            swipeTime: swipeTimeRaw,
+            doorNumber: record.DoorNumber ?? record.doorNumber ?? 0,
             readerNo: record.ReaderNo || record.readerNo || '',
             cardType: record.CardType || record.cardType || 'Unknown',
             openMethod: record.OpenMethod || record.openMethod || 'Unknown',

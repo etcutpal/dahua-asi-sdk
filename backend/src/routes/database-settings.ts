@@ -118,9 +118,11 @@ ${createTable(d)} devices (
   name             VARCHAR(255)  NOT NULL,
   ip               VARCHAR(64),
   port             INT,
+  serial           VARCHAR(128),
   username         VARCHAR(128),
   password         VARCHAR(128),
   status           VARCHAR(32)   DEFAULT 'Offline',
+  group_id         VARCHAR(64),
   created_at       ${datetime(d)} NOT NULL,
   updated_at       ${datetime(d)} NOT NULL
 );`.trim(),
@@ -164,20 +166,21 @@ ${createTable(d)} sync_queue (
     name: 'access_records',
     sql: (d) => `
 ${createTable(d)} access_records (
-  id             ${pkDef(d)},
-  device_id      VARCHAR(64),
-  device_name    VARCHAR(255),
-  record_number  INT           DEFAULT 0,
-  user_id        VARCHAR(64),
-  user_name      VARCHAR(255),
-  card_number    VARCHAR(64),
-  swipe_time     ${datetime(d)},
-  door_number    INT           DEFAULT 0,
-  reader_no      VARCHAR(32),
-  card_type      VARCHAR(64),
-  open_method    VARCHAR(64),
-  status         VARCHAR(32)   DEFAULT 'Failed',
-  stored_at      ${datetime(d)} NOT NULL
+  id                  ${pkDef(d)},
+  registration_id     VARCHAR(64),
+  device_id_internal  VARCHAR(64),
+  device_name         VARCHAR(255),
+  record_number       INT           DEFAULT 0,
+  user_id             VARCHAR(64),
+  user_name           VARCHAR(255),
+  card_number         VARCHAR(64),
+  swipe_time          ${datetime(d)},
+  door_number         INT           DEFAULT 0,
+  reader_no           VARCHAR(32),
+  card_type           VARCHAR(64),
+  open_method         VARCHAR(64),
+  status              VARCHAR(32)   DEFAULT 'Failed',
+  stored_at           ${datetime(d)} NOT NULL
 );`.trim(),
   },
   {
@@ -241,10 +244,45 @@ const COLUMN_MIGRATIONS: ColumnMigration[] = [
   { table: 'employees', column: 'address',           sql: d => `ALTER TABLE employees ADD address ${varcharMax(d)}` },
   { table: 'employees', column: 'remarks',           sql: d => `ALTER TABLE employees ADD remarks ${varcharMax(d)}` },
   { table: 'employees', column: 'group_id',          sql: _d => `ALTER TABLE employees ADD group_id VARCHAR(64)` },
-  { table: 'devices',        column: 'group_id',    sql: _d => `ALTER TABLE devices ADD group_id VARCHAR(64)` },
-  { table: 'access_records', column: 'device_name', sql: _d => `ALTER TABLE access_records ADD device_name VARCHAR(255)` },
+  { table: 'devices',        column: 'group_id',          sql: _d => `ALTER TABLE devices ADD group_id VARCHAR(64)` },
+  { table: 'devices',        column: 'serial',             sql: _d => `ALTER TABLE devices ADD serial VARCHAR(128)` },
+  { table: 'access_records', column: 'device_name',        sql: _d => `ALTER TABLE access_records ADD device_name VARCHAR(255)` },
+  // Schema v2: rename old device_id → registration_id, add device_id_internal
+  { table: 'access_records', column: 'registration_id',    sql: _d => `ALTER TABLE access_records ADD registration_id VARCHAR(64)` },
+  { table: 'access_records', column: 'device_id_internal', sql: _d => `ALTER TABLE access_records ADD device_id_internal VARCHAR(64)` },
 ];
 
+// ─── Index migrations ─────────────────────────────────────────────────────────
+// Unique indexes that enforce dedup at the DB level (race-condition safety).
+interface IndexMigration {
+  name: string;   // index name — used to check existence
+  table: string;
+  sql: (dialect: DbType) => string;
+}
+
+const INDEX_MIGRATIONS: IndexMigration[] = [
+  {
+    // Guarantees one row per (device, swipe moment, user).
+    // - Handles 100 devices swiping at the same second: registration_id differs → no collision.
+    // - Handles 2 people on the same door same second: user_id differs → both stored.
+    // - Race condition safety: concurrent INSERTs for identical swipes → only one succeeds.
+    // user_id is coalesced to '' for NULL values (ISNULL/COALESCE per dialect).
+    name:  'uq_access_records_swipe',
+    table: 'access_records',
+    sql: (d) => {
+      if (d === 'sqlserver') {
+        return `CREATE UNIQUE INDEX uq_access_records_swipe ON access_records (registration_id, swipe_time, ISNULL(user_id, '')) WHERE registration_id IS NOT NULL AND swipe_time IS NOT NULL`;
+      }
+      if (d === 'mysql') {
+        // MySQL: filtered indexes not supported, use a generated column or just index normally
+        // COALESCE in index expression supported in MySQL 8+
+        return `CREATE UNIQUE INDEX uq_access_records_swipe ON access_records (registration_id, swipe_time, user_id)`;
+      }
+      // postgresql
+      return `CREATE UNIQUE INDEX uq_access_records_swipe ON access_records (registration_id, swipe_time, COALESCE(user_id, '')) WHERE registration_id IS NOT NULL AND swipe_time IS NOT NULL`;
+    },
+  },
+];
 function loadConfig(): DbConfig | null {
   try {
     if (!fs.existsSync(CONFIG_FILE)) return null;
@@ -406,6 +444,19 @@ async function runMigrations(cfg: DbConfig): Promise<MigrateResult[]> {
     }
   }
 
+  // Run index migrations (unique constraints for race-condition safety)
+  for (const im of INDEX_MIGRATIONS) {
+    try {
+      const hasIdx = await execSQL.indexExists(im.name, im.table);
+      if (!hasIdx) {
+        await execSQL.run(im.sql(cfg.type));
+        logger.info(`[Migration] Created index ${im.name} on ${im.table}`);
+      }
+    } catch (err: any) {
+      logger.warn(`[Migration] Failed to create index ${im.name}: ${err.message}`);
+    }
+  }
+
   await execSQL.close();
   return results;
 }
@@ -431,6 +482,12 @@ async function buildSQLExecutor(cfg: DbConfig) {
       columnExists: async (table: string, column: string) => {
         const r = await pool.request().query(
           `SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME='${table}' AND COLUMN_NAME='${column}'`
+        );
+        return r.recordset.length > 0;
+      },
+      indexExists: async (indexName: string, _table: string) => {
+        const r = await pool.request().query(
+          `SELECT 1 FROM sys.indexes WHERE name='${indexName}'`
         );
         return r.recordset.length > 0;
       },
@@ -460,6 +517,13 @@ async function buildSQLExecutor(cfg: DbConfig) {
         );
         return (rows as any[]).length > 0;
       },
+      indexExists: async (indexName: string, table: string) => {
+        const [rows] = await conn.query(
+          `SELECT 1 FROM information_schema.statistics WHERE table_schema=? AND table_name=? AND index_name=?`,
+          [cfg.database, table, indexName],
+        );
+        return (rows as any[]).length > 0;
+      },
       run: async (sql: string) => conn.query(sql),
       close: async () => conn.end(),
     };
@@ -484,6 +548,13 @@ async function buildSQLExecutor(cfg: DbConfig) {
       const r = await client.query(
         `SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 AND column_name=$2`,
         [table, column],
+      );
+      return r.rows.length > 0;
+    },
+    indexExists: async (indexName: string, _table: string) => {
+      const r = await client.query(
+        `SELECT 1 FROM pg_indexes WHERE indexname=$1`,
+        [indexName],
       );
       return r.rows.length > 0;
     },
@@ -631,6 +702,40 @@ export async function autoMigrateOnStartup(): Promise<void> {
       logger.info('[AutoMigrate] Cleaned up SDK sentinel dates.');
     } catch (cleanErr: any) {
       logger.warn(`[AutoMigrate] Date cleanup skipped: ${cleanErr.message}`);
+    }
+
+    // ── Backfill access_records: old device_id column stored the device serial ──
+    // Match serial → devices table to get proper registration_id and internal device id.
+    try {
+      const execSQL = await buildSQLExecutor(cfg);
+
+      // Step 1: where a devices row has a matching serial, use its registration_id + id
+      await execSQL.run(
+        cfg.type === 'sqlserver'
+          ? `UPDATE ar
+             SET ar.registration_id   = d.registration_id,
+                 ar.device_id_internal = d.id
+             FROM access_records ar
+             INNER JOIN devices d ON d.serial = ar.device_id
+             WHERE ar.registration_id IS NULL`
+          : `UPDATE access_records ar
+             INNER JOIN devices d ON d.serial = ar.device_id
+             SET ar.registration_id   = d.registration_id,
+                 ar.device_id_internal = d.id
+             WHERE ar.registration_id IS NULL`
+      );
+
+      // Step 2: for rows still unmatched (no device with that serial), store the
+      // serial in registration_id as a best-effort placeholder so the column is
+      // never NULL — it can be corrected manually if needed.
+      await execSQL.run(
+        `UPDATE access_records SET registration_id = device_id WHERE registration_id IS NULL AND device_id IS NOT NULL`
+      );
+
+      await execSQL.close();
+      logger.info('[AutoMigrate] Backfilled access_records registration_id/device_id_internal from devices table.');
+    } catch (backfillErr: any) {
+      logger.warn(`[AutoMigrate] access_records backfill skipped: ${backfillErr.message}`);
     }
 
     logger.info('[AutoMigrate] Schema up-to-date.');

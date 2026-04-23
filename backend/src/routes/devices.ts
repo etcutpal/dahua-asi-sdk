@@ -3,6 +3,8 @@ import deviceService from '../services/device.service';
 import netSdkService from '../services/netSdkService';
 import syncQueueService from '../services/syncQueue.service';
 import accessRuleService from '../services/accessRule.service';
+import deviceCache from '../services/deviceCache';
+import accessRecordService from '../services/accessRecordService';
 import logger from '../utils/logger';
 import { Device } from '../types';
 
@@ -90,6 +92,8 @@ router.post('/', async (req: Request, res: Response) => {
     if (device.registrationId) {
       await netSdkService.pushDeviceCredentials(device.registrationId, device.username || 'admin', device.password || '');
     }
+    // Refresh device cache so new device is available for access record enrichment
+    deviceCache.refresh().catch(() => {});
     res.status(201).json({ success: true, device });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });
@@ -129,10 +133,18 @@ router.put('/:deviceId', async (req: Request, res: Response) => {
       // Update all queued jobs referencing the old registrationId
       await syncQueueService.renameDevice(oldRegistrationId, newRegistrationId, device.name);
 
+      // Migrate all historical access records to the new registrationId so they
+      // remain visible under the same logical device (door/location) after
+      // the physical device is replaced.
+      const migratedCount = await accessRecordService.getInstance().renameDevice(oldRegistrationId, newRegistrationId);
+      logger.info(`[Devices] Migrated ${migratedCount} access records from ${oldRegistrationId} → ${newRegistrationId}`);
+
       // Push new credentials to bridge under the new registrationId
       await netSdkService.pushDeviceCredentials(newRegistrationId, device.username || 'admin', device.password || '');
     }
 
+    // Refresh device cache so updated name/id is available for access record enrichment
+    deviceCache.refresh().catch(() => {});
     res.json({ success: true, device });
   } catch (error: any) {
     if (error.message === 'Device not found') {
@@ -147,6 +159,8 @@ router.put('/:deviceId', async (req: Request, res: Response) => {
 router.delete('/:deviceId', async (req: Request, res: Response) => {
   try {
     const device = await deviceService.delete(req.params.deviceId);
+    // Refresh device cache so deleted device is removed from enrichment lookups
+    deviceCache.refresh().catch(() => {});
     res.json({ success: true, device });
   } catch (error: any) {
     if (error.message === 'Device not found') {

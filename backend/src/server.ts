@@ -25,6 +25,7 @@ import databaseSettingsRouter from './routes/database-settings';
 import { autoMigrateOnStartup } from './routes/database-settings';
 import syncQueueService from './services/syncQueue.service';
 import RepositoryFactory from './repositories/RepositoryFactory';
+import deviceCache from './services/deviceCache';
 
 // Load environment variables
 dotenv.config();
@@ -179,7 +180,7 @@ eventService.on('device:event:received', (data: any) => {
 eventService.on('access:control:event', (data: any) => {
   io.emit('access:control:event', data);
 
-  logger.info(`📡 WebSocket broadcast: access control event for device ${data.deviceId}`);
+  logger.info(`📡 WebSocket broadcast: access control event for device ${data.deviceId || data.registrationId}`);
 });
 
 // Error handling middleware
@@ -254,6 +255,9 @@ async function startServer() {
 
     // Initialize Access Record Service
     await accessRecordService.initialize();
+
+    // Load device cache (used for enriching access records with device name/id)
+    await deviceCache.load();
 
     // Initialize Sync Queue Service
     await syncQueueService.initialize();

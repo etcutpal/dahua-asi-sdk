@@ -1591,6 +1591,7 @@ namespace NetSDKBridge
                 {
                     DeviceID = r.DeviceId,
                     DeviceName = device.Name ?? "",
+                    SerialNumber = device.SerialNumber ?? "",  // hardware serial — fallback lookup key for Node.js
                     RecordNumber = r.RecordNumber,
                     CardNumber = r.CardNumber,
                     UserID = r.UserID,
@@ -3389,6 +3390,8 @@ namespace NetSDKBridge
     {
         public string DeviceID { get; set; }
         public string DeviceName { get; set; } = "";
+        /// <summary>Hardware serial number of the device — used as a secondary lookup key on the Node.js side.</summary>
+        public string SerialNumber { get; set; } = "";
         public int RecordNumber { get; set; }
         public string CardNumber { get; set; }
         public string UserID { get; set; }

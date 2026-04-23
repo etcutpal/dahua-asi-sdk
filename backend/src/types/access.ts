@@ -11,9 +11,10 @@ export interface AccessEvent {
 // Access Record interface (formatted records)
 export interface AccessRecord {
   id: string;
-  deviceId: string;
+  registrationId: string;  // SDK registration ID (e.g. "ASI12") — was device_id
+  deviceId: string;        // internal devices.deviceId (UUID/numeric)
   deviceName?: string;
-  recordNumber: number;
+  recordNumber: number | null;  // null for live events (SDK doesn't expose nRecNo in real-time callbacks); real sequential number for fetch path
   userID: string;
   userName: string;
   cardNumber: string;
@@ -38,6 +39,7 @@ export interface IAccessRepository {
   getRecordsCount(startDate: Date, endDate: Date): Promise<number>;
   clearEvents(): Promise<void>;
   clearRecords(): Promise<void>;
+  renameDevice(oldRegistrationId: string, newRegistrationId: string): Promise<number>;
   initialize(): Promise<void>;
   forceSave?(): Promise<void>;
 }
@@ -59,6 +61,11 @@ export interface PaginationInfo {
   page: number;
   limit: number;
   totalPages: number;
+  // Frontend-friendly aliases
+  totalRecords: number;
+  currentPage: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 }
 
 // Webhook event data structure

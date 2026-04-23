@@ -127,12 +127,17 @@ class AccessRecordFetchService {
           logger.info(`📡 Fetching records from device: ${devId}`);
 
           // Build query parameters
+          // Use local datetime strings (not UTC ISO) so the device—which stores
+          // times in local timezone and queries with bRealUTCTimeEnable=false—
+          // receives correct start/end times without offset drift.
           const params: Record<string, any> = { maxRecords };
-          if (startDate) params.startTime = new Date(startDate).toISOString();
+          if (startDate) {
+            // Midnight local time on start day
+            params.startTime = `${startDate}T00:00:00`;
+          }
           if (endDate) {
-            const endDateTime = new Date(endDate);
-            endDateTime.setHours(23, 59, 59, 999);
-            params.endTime = endDateTime.toISOString();
+            // End of day local time on end day
+            params.endTime = `${endDate}T23:59:59`;
           }
 
           // Call the module endpoint (TCP method via FindRecord API)
