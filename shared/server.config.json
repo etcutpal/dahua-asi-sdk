@@ -6,8 +6,8 @@
     "autoReg": 9500
   },
   "network": {
-    "localAccessIp": "192.168.1.121",
-    "deviceRegistrationIp": "192.168.1.121",
+    "localAccessIp": "192.168.1.4",
+    "deviceRegistrationIp": "192.168.1.4",
     "publicAccessEnabled": false,
     "publicAccessIp": "103.234.164.221",
     "bindHost": "0.0.0.0"
@@ -15,10 +15,5 @@
   "bridge": {
     "platformUsername": "admin",
     "platformPassword": "admin123"
-  },
-  "autoFetch": {
-    "enabled": true,
-    "delaySeconds": 5,
-    "offsetBeforeOfflineSeconds": 15
   }
 }

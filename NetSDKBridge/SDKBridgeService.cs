@@ -53,6 +53,9 @@ namespace NetSDKBridge
         // Falls back to _platformUsername/_platformPassword if not found
         private readonly ConcurrentDictionary<string, (string Username, string Password)> _deviceCredentials = new();
 
+        // Maps backend numeric deviceId → bridge registrationId (serial)
+        // Populated from devices.json so GetDevice() can resolve either form.
+        private readonly ConcurrentDictionary<string, string> _deviceIdToRegId = new();
         // Path to shared device registry — same file used by the backend.
         // Bridge reads from this on startup so it never depends on the backend pushing credentials.
         private readonly string _bridgeDevicesFilePath = ResolveSharedDevicesPath();
@@ -171,6 +174,18 @@ namespace NetSDKBridge
         // Access Records Query Module - SDK FindRecord API (TCP method)
         private AccessRecordsQueryModule _accessRecordsQueryModule;
 
+        // Fingerprint Enrollment Module - Built-in scanner capture
+        private FingerprintEnrollmentModule _fingerprintEnrollmentModule;
+
+        /// <summary>Exposes the fingerprint enrollment module to HttpApiServer.</summary>
+        public FingerprintEnrollmentModule FingerprintEnrollment => _fingerprintEnrollmentModule;
+
+        // Card Enrollment Module - Built-in / Wiegand / RS485 reader capture
+        private CardEnrollmentModule _cardEnrollmentModule;
+
+        /// <summary>Exposes the card enrollment module to HttpApiServer.</summary>
+        public CardEnrollmentModule CardEnrollment => _cardEnrollmentModule;
+
         public void SetBackendWebhookUrl(string url)
         {
             _backendWebhookUrl = url;
@@ -245,6 +260,16 @@ namespace NetSDKBridge
             _logger = logger;
             _loggerFactory = loggerFactory;
             _instance = this;
+
+            // Instantiate fingerprint enrollment module
+            _fingerprintEnrollmentModule = new FingerprintEnrollmentModule(
+                _loggerFactory.CreateLogger<FingerprintEnrollmentModule>()
+            );
+
+            // Instantiate card enrollment module
+            _cardEnrollmentModule = new CardEnrollmentModule(
+                _loggerFactory.CreateLogger<CardEnrollmentModule>()
+            );
 
             // Subscribe to device status changes to send webhooks
             DeviceStatusChanged += OnDeviceStatusChangedAsync;
@@ -483,12 +508,22 @@ namespace NetSDKBridge
                     var regId    = entry.TryGetProperty("registrationId", out var r) ? r.GetString() : null;
                     var username = entry.TryGetProperty("username", out var u) ? u.GetString() : null;
                     var password = entry.TryGetProperty("password", out var p) ? p.GetString() : null;
+                    var deviceId = entry.TryGetProperty("deviceId",       out var d) ? d.GetString() : null;
+                    var serial   = entry.TryGetProperty("serial",         out var s) ? s.GetString() : null;
 
                     if (!string.IsNullOrWhiteSpace(regId))
                     {
                         _deviceCredentials[regId] = (username ?? "admin", password ?? "");
+
+                        // Build cross-reference map: numeric deviceId → registrationId
+                        if (!string.IsNullOrWhiteSpace(deviceId))
+                            _deviceIdToRegId[deviceId] = regId;
+                        // Also map hardware serial → registrationId
+                        if (!string.IsNullOrWhiteSpace(serial))
+                            _deviceIdToRegId[serial] = regId;
+
                         count++;
-                        _logger.LogInformation($"[BridgeDevices]   Loaded: {regId} (user: {username ?? "admin"})");
+                        _logger.LogInformation($"[BridgeDevices]   Loaded: {regId} (deviceId:{deviceId}, user:{username ?? "admin"})");
                     }
                 }
 
@@ -625,8 +660,21 @@ namespace NetSDKBridge
 
         public DeviceInfo GetDevice(string deviceId)
         {
-            _devices.TryGetValue(deviceId, out var device);
-            return device;
+            // 1. Direct key match (registrationID / serial from auto-reg callback)
+            if (_devices.TryGetValue(deviceId, out var device))
+                return device;
+
+            // 2. Cross-reference map: numeric backend deviceId or hardware serial → registrationId
+            if (_deviceIdToRegId.TryGetValue(deviceId, out var regId) &&
+                _devices.TryGetValue(regId, out var mappedDevice))
+                return mappedDevice;
+
+            // 3. Linear search as last resort (DeviceID field, SerialNumber, IP)
+            return _devices.Values.FirstOrDefault(d =>
+                string.Equals(d.DeviceID,     deviceId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(d.SerialNumber, deviceId, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(d.IP,           deviceId, StringComparison.OrdinalIgnoreCase)
+            );
         }
 
         private void StartListeningForEvents(IntPtr loginID, string deviceId, bool isAutoRegistered = false)
@@ -798,6 +846,47 @@ namespace NetSDKBridge
                 if (_accessControlEventsSdkModule != null)
                 {
                     _accessControlEventsSdkModule.HandleAlarmEvent(lCommand, lLoginID, pBuf, dwBufLen, pchDVRIP, nDVRPort);
+                }
+
+                // Handle fingerprint capture alarm (ALARM_FINGER_PRINT = 0x318d)
+                const int ALARM_FINGER_PRINT = 0x318d;
+                if (lCommand == ALARM_FINGER_PRINT)
+                {
+                    _logger.LogInformation($"[FP-ENROLL] 🔔 ALARM_FINGER_PRINT received from {ip} — dwBufLen:{dwBufLen} pBuf:{pBuf}");
+                    if (_fingerprintEnrollmentModule != null && dwBufLen > 0 && pBuf != IntPtr.Zero)
+                    {
+                        try
+                        {
+                            var fpInfo = Marshal.PtrToStructure<NET_ALARM_CAPTURE_FINGER_PRINT_INFO>(pBuf);
+                            _logger.LogInformation($"[FP-ENROLL] Callback fields — UserID:'{fpInfo.szUserID}' CardNo:'{fpInfo.szCardNo}' CollectResult:{fpInfo.bCollectResult} ErrorCode:{fpInfo.nErrorCode} PacketLen:{fpInfo.nPacketLen} PacketNum:{fpInfo.nPacketNum}");
+                            _fingerprintEnrollmentModule.HandleFingerprintAlarm(fpInfo);
+                        }
+                        catch (Exception fpEx)
+                        {
+                            _logger.LogError(fpEx, "[FP-ENROLL] Failed to marshal NET_ALARM_CAPTURE_FINGER_PRINT_INFO");
+                        }
+                    }
+                    else
+                    {
+                        _logger.LogWarning($"[FP-ENROLL] Alarm received but conditions not met — module:{_fingerprintEnrollmentModule != null} bufLen:{dwBufLen} pBuf:{pBuf != IntPtr.Zero}");
+                    }
+                }
+
+                // Forward ALARM_ACCESS_CTL_EVENT (0x3181) to the card enrollment module.
+                // This is a non-destructive tap — if no card-read session is in progress
+                // HandleCardSwipeEvent is a no-op so live event streaming is unaffected.
+                const int ALARM_ACCESS_CTL_EVENT = 0x3181;
+                if (lCommand == ALARM_ACCESS_CTL_EVENT && _cardEnrollmentModule != null && dwBufLen > 0 && pBuf != IntPtr.Zero)
+                {
+                    try
+                    {
+                        var evtInfo = Marshal.PtrToStructure<NET_ALARM_ACCESS_CTL_EVENT_INFO>(pBuf);
+                        _cardEnrollmentModule.HandleCardSwipeEvent(evtInfo);
+                    }
+                    catch (Exception cardEx)
+                    {
+                        _logger.LogError(cardEx, "[CARD-ENROLL] Failed to marshal NET_ALARM_ACCESS_CTL_EVENT_INFO");
+                    }
                 }
 
                 // Also log the event for debugging

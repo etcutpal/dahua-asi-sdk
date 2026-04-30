@@ -740,6 +740,135 @@ namespace NetSDKBridge
                 }
             });
 
+            // Card reader capture — waits for the next card swipe on built-in / Wiegand / RS485 reader
+            _app.MapPost("/card/read", async context =>
+            {
+                try
+                {
+                    var req = await System.Text.Json.JsonSerializer.DeserializeAsync<CardReadRequest>(
+                        context.Request.Body,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                    );
+
+                    if (req == null || string.IsNullOrWhiteSpace(req.DeviceId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "deviceId is required" });
+                        return;
+                    }
+
+                    var device = _sdkService.GetDevice(req.DeviceId);
+                    if (device == null || device.LoginHandle == 0)
+                    {
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "Device not connected or not logged in", errorCode = -2 });
+                        return;
+                    }
+
+                    _logger.LogInformation($"[CARD-ENROLL] Read request — Device:{req.DeviceId} Channel:{req.ChannelId} Reader:{req.ReaderID} Timeout:{req.TimeoutMs}ms");
+
+                    var result = await _sdkService.CardEnrollment.StartReadAsync(
+                        req.TimeoutMs > 0 ? req.TimeoutMs : 15000
+                    );
+
+                    if (result.Success)
+                    {
+                        await context.Response.WriteAsJsonAsync(new
+                        {
+                            success    = true,
+                            cardNumber = result.CardNumber,
+                            readerID   = result.ReaderID
+                        });
+                    }
+                    else
+                    {
+                        await context.Response.WriteAsJsonAsync(new
+                        {
+                            success   = false,
+                            errorCode = result.ErrorCode,
+                            error     = result.ErrorMessage
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[CARD-ENROLL] Error in /card/read");
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
+            // Fingerprint scanner capture — triggers built-in scanner and waits for template
+            _app.MapPost("/scanner/capture", async context =>
+            {
+                try
+                {
+                    var req = await System.Text.Json.JsonSerializer.DeserializeAsync<ScannerCaptureRequest>(
+                        context.Request.Body,
+                        new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true }
+                    );
+
+                    if (req == null || string.IsNullOrWhiteSpace(req.DeviceId))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "deviceId is required" });
+                        return;
+                    }
+                    if (string.IsNullOrWhiteSpace(req.UserID))
+                    {
+                        context.Response.StatusCode = 400;
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "userID is required" });
+                        return;
+                    }
+
+                    var device = _sdkService.GetDevice(req.DeviceId);
+                    if (device == null || device.LoginHandle == 0)
+                    {
+                        // Return 200 with success:false — infrastructure is fine, device is just offline
+                        await context.Response.WriteAsJsonAsync(new { success = false, error = "Device not connected or not logged in", errorCode = -2 });
+                        return;
+                    }
+
+                    _logger.LogInformation($"[SCANNER] Capture request — Device:{req.DeviceId} UserID:{req.UserID} Slot:{req.Slot} Channel:{req.ChannelId} Reader:{req.ReaderID}");
+
+                    var result = await _sdkService.FingerprintEnrollment.StartCaptureAsync(
+                        new IntPtr(device.LoginHandle),
+                        req.ChannelId,
+                        req.ReaderID ?? "1",
+                        req.UserID,
+                        req.Slot > 0 ? req.Slot : 1,
+                        req.TimeoutMs > 0 ? req.TimeoutMs : 30000
+                    );
+
+                    if (result.Success)
+                    {
+                        await context.Response.WriteAsJsonAsync(new
+                        {
+                            success = true,
+                            template = result.TemplateBase64,
+                            packetLen = result.PacketLen,
+                            packetNum = result.PacketNum,
+                            slot = req.Slot
+                        });
+                    }
+                    else
+                    {
+                        await context.Response.WriteAsJsonAsync(new
+                        {
+                            success = false,
+                            errorCode = result.ErrorCode,
+                            error = result.ErrorMessage,
+                            slot = req.Slot
+                        });
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "[SCANNER] Error in /scanner/capture");
+                    context.Response.StatusCode = 500;
+                    await context.Response.WriteAsJsonAsync(new { success = false, error = ex.Message });
+                }
+            });
+
             _logger.LogInformation($"HTTP API Server starting on port {_port}");
             await _app.RunAsync();
         }
@@ -796,5 +925,23 @@ namespace NetSDKBridge
     {
         public string DeviceId { get; set; } = string.Empty;
         public string PersonId { get; set; } = string.Empty;
+    }
+
+    public class ScannerCaptureRequest
+    {
+        public string DeviceId  { get; set; } = string.Empty;
+        public int    Slot      { get; set; } = 1;
+        public string UserID    { get; set; } = string.Empty;
+        public int    ChannelId { get; set; } = 0;
+        public string ReaderID  { get; set; } = "1";
+        public int    TimeoutMs { get; set; } = 30000;
+    }
+
+    public class CardReadRequest
+    {
+        public string DeviceId  { get; set; } = string.Empty;
+        public int    ChannelId { get; set; } = 0;
+        public string ReaderID  { get; set; } = "1";
+        public int    TimeoutMs { get; set; } = 15000;
     }
 }

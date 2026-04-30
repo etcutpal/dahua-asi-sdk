@@ -24,6 +24,7 @@ import syncQueueRouter from './routes/sync-queue';
 import databaseSettingsRouter from './routes/database-settings';
 import { autoMigrateOnStartup } from './routes/database-settings';
 import settingsRouter from './routes/settings';
+import scannerRouter from './routes/scanner';
 import syncQueueService from './services/syncQueue.service';
 import RepositoryFactory from './repositories/RepositoryFactory';
 import deviceCache from './services/deviceCache';
@@ -79,6 +80,7 @@ app.use('/api/access-rules', accessRulesRouter);
 app.use('/api/sync-queue', syncQueueRouter);
 app.use('/api/database', databaseSettingsRouter);
 app.use('/api/settings', settingsRouter);
+app.use('/api/scanner', scannerRouter);
 
 // Health check
 app.get('/api/health', (req: Request, res: Response) => {

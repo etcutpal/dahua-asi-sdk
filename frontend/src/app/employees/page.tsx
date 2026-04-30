@@ -875,11 +875,35 @@ export default function EmployeesPage() {
   const [isCapturingFingerprint, setIsCapturingFingerprint] = useState(false);
   const [fingerprintCaptureProgress, setFingerprintCaptureProgress] = useState(0);
   const captureTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const captureAbortRef = useRef<AbortController | null>(null);
 
   // Fingerprint scanner type selection
   const [showScannerDropdown, setShowScannerDropdown] = useState(false);
-  const [selectedScannerType, setSelectedScannerType] = useState<string>('simulated');
+  const [selectedScannerType, setSelectedScannerType] = useState<string>('access-control');
   const scannerDropdownRef = useRef<HTMLDivElement>(null);
+
+  // Device selector for built-in scanner
+  const [scannerDevices, setScannerDevices] = useState<{ deviceId: string; name: string }[]>([]);
+  const [selectedScannerDeviceId, setSelectedScannerDeviceId] = useState<string>('');
+  const [captureBlockedMsg, setCaptureBlockedMsg] = useState<string | null>(null);
+
+  // Load online devices on mount (for fingerprint scanner)
+  useEffect(() => {
+    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    fetch(`${API}/api/devices`)
+      .then(r => r.json())
+      .then((data: any) => {
+        const online = (data.devices || data || [])
+          .filter((d: any) => d.status === 'Online' || d.Status === 'Online')
+          .map((d: any) => ({
+            deviceId: d.deviceId || d.registrationId,
+            name: d.name || d.deviceId || d.registrationId,
+          }));
+        setScannerDevices(online);
+        if (online.length > 0) setSelectedScannerDeviceId(online[0].deviceId);
+      })
+      .catch(() => setScannerDevices([]));
+  }, []);
 
   const scannerTypes = [
     { id: 'simulated', name: 'Simulated (Demo)', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
@@ -892,11 +916,105 @@ export default function EmployeesPage() {
   const [selectedCardReaderType, setSelectedCardReaderType] = useState<string>('manual');
   const cardReaderDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Card enrollment — device reader state
+  const [isReadingCard, setIsReadingCard] = useState(false);
+  const [cardReadMsg, setCardReadMsg] = useState<string | null>(null);
+  const cardReadAbortRef = useRef<AbortController | null>(null);
+  const [selectedCardDeviceId, setSelectedCardDeviceId] = useState<string>('');
+  const [selectedCardChannelId, setSelectedCardChannelId] = useState<number>(0);
+  const [selectedCardReaderId, setSelectedCardReaderId] = useState<string>('1');
+  const [showCardDevicePanel, setShowCardDevicePanel] = useState(false);
+  const cardDevicePanelRef = useRef<HTMLDivElement>(null);
+
+  // Predefined reader options for the device reader panel
+  const readerOptions = [
+    { id: '1', label: 'Built-in Reader (1)' },
+    { id: '2', label: 'Wiegand / RS485 Reader (2)' },
+    { id: '3', label: 'Reader 3' },
+    { id: '4', label: 'Reader 4' },
+  ];
+
   const cardReaderTypes = [
     { id: 'manual', name: 'Manual Entry', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z' },
     { id: 'usb', name: 'External USB Reader', icon: 'M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z' },
     { id: 'access-control', name: 'Access Control Built-in Reader', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
   ];
+
+  // Seed the card device selector from the same scannerDevices list (already loaded)
+  useEffect(() => {
+    if (scannerDevices.length > 0 && !selectedCardDeviceId) {
+      setSelectedCardDeviceId(scannerDevices[0].deviceId);
+    }
+  }, [scannerDevices]);
+
+  // Close card device panel on outside click
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (cardDevicePanelRef.current && !cardDevicePanelRef.current.contains(e.target as Node)) {
+        setShowCardDevicePanel(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  const handleReadCard = async () => {
+    setCardReadMsg(null);
+    if (!selectedCardDeviceId) {
+      setCardReadMsg('❌ Select a device first.');
+      setShowCardDevicePanel(true);
+      return;
+    }
+    if (employeeForm.cardNumbers.length >= 5) {
+      setCardReadMsg('❌ Maximum 5 cards already added.');
+      return;
+    }
+    setIsReadingCard(true);
+    const abortCtrl = new AbortController();
+    cardReadAbortRef.current = abortCtrl;
+    const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+    const timeoutMs = 15000;
+    try {
+      const res = await fetch(`${API}/api/scanner/read-card`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deviceId: selectedCardDeviceId,
+          channelId: selectedCardChannelId,
+          readerID: selectedCardReaderId,
+          timeoutMs,
+        }),
+        signal: abortCtrl.signal,
+      });
+      const data = await res.json();
+      if (data.success && data.cardNumber) {
+        // Avoid duplicate card numbers
+        if (employeeForm.cardNumbers.includes(data.cardNumber)) {
+          setCardReadMsg(`ℹ️ Card ${data.cardNumber} is already added.`);
+        } else {
+          setEmployeeForm(f => ({ ...f, cardNumbers: [...f.cardNumbers, data.cardNumber] }));
+          setCardReadMsg(`✅ Card ${data.cardNumber} captured.`);
+        }
+      } else {
+        setCardReadMsg(`❌ ${data.error || 'Card read failed'}`);
+      }
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setCardReadMsg('❌ Network error — could not reach scanner service.');
+      }
+    }
+    cardReadAbortRef.current = null;
+    setIsReadingCard(false);
+  };
+
+  const stopCardRead = () => {
+    if (cardReadAbortRef.current) {
+      cardReadAbortRef.current.abort();
+      cardReadAbortRef.current = null;
+    }
+    setIsReadingCard(false);
+    setCardReadMsg(null);
+  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -912,21 +1030,73 @@ export default function EmployeesPage() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSimulatedFingerprintCapture = () => {
-    // TODO: Replace with actual scanner SDK call when implementing generic fingerprint scanner integration
+  const handleSimulatedFingerprintCapture = async () => {
+    setCaptureBlockedMsg(null);
+
+    // Built-in Access Control scanner path
+    if (selectedScannerType === 'access-control') {
+      if (!selectedScannerDeviceId) {
+        setCaptureBlockedMsg('Select a device first.');
+        return;
+      }
+      if (!employeeForm.personId.trim()) {
+        setCaptureBlockedMsg('Enter a Person ID before capturing.');
+        return;
+      }
+      const slot = employeeForm.fingerprints.length + 1;
+      setIsCapturingFingerprint(true);
+      const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+      const abortCtrl = new AbortController();
+      captureAbortRef.current = abortCtrl;
+      try {
+        const res = await fetch(`${API}/api/scanner/capture`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deviceId: selectedScannerDeviceId,
+            slot,
+            userID: employeeForm.personId.trim(),
+            timeoutMs: 30000,
+          }),
+          signal: abortCtrl.signal,
+        });
+        const data = await res.json();
+        if (data.success) {
+          const fpEntry = {
+            index: (data.slot ?? slot) - 1,
+            dataBase64: data.template,
+            packetLen: data.packetLen,
+            packetCount: data.packetNum ?? 1,
+          };
+          setEmployeeForm(f => ({ ...f, fingerprints: [...f.fingerprints, fpEntry] }));
+          setIsCapturingFingerprint(false);
+          captureAbortRef.current = null;
+          return;
+        }
+        setCaptureBlockedMsg(`❌ ${data.error || 'Capture failed'}`);
+      } catch (err: any) {
+        if (err.name === 'AbortError') {
+          // User cancelled — no error message needed
+        } else {
+          setCaptureBlockedMsg('❌ Network error — could not reach scanner service.');
+        }
+      }
+      captureAbortRef.current = null;
+      setIsCapturingFingerprint(false);
+      return;
+    }
+
+    // Simulated / demo fallback
     setIsCapturingFingerprint(true);
     setFingerprintCaptureProgress(0);
-
-    // Simulate capture progress
     let progress = 0;
     captureTimerRef.current = setInterval(() => {
       progress += 10;
       setFingerprintCaptureProgress(progress);
       if (progress >= 100) {
         if (captureTimerRef.current) clearInterval(captureTimerRef.current);
-        // Simulate successful capture with a placeholder fingerprint template
         const simulatedFingerprint = `data:image/svg+xml;base64,${btoa(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="40" fill="none" stroke="#3b82f6" stroke-width="2"/><path d="M30 50 Q50 30 70 50 Q50 70 30 50" fill="none" stroke="#3b82f6" stroke-width="1.5"/><path d="M25 45 Q50 20 75 45 Q50 70 25 45" fill="none" stroke="#3b82f6" stroke-width="1.5"/><path d="M35 55 Q50 35 65 55 Q50 65 35 55" fill="none" stroke="#3b82f6" stroke-width="1.5"/></svg>`)}`;
-        setEmployeeForm({ ...employeeForm, fingerprints: [...employeeForm.fingerprints, simulatedFingerprint] });
+        setEmployeeForm(f => ({ ...f, fingerprints: [...f.fingerprints, simulatedFingerprint] }));
         setIsCapturingFingerprint(false);
         setFingerprintCaptureProgress(0);
       }
@@ -934,6 +1104,10 @@ export default function EmployeesPage() {
   };
 
   const stopFingerprintCapture = () => {
+    if (captureAbortRef.current) {
+      captureAbortRef.current.abort();
+      captureAbortRef.current = null;
+    }
     if (captureTimerRef.current) {
       clearInterval(captureTimerRef.current);
     }
@@ -2985,7 +3159,7 @@ export default function EmployeesPage() {
                                 <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
                               </div>
                               <div className="absolute bottom-1 text-xs font-medium text-blue-600">
-                                {fingerprintCaptureProgress}%
+                                {selectedScannerType === 'access-control' ? '...' : `${fingerprintCaptureProgress}%`}
                               </div>
                               <button
                                 type="button"
@@ -2997,7 +3171,41 @@ export default function EmployeesPage() {
                             </div>
                           )}
                         </div>
-                        <p className="text-xs text-gray-500 mt-2">
+
+                        {/* Device selector — shown when access-control scanner is selected */}
+                        {selectedScannerType === 'access-control' && (
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className="text-xs text-gray-500 whitespace-nowrap">Device:</span>
+                            {scannerDevices.length === 0 ? (
+                              <span className="text-xs text-amber-600">No online devices found</span>
+                            ) : (
+                              <select
+                                value={selectedScannerDeviceId}
+                                onChange={e => setSelectedScannerDeviceId(e.target.value)}
+                                className="text-xs border border-gray-300 rounded px-2 py-1 flex-1"
+                              >
+                                {scannerDevices.map(d => (
+                                  <option key={d.deviceId} value={d.deviceId}>{d.name}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Inline error / blocked message */}
+                        {captureBlockedMsg && (
+                          <p className="text-xs text-amber-600 mt-1">⚠️ {captureBlockedMsg}</p>
+                        )}
+
+                        {/* Capture status hint */}
+                        {isCapturingFingerprint && selectedScannerType === 'access-control' && (
+                          <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
+                            <span className="inline-block w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                            Place finger on device scanner — touch 3 times
+                          </p>
+                        )}
+
+                        <p className="text-xs text-gray-500 mt-1">
                           Using: {scannerTypes.find(s => s.id === selectedScannerType)?.name}. Max 5 fingers.
                         </p>
                       </div>
@@ -3013,7 +3221,7 @@ export default function EmployeesPage() {
                             type="button"
                             onClick={() => setShowCardReaderDropdown(!showCardReaderDropdown)}
                             className="p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded transition-colors"
-                            title="Select card reader"
+                            title="Select card reader method"
                           >
                             <Icon className="w-4 h-4" path="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                           </button>
@@ -3023,7 +3231,7 @@ export default function EmployeesPage() {
                                 <p className="text-xs font-medium text-gray-500 px-2 py-1">Select Card Reader</p>
                                 {cardReaderTypes.map((reader) => (
                                   <button key={reader.id} type="button"
-                                    onClick={() => { setSelectedCardReaderType(reader.id); setShowCardReaderDropdown(false); }}
+                                    onClick={() => { setSelectedCardReaderType(reader.id); setShowCardReaderDropdown(false); setCardReadMsg(null); }}
                                     className={`w-full flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors ${selectedCardReaderType === reader.id ? 'bg-blue-50 text-blue-700' : 'text-gray-700 hover:bg-gray-50'}`}
                                   >
                                     <Icon className="w-4 h-4" path={reader.icon} />
@@ -3065,7 +3273,8 @@ export default function EmployeesPage() {
 
                       {/* Add card slot */}
                       {employeeForm.cardNumbers.length < 5 && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {/* Manual: add empty text field */}
                           <button
                             type="button"
                             onClick={() => setEmployeeForm({ ...employeeForm, cardNumbers: [...employeeForm.cardNumbers, ''] })}
@@ -3074,15 +3283,104 @@ export default function EmployeesPage() {
                             <Icon className="w-4 h-4" path="M12 4v16m8-8H4" />
                             Add Card
                           </button>
-                          {selectedCardReaderType !== 'manual' && (
-                            <button type="button"
-                              className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-md text-sm hover:from-blue-700 hover:to-cyan-700 transition-all"
-                            >
-                              <Icon className="w-3.5 h-3.5" path="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                              Read Card
-                            </button>
+
+                          {/* Access-control reader: Read Card button */}
+                          {selectedCardReaderType === 'access-control' && (
+                            <div className="relative" ref={cardDevicePanelRef}>
+                              {!isReadingCard ? (
+                                <button
+                                  type="button"
+                                  onClick={() => setShowCardDevicePanel(v => !v)}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-blue-600 to-cyan-600 text-white rounded-md text-sm hover:from-blue-700 hover:to-cyan-700 transition-all shadow-sm"
+                                >
+                                  <Icon className="w-3.5 h-3.5" path="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                                  Read Card
+                                  <Icon className="w-3 h-3 ml-0.5" path="M19 9l-7 7-7-7" />
+                                </button>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 rounded-md text-sm">
+                                    <span className="w-2 h-2 bg-blue-500 rounded-full animate-pulse inline-block"></span>
+                                    Waiting for card swipe…
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={stopCardRead}
+                                    className="w-6 h-6 flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors text-base font-bold"
+                                    title="Cancel"
+                                  >×</button>
+                                </div>
+                              )}
+
+                              {/* Device / Reader picker panel */}
+                              {showCardDevicePanel && !isReadingCard && (
+                                <div className="absolute z-50 left-0 mt-2 w-72 bg-white border border-gray-200 rounded-xl shadow-xl p-3 space-y-3">
+                                  <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Card Reader Settings</p>
+
+                                  {/* Device selector */}
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-500 block mb-1">Device</label>
+                                    {scannerDevices.length === 0 ? (
+                                      <p className="text-xs text-amber-600">No online devices found.</p>
+                                    ) : (
+                                      <select
+                                        value={selectedCardDeviceId}
+                                        onChange={e => setSelectedCardDeviceId(e.target.value)}
+                                        className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                      >
+                                        {scannerDevices.map(d => (
+                                          <option key={d.deviceId} value={d.deviceId}>{d.name}</option>
+                                        ))}
+                                      </select>
+                                    )}
+                                  </div>
+
+                                  {/* Reader selector */}
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-500 block mb-1">Reader</label>
+                                    <select
+                                      value={selectedCardReaderId}
+                                      onChange={e => setSelectedCardReaderId(e.target.value)}
+                                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                      {readerOptions.map(r => (
+                                        <option key={r.id} value={r.id}>{r.label}</option>
+                                      ))}
+                                    </select>
+                                  </div>
+
+                                  {/* Channel (advanced) */}
+                                  <div>
+                                    <label className="text-xs font-medium text-gray-500 block mb-1">Channel ID <span className="text-gray-400 font-normal">(advanced)</span></label>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={selectedCardChannelId}
+                                      onChange={e => setSelectedCardChannelId(Number(e.target.value))}
+                                      className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    disabled={!selectedCardDeviceId}
+                                    onClick={() => { setShowCardDevicePanel(false); handleReadCard(); }}
+                                    className="w-full py-1.5 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    Start Reading
+                                  </button>
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
+                      )}
+
+                      {/* Card read status message */}
+                      {cardReadMsg && (
+                        <p className={`text-xs mt-2 ${cardReadMsg.startsWith('✅') ? 'text-green-600' : cardReadMsg.startsWith('ℹ️') ? 'text-blue-600' : 'text-red-500'}`}>
+                          {cardReadMsg}
+                        </p>
                       )}
 
                       <p className="text-xs text-gray-500 mt-2">
