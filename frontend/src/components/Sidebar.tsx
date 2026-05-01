@@ -29,8 +29,12 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
     { name: 'Access Records', path: '/access-records', icon: 'M9 12l2 2 4-4m7-10a9 9 0 11-18 0 9 9 0 0118 0z' },
     { name: 'Employees', path: '/employees', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z' },
     { name: 'Access Control', path: '/access-control', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
-    { name: 'Attendance', path: '/attendance', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
     { name: 'Devices', path: '/devices', icon: 'M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' },
+  ];
+
+  const attendanceItems = [
+    { name: 'Attendance Records', path: '/attendance/records', icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4' },
+    { name: 'Leave Management', path: '/attendance/leave', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
   ];
 
   const settingsItems = [
@@ -99,6 +103,33 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
             <span className="font-medium">{item.name}</span>
           </Link>
         ))}
+
+        {/* Attendance — hover dropdown */}
+        <div
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors group relative cursor-pointer ${
+            currentPath.startsWith('/attendance')
+              ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
+              : 'text-slate-300 hover:bg-slate-700 hover:text-white'
+          }`}
+        >
+          <Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" className="w-5 h-5 flex-shrink-0" />
+          <span className="font-medium flex-1">Attendance</span>
+          <Icon path="M9 5l7 7-7 7" className="w-4 h-4" />
+
+          {/* Hover Dropdown — shows to RIGHT */}
+          <div className="hidden group-hover:block absolute left-full top-0 ml-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+            {attendanceItems.map((item) => (
+              <Link
+                key={item.path}
+                href={item.path}
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+              >
+                <Icon path={item.icon} className="w-4 h-4" />
+                <span className="text-sm font-medium">{item.name}</span>
+              </Link>
+            ))}
+          </div>
+        </div>
 
         {/* Settings Button */}
         <Link

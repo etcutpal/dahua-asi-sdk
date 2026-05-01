@@ -46,6 +46,11 @@ import { SqlDeviceRepository, SqlDeviceGroupRepository } from './SqlDeviceReposi
 import { SqlAccessRuleRepository, SqlSyncQueueRepository } from './SqlAccessRuleRepository';
 import { SqlAccessRecordRepository } from './SqlAccessRecordRepository';
 
+// ─── Attendance repositories ──────────────────────────────────────────────────
+import { IAttendanceRepository } from './IAttendanceRepository';
+import { JsonAttendanceRepository } from './JsonAttendanceRepository';
+import { SqlAttendanceRepository } from './SqlAttendanceRepository';
+
 // ─── Factory ─────────────────────────────────────────────────────────────────
 
 type StorageBackend = 'json' | 'sql' | 'mongodb';
@@ -64,6 +69,7 @@ class RepositoryFactoryClass {
   private _devices: IDeviceRepository | null = null;
   private _deviceGroups: IDeviceGroupRepository | null = null;
   private _accessRecords: IAccessRepository | null = null;
+  private _attendance: IAttendanceRepository | null = null;
 
   /**
    * Call once at app startup (in server.ts).
@@ -82,6 +88,7 @@ class RepositoryFactoryClass {
     this._devices       = null;
     this._deviceGroups  = null;
     this._accessRecords = null;
+    this._attendance    = null;
 
     const cfg = DatabaseConnection.loadConfig();
 
@@ -116,6 +123,7 @@ class RepositoryFactoryClass {
     this._devices = null;
     this._deviceGroups = null;
     this._accessRecords = null;
+    this._attendance = null;
 
     await this.initialize();
     logger.info('[RepositoryFactory] Re-initialized with new database config');
@@ -200,6 +208,15 @@ class RepositoryFactoryClass {
         : new FileRepository();
     }
     return this._accessRecords;
+  }
+
+  attendance(): IAttendanceRepository {
+    if (!this._attendance) {
+      this._attendance = this.conn && this.backend === 'sql'
+        ? new SqlAttendanceRepository(this.conn)
+        : new JsonAttendanceRepository();
+    }
+    return this._attendance;
   }
 }
 

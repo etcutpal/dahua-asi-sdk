@@ -38,6 +38,8 @@ export interface IDbConnection {
   config: DbConfig;
   /** Run a parameterised SQL query — returns rows as plain objects */
   query(sql: string, params?: any[]): Promise<any[]>;
+  /** Lightweight liveness check — throws if connection is dead */
+  ping(): Promise<void>;
   /** Close / release the connection */
   close(): Promise<void>;
 }
@@ -58,6 +60,7 @@ class MssqlConnection implements IDbConnection {
     const result = await req.query(namedSql);
     return result.recordset;
   }
+  async ping(): Promise<void> { await this.pool.request().query('SELECT 1'); }
   async close(): Promise<void> { await this.pool.close(); }
 }
 
@@ -70,6 +73,7 @@ class MysqlConnection implements IDbConnection {
     const [rows] = await this.conn.execute(sql, params);
     return rows as any[];
   }
+  async ping(): Promise<void> { await this.conn.ping(); }
   async close(): Promise<void> { await this.conn.end(); }
 }
 
@@ -85,6 +89,7 @@ class PgConnection implements IDbConnection {
     const res = await this.client.query(pgSql, params);
     return res.rows;
   }
+  async ping(): Promise<void> { await this.client.query('SELECT 1'); }
   async close(): Promise<void> { await this.client.end(); }
 }
 
@@ -102,6 +107,7 @@ class MongoConnection implements IDbConnection {
   }
   /** Expose the raw Mongo db handle for MongoDB-specific repos */
   getDb() { return this.db; }
+  async ping(): Promise<void> { await this.client.db('admin').command({ ping: 1 }); }
   async close(): Promise<void> { await this.client.close(); }
 }
 
@@ -132,13 +138,24 @@ export class DatabaseConnection {
   /**
    * Returns a live connection, or null if no config exists.
    * Caches the connection after first call.
+   * Automatically reconnects if the cached connection has been dropped.
    */
   async getConnection(): Promise<IDbConnection | null> {
-    if (this.connection) return this.connection;
+    if (this.connection) {
+      // Health-check the cached connection; reset if it's dead
+      try {
+        await this.connection.ping();
+        return this.connection;
+      } catch (err: any) {
+        logger.warn(`[DB] Cached connection is dead (${err.message}), reconnecting…`);
+        await this.reset();
+      }
+    }
     if (this.connectPromise) return this.connectPromise;
 
     this.connectPromise = this._connect();
     this.connection = await this.connectPromise;
+    this.connectPromise = null;
     return this.connection;
   }
 

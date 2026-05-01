@@ -205,6 +205,125 @@ ${createTable(d)} access_events (
   stored_at  ${datetime(d)} NOT NULL
 );`.trim(),
   },
+  {
+    name: 'attendance_periods',
+    sql: (d) => `
+${createTable(d)} attendance_periods (
+  id                 VARCHAR(64)    PRIMARY KEY,
+  name               VARCHAR(255)   NOT NULL,
+  mode               VARCHAR(32),
+  start_time         VARCHAR(10),
+  end_time           VARCHAR(10),
+  required_work_time INT,
+  rules              ${varcharMax(d)},
+  breaks             ${varcharMax(d)},
+  status             VARCHAR(32)    DEFAULT 'ACTIVE',
+  created_at         ${datetime(d)} NOT NULL,
+  updated_at         ${datetime(d)} NOT NULL
+);`.trim(),
+  },
+  {
+    name: 'attendance_breaks',
+    sql: (d) => `
+${createTable(d)} attendance_breaks (
+  id                 VARCHAR(64)    PRIMARY KEY,
+  name               VARCHAR(255)   NOT NULL,
+  start_time         VARCHAR(10)    NOT NULL,
+  end_time           VARCHAR(10)    NOT NULL,
+  must_check_in_out  ${boolDef(d)}  DEFAULT ${d === 'sqlserver' ? '1' : 'TRUE'},
+  valid_start_time   VARCHAR(10),
+  valid_end_time     VARCHAR(10),
+  duration_limit     ${boolDef(d)}  DEFAULT ${d === 'sqlserver' ? '0' : 'FALSE'},
+  duration_minutes   INT            DEFAULT 120,
+  late_type          VARCHAR(32),
+  created_at         ${datetime(d)} NOT NULL
+);`.trim(),
+  },
+  {
+    name: 'attendance_rules_settings',
+    sql: (d) => `
+${createTable(d)} attendance_rules_settings (
+  id                          VARCHAR(64)   PRIMARY KEY,
+  rounding_rule               VARCHAR(32)   DEFAULT 'roundDown',
+  must_check_in_out_for_leave ${boolDef(d)} DEFAULT ${d === 'sqlserver' ? '1' : 'TRUE'},
+  updated_at                  ${datetime(d)}
+);`.trim(),
+  },
+  {
+    name: 'attendance_shifts',
+    sql: (d) => `
+${createTable(d)} attendance_shifts (
+  id               VARCHAR(64)    PRIMARY KEY,
+  name             VARCHAR(255)   NOT NULL,
+  period_id        VARCHAR(64),
+  period_name      VARCHAR(255),
+  loop_mode        VARCHAR(32),
+  number_of_cycles INT,
+  work_days        ${varcharMax(d)},
+  created_at       ${datetime(d)} NOT NULL,
+  updated_at       ${datetime(d)} NOT NULL
+);`.trim(),
+  },
+  {
+    name: 'attendance_schedules',
+    sql: (d) => `
+${createTable(d)} attendance_schedules (
+  id           VARCHAR(64)    PRIMARY KEY,
+  shift_id     VARCHAR(64),
+  shift_name   VARCHAR(255),
+  start_date   VARCHAR(32),
+  end_date     VARCHAR(32),
+  members      ${varcharMax(d)},
+  created_at   ${datetime(d)} NOT NULL,
+  updated_at   ${datetime(d)} NOT NULL
+);`.trim(),
+  },
+  {
+    name: 'attendance_holidays',
+    sql: (d) => `
+${createTable(d)} attendance_holidays (
+  id         VARCHAR(64)    PRIMARY KEY,
+  name       VARCHAR(255)   NOT NULL,
+  date       VARCHAR(32)    NOT NULL,
+  recurring  ${d === 'postgresql' ? 'BOOLEAN' : 'TINYINT'} DEFAULT 0,
+  type       VARCHAR(32),
+  created_at ${datetime(d)} NOT NULL
+);`.trim(),
+  },
+  {
+    name: 'attendance_leave_types',
+    sql: (d) => `
+${createTable(d)} attendance_leave_types (
+  id                VARCHAR(64)    PRIMARY KEY,
+  name              VARCHAR(255)   NOT NULL,
+  paid_leave        ${d === 'postgresql' ? 'BOOLEAN' : 'TINYINT'} DEFAULT 1,
+  days_per_year     INT            DEFAULT 0,
+  carry_over        ${d === 'postgresql' ? 'BOOLEAN' : 'TINYINT'} DEFAULT 0,
+  requires_approval ${d === 'postgresql' ? 'BOOLEAN' : 'TINYINT'} DEFAULT 1,
+  color             VARCHAR(32),
+  assigned_to       ${varcharMax(d)},
+  created_at        ${datetime(d)} NOT NULL
+);`.trim(),
+  },
+  {
+    name: 'attendance_leave_records',
+    sql: (d) => `
+${createTable(d)} attendance_leave_records (
+  id                VARCHAR(64)    PRIMARY KEY,
+  employee_id       VARCHAR(64)    NOT NULL,
+  employee_name     VARCHAR(255)   NOT NULL,
+  leave_type_id     VARCHAR(64)    NOT NULL,
+  leave_type_name   VARCHAR(255)   NOT NULL,
+  leave_type_color  VARCHAR(32),
+  start_date        VARCHAR(32)    NOT NULL,
+  end_date          VARCHAR(32)    NOT NULL,
+  days              INT            NOT NULL DEFAULT 1,
+  notes             ${varcharMax(d)},
+  status            VARCHAR(32)    DEFAULT 'approved',
+  created_at        ${datetime(d)} NOT NULL,
+  updated_at        ${datetime(d)} NOT NULL
+);`.trim(),
+  },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
