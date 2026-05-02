@@ -98,11 +98,19 @@ class RepositoryFactoryClass {
     } else if (cfg.type === 'mongodb') {
       this.conn = await dbConnection.getConnection();
       this.backend = this.conn ? 'mongodb' : 'json';
-      logger.info(`[RepositoryFactory] Backend: ${this.backend === 'mongodb' ? 'MongoDB' : 'JSON (MongoDB fallback)'}`);
+      if (!this.conn) {
+        logger.warn('[RepositoryFactory] MongoDB unavailable after 3 retries — falling back to JSON');
+      } else {
+        logger.info('[RepositoryFactory] Backend: MongoDB');
+      }
     } else {
       this.conn = await dbConnection.getConnection();
       this.backend = this.conn ? 'sql' : 'json';
-      logger.info(`[RepositoryFactory] Backend: ${this.backend === 'sql' ? cfg.type.toUpperCase() : 'JSON (SQL fallback)'}`);
+      if (!this.conn) {
+        logger.warn(`[RepositoryFactory] ${cfg.type.toUpperCase()} unavailable after 3 retries — falling back to JSON`);
+      } else {
+        logger.info(`[RepositoryFactory] Backend: ${cfg.type.toUpperCase()}`);
+      }
     }
 
     this.initialized = true;

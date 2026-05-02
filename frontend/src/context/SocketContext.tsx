@@ -103,9 +103,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     });
 
     // Access control event updates (live events from devices)
-    socketInstance.on('access:control:event', (event: any) => {
-      console.log('🔌 SocketContext: access control event received', event);
-      setAccessEvents((prev) => [event, ...prev].slice(0, 500));
+    // Backend emits { event, record } — merge record fields for display enrichment
+    socketInstance.on('access:control:event', (payload: any) => {
+      console.log('🔌 SocketContext: access control event received', payload);
+      const enriched = payload.record
+        ? { ...payload.event, record: payload.record }
+        : payload;
+      setAccessEvents((prev) => [enriched, ...prev].slice(0, 500));
     });
 
     setSocket(socketInstance);

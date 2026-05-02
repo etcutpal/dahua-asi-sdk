@@ -404,11 +404,11 @@ class NetSdkService {
       }
 
       // Async refresh full list from Bridge
-      this.syncDevices().catch(err => logger.error('Sync after status update failed:', err.message));
+      this.syncDevices().catch(err => logger.error(`Sync after status update failed: ${err.message}`));
 
       return true;
     } catch (error: any) {
-      logger.error(`Error updating device status for ${deviceId}:`, error.message);
+      logger.error(`Error updating device status for ${deviceId}: ${error.message}`);
       throw error;
     }
   }

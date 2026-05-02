@@ -368,6 +368,8 @@ function PeriodDetailsModal({
   setGeneralTab,
   periodName,
   setPeriodName,
+  requiredWorkMinutes,
+  setRequiredWorkMinutes,
   attendanceRules,
   toggleAttendanceRule,
   overtimeEnabled,
@@ -394,6 +396,8 @@ function PeriodDetailsModal({
   setGeneralTab: (tab: 'general' | 'break') => void;
   periodName: string;
   setPeriodName: (name: string) => void;
+  requiredWorkMinutes: number;
+  setRequiredWorkMinutes: (mins: number) => void;
   attendanceRules: Record<AttendanceRuleKey, boolean>;
   toggleAttendanceRule: (key: AttendanceRuleKey) => void;
   overtimeEnabled: boolean;
@@ -707,7 +711,7 @@ function PeriodDetailsModal({
                 </div>
                 <div className="flex items-center justify-center gap-2">
                   <label className="text-sm text-gray-700">Required Work Time:</label>
-                  <input type="number" defaultValue="480"
+                  <input type="number" value={requiredWorkMinutes} onChange={(e) => setRequiredWorkMinutes(Number(e.target.value))}
                     className="px-2 py-1.5 border border-gray-300 rounded-md text-sm w-24 focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                   <span className="text-sm text-gray-600">minutes</span>
                 </div>
@@ -1305,6 +1309,7 @@ export default function AttendanceConfigPage() {
   const [attendanceMode, setAttendanceMode] = useState<'fixed' | 'flexible'>('fixed');
   const [generalTab, setGeneralTab] = useState<'general' | 'break'>('general');
   const [periodName, setPeriodName] = useState('');
+  const [requiredWorkMinutes, setRequiredWorkMinutes] = useState(480);
   const [overtimeEnabled, setOvertimeEnabled] = useState(true);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -1408,11 +1413,21 @@ export default function AttendanceConfigPage() {
   const handleSavePeriod = async () => {
     if (!periodName.trim()) { alert('Period Name is required'); return; }
     try {
-      const body = {
-        name: periodName, mode: attendanceMode, startTime: '09:00', endTime: '18:00',
-        requiredWorkTime: 480, breaks: currentBreaks,
+      const body: any = {
+        name: periodName,
+        mode: attendanceMode,
+        breaks: currentBreaks,
         rules: periodRules,
       };
+      if (attendanceMode === 'flexible') {
+        body.requiredWorkTime = requiredWorkMinutes;
+        body.startTime = null;
+        body.endTime = null;
+      } else {
+        body.startTime = '09:00';
+        body.endTime = '18:00';
+        body.requiredWorkTime = 480;
+      }
       let res: Response;
       if (isEditing && editingPeriodId) {
         res = await fetch(`${API}/api/attendance/periods/${editingPeriodId}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -1499,6 +1514,7 @@ export default function AttendanceConfigPage() {
     setEditingPeriodId(id);
     setPeriodName(period.name);
     setAttendanceMode(period.mode || 'fixed');
+    setRequiredWorkMinutes(period.requiredWorkTime || 480);
     setCurrentBreaks(period.breaks || []);
     setPeriodRules(period.rules ? { ...DEFAULT_PERIOD_RULES, ...period.rules } : { ...DEFAULT_PERIOD_RULES });
     setGeneralTab('general');
@@ -1510,6 +1526,7 @@ export default function AttendanceConfigPage() {
     setEditingPeriodId(null);
     setPeriodName('');
     setAttendanceMode('fixed');
+    setRequiredWorkMinutes(480);
     setCurrentBreaks([]);
     setPeriodRules({ ...DEFAULT_PERIOD_RULES });
     setGeneralTab('general');
@@ -1918,13 +1935,13 @@ export default function AttendanceConfigPage() {
                               <span className="text-sm font-medium text-gray-900">{period.name}</span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="text-sm text-gray-600">{period.startTime}</span>
+                              <span className="text-sm text-gray-600">{period.startTime || '—'}</span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="text-sm text-gray-600">{period.endTime}</span>
+                              <span className="text-sm text-gray-600">{period.endTime || '—'}</span>
                             </td>
                             <td className="px-4 py-3">
-                              <span className="text-sm text-gray-600">{period.requiredWorkTime}</span>
+                              <span className="text-sm text-gray-600">{period.mode === 'flexible' ? `${period.requiredWorkTime} min` : period.requiredWorkTime}</span>
                             </td>
                             <td className="px-4 py-3">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -1969,6 +1986,8 @@ export default function AttendanceConfigPage() {
                   setGeneralTab={setGeneralTab}
                   periodName={periodName}
                   setPeriodName={setPeriodName}
+                  requiredWorkMinutes={requiredWorkMinutes}
+                  setRequiredWorkMinutes={setRequiredWorkMinutes}
                   attendanceRules={attendanceRules}
                   toggleAttendanceRule={toggleAttendanceRule}
                   overtimeEnabled={overtimeEnabled}

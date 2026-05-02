@@ -35,7 +35,7 @@ router.post('/fetch-and-store', async (req: Request, res: Response) => {
       });
     }
   } catch (error: any) {
-    logger.error('Error fetching and storing access records:', error.message);
+    logger.error(`Error fetching and storing access records: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -62,7 +62,7 @@ router.get('/stored', async (req: Request, res: Response) => {
       ...result
     });
   } catch (error: any) {
-    logger.error('Error getting stored access records:', error.message);
+    logger.error(`Error getting stored access records: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });
@@ -76,7 +76,7 @@ router.delete('/stored', async (req: Request, res: Response) => {
       message: 'All access records cleared'
     });
   } catch (error: any) {
-    logger.error('Error clearing access records:', error.message);
+    logger.error(`Error clearing access records: ${error.message}`);
     res.status(500).json({ success: false, error: error.message });
   }
 });

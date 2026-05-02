@@ -195,7 +195,7 @@ class AccessRecordFetchService {
       logger.info(`✅ Fetch complete: ${totalFetched} fetched, ${totalStored} stored`);
       return result;
     } catch (error: any) {
-      logger.error('❌ Error in fetchAndStoreRecords:', error.message);
+      logger.error(`❌ Error in fetchAndStoreRecords: ${error.message}`);
       throw error;
     }
   }
@@ -220,7 +220,7 @@ class AccessRecordFetchService {
         stats
       };
     } catch (error: any) {
-      logger.error('Error getting statistics:', error.message);
+      logger.error(`Error getting statistics: ${error.message}`);
       throw error;
     }
   }

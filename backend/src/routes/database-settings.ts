@@ -435,8 +435,35 @@ async function testConnection(cfg: DbConfig): Promise<{ success: boolean; messag
 
   if (cfg.type === 'sqlserver') {
     const mssql = await import('mssql');
-    // Use an isolated ConnectionPool (NOT mssql.connect) so closing it
-    // does NOT destroy the shared global pool used by the repositories.
+
+    // Step 1: Connect to master to check/create the target database
+    const masterPool = new mssql.ConnectionPool({
+      server: cfg.host,
+      port: cfg.port,
+      database: 'master',
+      user: cfg.user,
+      password: cfg.password,
+      options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true, connectTimeout: 5000 },
+    });
+    try {
+      await masterPool.connect();
+
+      // Check if the target database exists
+      const dbCheck = await masterPool.request()
+        .input('dbName', cfg.database)
+        .query(`SELECT COUNT(*) AS cnt FROM sys.databases WHERE name = @dbName`);
+      const exists = dbCheck.recordset[0].cnt > 0;
+
+      if (!exists) {
+        logger.info(`[DB Settings] Database "${cfg.database}" not found — creating it...`);
+        await masterPool.request().query(`CREATE DATABASE [${cfg.database}]`);
+        logger.info(`[DB Settings] Database "${cfg.database}" created successfully`);
+      }
+    } finally {
+      await masterPool.close();
+    }
+
+    // Step 2: Test the actual connection to the target database
     const pool = new mssql.ConnectionPool({
       server: cfg.host,
       port: cfg.port,
@@ -445,11 +472,14 @@ async function testConnection(cfg: DbConfig): Promise<{ success: boolean; messag
       password: cfg.password,
       options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true, connectTimeout: 5000 },
     });
-    await pool.connect();
-    const result = await pool.request().query('SELECT @@VERSION AS version');
-    const version = (result.recordset[0] as any)?.version?.split('\n')[0] ?? 'SQL Server';
-    await pool.close();
-    return { success: true, message: 'Connected successfully', version };
+    try {
+      await pool.connect();
+      const result = await pool.request().query('SELECT @@VERSION AS version');
+      const version = (result.recordset[0] as any)?.version?.split('\n')[0] ?? 'SQL Server';
+      return { success: true, message: 'Connected successfully', version };
+    } finally {
+      await pool.close();
+    }
   }
 
   if (cfg.type === 'mysql') {
@@ -710,7 +740,7 @@ router.post('/test', async (req: Request, res: Response) => {
     const result = await testConnection(cfg);
     res.json(result);
   } catch (err: any) {
-    logger.error('[DB Settings] Test connection error:', err.message);
+    logger.error(`[DB Settings] Test connection error: ${err.message}`);
     res.json({ success: false, message: err.message });
   }
 });
@@ -756,7 +786,7 @@ router.post('/save', async (req: Request, res: Response) => {
       migrations,
     });
   } catch (err: any) {
-    logger.error('[DB Settings] Save error:', err.message);
+    logger.error(`[DB Settings] Save error: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });
@@ -769,7 +799,7 @@ router.post('/migrate', async (_req: Request, res: Response) => {
     const migrations = await runMigrations(cfg);
     res.json({ success: true, migrations });
   } catch (err: any) {
-    logger.error('[DB Settings] Migration error:', err.message);
+    logger.error(`[DB Settings] Migration error: ${err.message}`);
     res.status(500).json({ success: false, message: err.message });
   }
 });

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useConfig } from '@/context/ConfigContext';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Link from 'next/link';
@@ -30,6 +31,7 @@ interface RestartOverlay { phase: RestartPhase; newIp: string; port: number; mes
 export default function SystemSettingsPage() {
   const router = useRouter();
   const { isAuthenticated, logout } = useAuth();
+  const { refreshConfig } = useConfig();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDetectingIp, setIsDetectingIp] = useState(false);
@@ -90,6 +92,9 @@ export default function SystemSettingsPage() {
       }
 
       savedIpRef.current = config.network.deviceRegistrationIp;
+
+      // Re-fetch frontend config.json so the banner picks up the new API URL
+      refreshConfig();
 
       if (ipChanged) {
         if (data.restartRequired) {

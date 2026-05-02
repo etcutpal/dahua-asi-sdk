@@ -4,6 +4,6 @@
   "port": 1433,
   "database": "acs",
   "user": "sa",
-  "password": "admin@123",
+  "password": "Admin@12345",
   "useSSL": false
 }

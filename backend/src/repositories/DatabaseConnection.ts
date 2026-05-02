@@ -117,6 +117,8 @@ export class DatabaseConnection {
   private static instance: DatabaseConnection;
   private connection: IDbConnection | null = null;
   private connectPromise: Promise<IDbConnection | null> | null = null;
+  /** Reflects whether the last connection attempt succeeded. Reset on reinitialize. */
+  private _healthy = false;
 
   private constructor() {}
 
@@ -124,6 +126,9 @@ export class DatabaseConnection {
     if (!DatabaseConnection.instance) DatabaseConnection.instance = new DatabaseConnection();
     return DatabaseConnection.instance;
   }
+
+  /** Returns true if the database backend is currently connected and responding. */
+  get isHealthy(): boolean { return this._healthy; }
 
   /** Load config from disk */
   static loadConfig(): DbConfig | null {
@@ -148,15 +153,18 @@ export class DatabaseConnection {
         return this.connection;
       } catch (err: any) {
         logger.warn(`[DB] Cached connection is dead (${err.message}), reconnecting…`);
+        this._healthy = false;
         await this.reset();
       }
     }
     if (this.connectPromise) return this.connectPromise;
 
-    this.connectPromise = this._connect();
-    this.connection = await this.connectPromise;
+    this.connectPromise = this._connectWithRetry();
+    const conn = await this.connectPromise;
+    this.connection = conn;
+    this._healthy = conn !== null;
     this.connectPromise = null;
-    return this.connection;
+    return conn;
   }
 
   /** Force-reset (e.g. after config change) */
@@ -165,7 +173,68 @@ export class DatabaseConnection {
       try { await this.connection.close(); } catch (_) {}
       this.connection = null;
     }
+    this._healthy = false;
     this.connectPromise = null;
+  }
+
+  /**
+   * Lightweight liveness check for the health endpoint.
+   * Pings the cached connection only — does NOT attempt reconnection
+   * (that's handled by getConnection() on the next real query).
+   * Updates this._healthy and returns the result.
+   */
+  async checkHealth(): Promise<boolean> {
+    const cfg = DatabaseConnection.loadConfig();
+    if (!cfg) return true; // no DB configured = healthy
+
+    if (this.connection) {
+      try {
+        await this.connection.ping();
+        this._healthy = true;
+        return true;
+      } catch {
+        this._healthy = false;
+        // Don't reset — let getConnection() handle reconnect on next query
+        return false;
+      }
+    }
+
+    // No cached connection — try a single connect (no retries)
+    try {
+      const conn = await this._connect();
+      if (conn) {
+        this.connection = conn;
+        this._healthy = true;
+        return true;
+      }
+    } catch { /* ignore */ }
+
+    this._healthy = false;
+    return false;
+  }
+
+  /** Retry wrapper — tries 3 times with exponential backoff before giving up */
+  private async _connectWithRetry(): Promise<IDbConnection | null> {
+    const maxAttempts = 3;
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        const conn = await this._connect();
+        return conn; // success
+      } catch (err: any) {
+        lastError = err;
+        if (attempt < maxAttempts) {
+          const delay = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+          logger.warn(`[DB] Attempt ${attempt}/${maxAttempts} failed, retrying in ${delay / 1000}s…`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    logger.error(`[DB] All ${maxAttempts} connection attempts failed — service unavailable`);
+    logger.error(`[DB] Last error: ${lastError?.message}`);
+    return null; // no config (e.g. no db-config.json) or all retries exhausted
   }
 
   private async _connect(): Promise<IDbConnection | null> {
@@ -177,19 +246,38 @@ export class DatabaseConnection {
 
     logger.info(`[DB] Connecting to ${cfg.type} at ${cfg.host}:${cfg.port}/${cfg.database}…`);
 
-    try {
-      switch (cfg.type) {
+    switch (cfg.type) {
         case 'sqlserver': {
           const mssql = await import('mssql');
-          // Use an isolated ConnectionPool (NOT mssql.connect global singleton)
-          // so it can be safely closed/reset without affecting other pools.
+
+          // First connect to master to ensure the target database exists
+          const masterPool = new mssql.ConnectionPool({
+            server: cfg.host, port: cfg.port, database: 'master',
+            user: cfg.user, password: cfg.password,
+            options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true },
+          });
+          try {
+            await masterPool.connect();
+            const dbCheck = await masterPool.request()
+              .input('dbName', cfg.database)
+              .query(`SELECT COUNT(*) AS cnt FROM sys.databases WHERE name = @dbName`);
+            if (dbCheck.recordset[0].cnt === 0) {
+              logger.info(`[DB] Database "${cfg.database}" not found — creating it...`);
+              await masterPool.request().query(`CREATE DATABASE [${cfg.database}]`);
+              logger.info(`[DB] Database "${cfg.database}" created`);
+            }
+          } finally {
+            await masterPool.close();
+          }
+
+          // Now connect to the target database
           const pool = new mssql.ConnectionPool({
             server: cfg.host, port: cfg.port, database: cfg.database,
             user: cfg.user, password: cfg.password,
             options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true },
           });
           await pool.connect();
-          logger.info('[DB] ✅ SQL Server connected');
+          logger.info('[DB] \u2705 SQL Server connected');
           return new MssqlConnection(pool, cfg);
         }
         case 'mysql': {
@@ -226,12 +314,10 @@ export class DatabaseConnection {
           logger.warn(`[DB] Unknown database type: ${(cfg as any).type}`);
           return null;
       }
-    } catch (err: any) {
-      logger.error(`[DB] ❌ Connection failed: ${err.message}`);
-      logger.warn('[DB] Falling back to JSON file storage');
-      return null;
-    }
   }
+
+  /** Expose the config for the health endpoint */
+  getConfig(): DbConfig | null { return DatabaseConnection.loadConfig(); }
 }
 
 export default DatabaseConnection.getInstance();

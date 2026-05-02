@@ -735,7 +735,7 @@ router.post('/import-from-device', async (req: Request, res: Response) => {
 
     res.json({ success: true, totalOnDevice: deviceUsers.length, totalSelected: usersToImport.length, imported, updated, skipped, failed, errors: errors.slice(0, 20) });
   } catch (err: any) {
-    logger.error('[ImportFromDevice] Error:', err.message);
+    logger.error(`[ImportFromDevice] Error: ${err.message}`);
     res.status(500).json({ success: false, error: err.message });
   }
 });

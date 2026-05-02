@@ -12,6 +12,7 @@ interface ConfigContextType {
   config: AppConfig | null;
   apiUrl: string;
   isLoaded: boolean;
+  refreshConfig: () => void;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -24,6 +25,7 @@ const ConfigContext = createContext<ConfigContextType>({
   config: null,
   apiUrl: DEFAULT_CONFIG.localApiUrl,
   isLoaded: false,
+  refreshConfig: () => {},
 });
 
 function isPrivateHostname(hostname: string): boolean {
@@ -42,30 +44,36 @@ export function ConfigProvider({ children }: { children: ReactNode }) {
   const [apiUrl, setApiUrl] = useState<string>(DEFAULT_CONFIG.localApiUrl);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffect(() => {
+  function resolveUrl(data: AppConfig): string {
+    if (typeof window === 'undefined') return data.localApiUrl || DEFAULT_CONFIG.localApiUrl;
+    const hostname = window.location.hostname;
+    if (data.publicEnabled && data.publicApiUrl && !isPrivateHostname(hostname)) {
+      return data.publicApiUrl;
+    }
+    return data.localApiUrl || DEFAULT_CONFIG.localApiUrl;
+  }
+
+  const loadConfig = () => {
     fetch('/config.json')
       .then((res) => res.json())
       .then((data: AppConfig) => {
         setConfig(data);
-        // Auto-select local vs public URL based on current browser hostname
-        const hostname = window.location.hostname;
-        if (data.publicEnabled && data.publicApiUrl && !isPrivateHostname(hostname)) {
-          setApiUrl(data.publicApiUrl);
-        } else {
-          setApiUrl(data.localApiUrl || DEFAULT_CONFIG.localApiUrl);
-        }
+        setApiUrl(resolveUrl(data));
+        setIsLoaded(true);
       })
       .catch(() => {
         setConfig(DEFAULT_CONFIG);
         setApiUrl(DEFAULT_CONFIG.localApiUrl);
-      })
-      .finally(() => {
         setIsLoaded(true);
       });
+  };
+
+  useEffect(() => {
+    loadConfig(); // fetch once on mount
   }, []);
 
   return (
-    <ConfigContext.Provider value={{ config, apiUrl, isLoaded }}>
+    <ConfigContext.Provider value={{ config, apiUrl, isLoaded, refreshConfig: loadConfig }}>
       {children}
     </ConfigContext.Provider>
   );

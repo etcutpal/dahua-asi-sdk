@@ -37,9 +37,11 @@ export interface AttendanceReportRecord {
 }
 
 export interface ReportFilters {
-  startDate?: string;   // YYYY-MM-DD, default = start of current month
-  endDate?: string;     // YYYY-MM-DD, default = today
-  employeeId?: string;
+  startDate?: string;    // YYYY-MM-DD, default = start of current month
+  endDate?: string;      // YYYY-MM-DD, default = today
+  employeeId?: string;   // single employee (legacy)
+  employeeIds?: string[]; // multiple employees (union with groupId)
+  groupId?: string;      // filter by employee group ('all' = no filter)
   status?: string;
 }
 
@@ -56,12 +58,20 @@ export interface ReportSummary {
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
+/** Format a Date as YYYY-MM-DD using LOCAL time (not UTC). */
+function fmtLocal(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 function datesBetween(start: string, end: string): string[] {
   const dates: string[] = [];
   const cur = new Date(start + 'T00:00:00');
   const last = new Date(end + 'T00:00:00');
   while (cur <= last) {
-    dates.push(cur.toISOString().slice(0, 10));
+    dates.push(fmtLocal(cur));
     cur.setDate(cur.getDate() + 1);
   }
   return dates;
@@ -89,7 +99,8 @@ class AttendanceReportService {
     records: AttendanceReportRecord[];
     summary: ReportSummary;
   }> {
-    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date();
+    const today = fmtLocal(now);
     const startOfMonth = today.slice(0, 7) + '-01';
 
     const startDate = filters.startDate || startOfMonth;
@@ -118,10 +129,18 @@ class AttendanceReportService {
       attRepo.getLeaveRecords(),
     ]);
 
-    // Filter to requested employee if given
-    const employees = filters.employeeId
-      ? allEmployees.filter((e: any) => e.id === filters.employeeId)
-      : allEmployees;
+    // Filter to requested employee(s) / group
+    let employees = allEmployees as any[];
+    if (filters.employeeId) {
+      employees = employees.filter((e: any) => e.id === filters.employeeId);
+    } else if (filters.employeeIds && filters.employeeIds.length > 0) {
+      const idSet = new Set(filters.employeeIds);
+      employees = employees.filter((e: any) => idSet.has(e.id));
+    } else if (filters.groupId && filters.groupId !== 'all') {
+      employees = employees.filter((e: any) =>
+        Array.isArray(e.groups) && e.groups.includes(filters.groupId)
+      );
+    }
 
     if (employees.length === 0) {
       return { records: [], summary: makeSummary([]) };
@@ -150,8 +169,10 @@ class AttendanceReportService {
 
     for (const emp of employees) {
       // Find active schedules for this employee (direct or via group membership)
+      const FAR_FUTURE = '9999-12-31';
       const empSchedules = schedules.filter(sc => {
-        const inDateRange = sc.startDate <= endDate && sc.endDate >= startDate;
+        const sEnd = sc.endDate && sc.endDate.trim() !== '' ? sc.endDate : FAR_FUTURE;
+        const inDateRange = sc.startDate <= endDate && sEnd >= startDate;
         if (!inDateRange) return false;
         return sc.members?.some(
           (m: any) =>
@@ -200,7 +221,10 @@ class AttendanceReportService {
         // ── Find applicable schedule/shift/period ───────────────────────────
         // Use the first schedule active on this date
         const schedule = empSchedules.find(
-          sc => sc.startDate <= dateStr && sc.endDate >= dateStr
+          sc => {
+            const sEnd = sc.endDate && sc.endDate.trim() !== '' ? sc.endDate : FAR_FUTURE;
+            return sc.startDate <= dateStr && sEnd >= dateStr;
+          }
         );
 
         if (!schedule) {
@@ -220,9 +244,16 @@ class AttendanceReportService {
         const rules = period?.rules || {};
 
         // ── Look up swipes ───────────────────────────────────────────────────
-        // Match by employee's device userId. Employees have a `userId` or `cardNumber`
-        // field that matches access records. We'll match on emp.id, emp.userId, or emp.cardNumber.
-        const possibleIds = [emp.id, emp.userId, emp.cardNumber].filter(Boolean);
+        // Match access records by the employee's identity fields.
+        // Access records store userID which corresponds to the device-registered
+        // personId (e.g. "448008"), not the internal UUID employee id.
+        const possibleIds = [
+          emp.personId,
+          emp.userId,
+          emp.id,
+          emp.cardNumber,
+          ...(Array.isArray(emp.cardNumbers) ? emp.cardNumbers : []),
+        ].filter(Boolean);
         let swipes: string[] = [];
         for (const uid of possibleIds) {
           const key = `${uid}|${dateStr}`;
@@ -253,6 +284,8 @@ class AttendanceReportService {
         let status: AttendanceReportRecord['status'] = 'present';
 
         if (period) {
+          const isFlexible = period.mode === 'flexible';
+
           const allowedLate = (rules.allowedLateMinutes ?? 15) as number;
           const lateForAbsent = (rules.lateForAbsentMinutes ?? 120) as number;
           const allowedEarlyLeave = (rules.allowedLeaveEarlyMinutes ?? 15) as number;
@@ -262,37 +295,52 @@ class AttendanceReportService {
           const minOT = (rules.minOvertimeMinutes ?? 60) as number;
           const maxOT = (rules.maxOvertimeMinutes ?? 300) as number;
 
-          // Late calculation
-          const late = diffMinutes(period.startTime, checkIn); // positive = late
-          if (late > lateForAbsent) {
-            status = 'absent';
-            lateMinutes = late;
-          } else if (late > allowedLate) {
-            status = 'late';
-            lateMinutes = late;
-          }
-
-          // Work time
+          // For flexible mode: no fixed start/end — only check required work time
           if (checkOut) {
             workMinutes = diffMinutes(checkIn, checkOut);
+          }
 
-            // Early leave
-            const earlyLeave = diffMinutes(checkOut, period.endTime); // positive = left early
-            if (earlyLeave > earlyLeaveForAbsent && status !== 'absent') {
+          if (!isFlexible && period.startTime) {
+            // Late calculation (fixed mode only)
+            const late = diffMinutes(period.startTime, checkIn); // positive = late
+            if (late > lateForAbsent) {
               status = 'absent';
-            } else if (earlyLeave > allowedEarlyLeave && status === 'present') {
-              status = 'late'; // mark as late (left early)
+              lateMinutes = late;
+            } else if (late > allowedLate) {
+              status = 'late';
+              lateMinutes = late;
             }
 
-            // Overtime
-            if (overtimeEnabled) {
-              const afterEnd = diffMinutes(period.endTime, checkOut); // positive = worked past end
-              if (afterEnd > overtimeFrom) {
-                let ot = afterEnd - overtimeFrom;
-                if (ot < minOT) ot = 0;
-                if (ot > maxOT) ot = maxOT;
-                if (ot > 0) overtimeMinutes = ot;
+            // Early leave & Overtime (fixed mode only)
+            if (checkOut) {
+              const earlyLeave = diffMinutes(checkOut, period.endTime); // positive = left early
+              if (earlyLeave > earlyLeaveForAbsent && status !== 'absent') {
+                status = 'absent';
+              } else if (earlyLeave > allowedEarlyLeave && status === 'present') {
+                status = 'late';
               }
+
+              if (overtimeEnabled) {
+                const afterEnd = diffMinutes(period.endTime, checkOut);
+                if (afterEnd > overtimeFrom) {
+                  let ot = afterEnd - overtimeFrom;
+                  if (ot < minOT) ot = 0;
+                  if (ot > maxOT) ot = maxOT;
+                  if (ot > 0) overtimeMinutes = ot;
+                }
+              }
+            }
+          } else if (isFlexible) {
+            // Flexible mode: mark absent if work time is too short
+            if (workMinutes !== undefined && workMinutes < 60) {
+              status = 'absent';
+            } else if (workMinutes !== undefined && workMinutes < (period.requiredWorkTime || 480)) {
+              status = 'late'; // insufficient work
+            }
+          } else {
+            // Fallback: no startTime configured — basic work time calculation
+            if (checkOut) {
+              workMinutes = diffMinutes(checkIn, checkOut);
             }
           }
         } else {

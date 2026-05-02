@@ -38,12 +38,14 @@ function rowToPerson(row: any): Person {
 }
 
 function rowToEmployee(row: any): any {
+  const groupId = row.group_id ?? null;
   return {
     id:                 row.id,
     personId:           row.person_id,
     name:               row.name,
     department:         row.department        ?? null,
-    groupId:            row.group_id          ?? null,
+    groupId,
+    groups:             groupId ? [groupId] : [],
     // Support both legacy single card_number and new card_numbers JSON array
     cardNumbers:        row.card_numbers      ? JSON.parse(row.card_numbers)
                         : row.card_number     ? [row.card_number]

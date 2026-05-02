@@ -363,7 +363,7 @@ class SyncQueueService extends EventEmitter {
         setImmediate(() => this.processQueue());
       }
     } catch (err: any) {
-      logger.error('[SyncQueue] Processor error:', err.message);
+      logger.error(`[SyncQueue] Processor error: ${err.message}`);
     } finally {
       this.processing = false;
     }

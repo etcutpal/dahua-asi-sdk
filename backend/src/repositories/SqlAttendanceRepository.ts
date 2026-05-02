@@ -46,12 +46,13 @@ function parseJson<T>(v: any, fallback: T): T {
 // ─── Row mappers ──────────────────────────────────────────────────────────────
 
 function rowToPeriod(row: any): AttendancePeriod {
+  const isFlexible = row.mode === 'flexible';
   return {
     id:               row.id,
     name:             row.name,
-    mode:             row.mode || 'fixed',
-    startTime:        row.start_time || '09:00',
-    endTime:          row.end_time   || '18:00',
+    mode:             isFlexible ? 'flexible' : (row.mode || 'fixed'),
+    startTime:        isFlexible ? null : (row.start_time || '09:00'),
+    endTime:          isFlexible ? null : (row.end_time   || '18:00'),
     requiredWorkTime: row.required_work_time ?? 480,
     breaks:           parseJson<AttendanceBreak[]>(row.breaks, []),
     rules:            parseJson<Record<string, any>>(row.rules, {}),
@@ -92,12 +93,14 @@ function rowToShift(row: any): AttendanceShift {
 }
 
 function rowToSchedule(row: any): AttendanceSchedule {
+  const rawEnd = row.end_date;
   return {
     id:        row.id,
     shiftId:   row.shift_id   || '',
     shiftName: row.shift_name || '',
     startDate: row.start_date || '',
-    endDate:   row.end_date   || '',
+    // Treat NULL and empty-string as null (unbounded)
+    endDate:   (rawEnd && rawEnd.toString().trim() !== '') ? rawEnd : null,
     members:   parseJson<AttendanceSchedule['members']>(row.members, []),
     createdAt: fromDate(row.created_at),
     updatedAt: fromDate(row.updated_at),
@@ -163,17 +166,21 @@ export class SqlAttendanceRepository implements IAttendanceRepository {
 
   async updatePeriod(id: string, upd: Partial<AttendancePeriod>): Promise<AttendancePeriod> {
     const now = new Date();
-    await this.db.query(
-      `UPDATE attendance_periods SET
-         name=?, mode=?, start_time=?, end_time=?, required_work_time=?,
-         rules=?, breaks=?, status=?, updated_at=?
-       WHERE id=?`,
-      [
-        upd.name, upd.mode, upd.startTime, upd.endTime, upd.requiredWorkTime,
-        JSON.stringify(upd.rules ?? {}), JSON.stringify(upd.breaks ?? []),
-        upd.status ?? 'ACTIVE', now, id,
-      ],
-    );
+    // Build SET clause dynamically — only update fields that are present
+    const sets: string[] = [];
+    const vals: any[] = [];
+    if (upd.name !== undefined)             { sets.push('name=?'); vals.push(upd.name); }
+    if (upd.mode !== undefined)             { sets.push('mode=?'); vals.push(upd.mode); }
+    if (upd.startTime !== undefined)        { sets.push('start_time=?'); vals.push(upd.startTime); }
+    if (upd.endTime !== undefined)          { sets.push('end_time=?'); vals.push(upd.endTime); }
+    if (upd.requiredWorkTime !== undefined) { sets.push('required_work_time=?'); vals.push(upd.requiredWorkTime); }
+    if (upd.rules !== undefined)            { sets.push('rules=?'); vals.push(JSON.stringify(upd.rules)); }
+    if (upd.breaks !== undefined)           { sets.push('breaks=?'); vals.push(JSON.stringify(upd.breaks)); }
+    if (upd.status !== undefined)           { sets.push('status=?'); vals.push(upd.status); }
+    sets.push('updated_at=?'); vals.push(now);
+    vals.push(id);
+
+    await this.db.query(`UPDATE attendance_periods SET ${sets.join(', ')} WHERE id=?`, vals);
     const updated = await this.getPeriodById(id);
     if (!updated) throw new Error('Period not found after update');
     return updated;

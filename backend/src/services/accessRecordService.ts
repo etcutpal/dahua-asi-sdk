@@ -80,7 +80,7 @@ export class AccessRecordService extends EventEmitter {
         this.userCache = {};
         logger.info('No user cache file found, starting fresh');
       } else {
-        logger.error('Error loading user cache:', error.message);
+        logger.error(`Error loading user cache: ${error.message}`);
         this.userCache = {};
       }
     }
@@ -98,7 +98,7 @@ export class AccessRecordService extends EventEmitter {
       );
       logger.debug(`Saved user cache with ${Object.keys(this.userCache).length} users`);
     } catch (error: any) {
-      logger.error('Error saving user cache:', error.message);
+      logger.error(`Error saving user cache: ${error.message}`);
     }
   }
 
@@ -130,7 +130,7 @@ export class AccessRecordService extends EventEmitter {
       await this.repository.initialize();
       logger.info('✅ AccessRecordService initialized successfully');
     } catch (error: any) {
-      logger.error('❌ Failed to initialize AccessRecordService:', error.message);
+      logger.error(`❌ Failed to initialize AccessRecordService: ${error.message}`);
       throw error;
     }
   }
@@ -168,7 +168,7 @@ export class AccessRecordService extends EventEmitter {
 
       return event;
     } catch (error: any) {
-      logger.error('❌ Error storing access event:', error.message);
+      logger.error(`❌ Error storing access event: ${error.message}`);
       throw error;
     }
   }
@@ -279,7 +279,7 @@ export class AccessRecordService extends EventEmitter {
     try {
       return await this.repository.getRecentEvents(limit);
     } catch (error: any) {
-      logger.error('Error getting recent events:', error.message);
+      logger.error(`Error getting recent events: ${error.message}`);
       throw error;
     }
   }
@@ -291,7 +291,7 @@ export class AccessRecordService extends EventEmitter {
     try {
       return await this.repository.getEventsByDevice(deviceId, limit);
     } catch (error: any) {
-      logger.error('Error getting events by device:', error.message);
+      logger.error(`Error getting events by device: ${error.message}`);
       throw error;
     }
   }
@@ -303,7 +303,7 @@ export class AccessRecordService extends EventEmitter {
     try {
       return await this.repository.getRecords(filters);
     } catch (error: any) {
-      logger.error('Error getting records:', error.message);
+      logger.error(`Error getting records: ${error.message}`);
       throw error;
     }
   }
@@ -315,7 +315,7 @@ export class AccessRecordService extends EventEmitter {
     try {
       return await this.repository.getAllRecords();
     } catch (error: any) {
-      logger.error('Error getting all records:', error.message);
+      logger.error(`Error getting all records: ${error.message}`);
       throw error;
     }
   }
@@ -327,7 +327,7 @@ export class AccessRecordService extends EventEmitter {
     try {
       return await this.repository.getRecordsCount(startDate, endDate);
     } catch (error: any) {
-      logger.error('Error getting records count:', error.message);
+      logger.error(`Error getting records count: ${error.message}`);
       throw error;
     }
   }
@@ -340,7 +340,7 @@ export class AccessRecordService extends EventEmitter {
       await this.repository.clearEvents();
       logger.info('✅ All events cleared');
     } catch (error: any) {
-      logger.error('Error clearing events:', error.message);
+      logger.error(`Error clearing events: ${error.message}`);
       throw error;
     }
   }
@@ -353,7 +353,7 @@ export class AccessRecordService extends EventEmitter {
       await this.repository.clearRecords();
       logger.info('✅ All records cleared');
     } catch (error: any) {
-      logger.error('Error clearing records:', error.message);
+      logger.error(`Error clearing records: ${error.message}`);
       throw error;
     }
   }
@@ -366,7 +366,7 @@ export class AccessRecordService extends EventEmitter {
     try {
       return await this.repository.renameDevice(oldRegistrationId, newRegistrationId);
     } catch (error: any) {
-      logger.error('Error renaming device in access records:', error.message);
+      logger.error(`Error renaming device in access records: ${error.message}`);
       throw error;
     }
   }
@@ -463,11 +463,21 @@ export class AccessRecordService extends EventEmitter {
       if (storedCount > 0) {
         await this.repository.forceSave?.();
         logger.info(`💾 Force saved ${storedCount} records to file`);
+
+        // Emit event so frontend can auto-refresh the attendance report.
+        // Collect the unique dates from the newly stored records so the UI
+        // knows which date range was affected.
+        const affectedDates = [...new Set(
+          newRecords
+            .map(r => (r.SwipeTime || r.swipeTime || '').slice(0, 10))
+            .filter(Boolean)
+        )].sort();
+        this.emit('attendance:updated', { storedCount, affectedDates });
       }
 
       return storedCount;
     } catch (error: any) {
-      logger.error('Error storing SDK records:', error.message);
+      logger.error(`Error storing SDK records: ${error.message}`);
       throw error;
     }
   }

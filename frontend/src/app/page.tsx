@@ -19,8 +19,17 @@ interface DashboardSummary {
   presentToday: number;
   absentToday: number;
   lateArrivals: number;
+  todayAccessRecords: number;
   devicesOnline: number;
   devicesOffline: number;
+  // Comparison data
+  employeeChange: number;
+  presentChange: number;
+  lateChange: number;
+  accessChange: number;
+  presentYesterday: number;
+  lateYesterday: number;
+  accessYesterday: number;
 }
 
 interface AccessEvent {
@@ -70,8 +79,16 @@ export default function DashboardPage() {
     presentToday: 0,
     absentToday: 0,
     lateArrivals: 0,
+    todayAccessRecords: 0,
     devicesOnline: 0,
-    devicesOffline: 0
+    devicesOffline: 0,
+    employeeChange: 0,
+    presentChange: 0,
+    lateChange: 0,
+    accessChange: 0,
+    presentYesterday: 0,
+    lateYesterday: 0,
+    accessYesterday: 0,
   });
   const [devices, setDevices] = useState<Device[]>([]);
   const [accessEvents, setAccessEvents] = useState<AccessEvent[]>([]);
@@ -118,9 +135,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (!socket) return;
 
-    const handleAccessEvent = (event: AccessEvent) => {
-      console.log('🚪 Live access event received:', event);
-      setAccessEvents((prev) => [event, ...prev].slice(0, 500));
+    const handleAccessEvent = (payload: any) => {
+      console.log('🚪 Live access event received:', payload);
+
+      // The backend emits { event, record } where:
+      //   event  = raw SDK event (has data.UserID, data.CardName etc. — may be incomplete)
+      //   record = enriched AccessRecord (has userName, userID, cardNumber — always correct)
+      // Merge record fields into the top-level so getEventData() can find them.
+      const enriched = payload.record
+        ? { ...payload.event, record: payload.record }
+        : payload;
+
+      setAccessEvents((prev) => [enriched, ...prev].slice(0, 500));
     };
 
     socket.on('access:control:event', handleAccessEvent);
@@ -139,8 +165,25 @@ export default function DashboardPage() {
   }, [accessEvents]);
 
   const getEventData = (event: AccessEvent) => {
+    // 1. Check for enriched record (from WebSocket live events — has userName etc.)
+    const rec = (event as any).record;
+    if (rec) {
+      return {
+        userID: rec.userID || '',
+        cardNo: rec.cardNumber || '',
+        cardName: rec.userName || rec.cardNumber || '',
+        method: rec.openMethod || 'Unknown',
+        similarity: undefined,
+        door: rec.doorNumber ?? 0,
+        status: rec.status || '',
+        isSuccess: rec.status === 'Success',
+        time: rec.swipeTime || event.timestamp || '',
+      };
+    }
+
+    // 2. Fall back to raw event data (from HTTP API fetch)
     const data = event.data || event;
-    
+
     // Parse rawJson if it exists (contains additional fields like Method, UserID, etc.)
     let rawJsonData: Record<string, any> = {};
     if (data.rawJson) {
@@ -150,10 +193,10 @@ export default function DashboardPage() {
         // Ignore if rawJson is invalid
       }
     }
-    
+
     // Merge data with rawJson for complete event info
     const mergedData = { ...data, ...rawJsonData };
-    
+
     return {
       userID: mergedData.UserID || mergedData.userId || data.userId || event.deviceId || '',
       cardNo: mergedData.CardNo || mergedData.cardNumber || data.cardNumber || '',
@@ -169,15 +212,16 @@ export default function DashboardPage() {
 
   const getMethodName = (method?: number | string): string => {
     if (!method && method !== 0) return 'Unknown';
-    
-    // Handle string values (e.g., "Face", "Card", "Fingerprint")
+
+    // Handle string values (e.g., "Face", "Card", "Fingerprint", "FaceRecognition")
     if (typeof method === 'string') {
       const lowerMethod = method.toLowerCase();
       if (lowerMethod.includes('face')) return 'Face';
+      if (lowerMethod.includes('finger')) return 'Fingerprint';
       if (lowerMethod.includes('card')) return 'Card';
-      if (lowerMethod.includes('fingerprint')) return 'Fingerprint';
       if (lowerMethod.includes('pin')) return 'PIN';
       if (lowerMethod.includes('password')) return 'Password';
+      if (lowerMethod.includes('qrcode') || lowerMethod.includes('qr')) return 'QR Code';
       return method; // Return original string if not recognized
     }
     
@@ -293,51 +337,122 @@ export default function DashboardPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Total Employees</p>
-                <p className="text-3xl font-bold text-gray-800 mt-2">{summary.totalEmployees}</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-6 lg:mb-8">
+          {/* Card 1: Total Employees - Blue */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+            <div className="flex">
+              <div className="w-[72px] lg:w-[80px] bg-blue-500 flex items-center justify-center flex-shrink-0">
+                <svg className="w-7 h-7 lg:w-8 lg:h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                </svg>
               </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                <Icon path="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" className="w-6 h-6 text-blue-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Present Today</p>
-                <p className="text-3xl font-bold text-green-600 mt-2">{summary.presentToday}</p>
-              </div>
-              <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center">
-                <Icon path="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" className="w-6 h-6 text-green-600" />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Late Arrivals</p>
-                <p className="text-3xl font-bold text-orange-600 mt-2">{summary.lateArrivals}</p>
-              </div>
-              <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center">
-                <Icon path="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" className="w-6 h-6 text-orange-600" />
+              <div className="flex-1 px-4 py-3.5 lg:px-5 lg:py-4 min-w-0">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide truncate">Total Employees</p>
+                <p className="text-2xl lg:text-[28px] font-bold text-gray-800 leading-tight mt-0.5">{summary.totalEmployees.toLocaleString()}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className={`inline-flex items-center text-xs font-semibold ${summary.employeeChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    <svg className="w-3 h-3 mr-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      {summary.employeeChange >= 0 ? (
+                        <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                      ) : (
+                        <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                      )}
+                    </svg>
+                    {Math.abs(summary.employeeChange)}
+                  </span>
+                  <span className="text-xs text-gray-400 truncate">{summary.employeeChange >= 0 ? 'more' : 'less'} vs last month</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600">Devices Online</p>
-                <p className="text-3xl font-bold text-blue-600 mt-2">{summary.devicesOnline}<span className="text-lg text-gray-500">/{summary.devicesOnline + summary.devicesOffline}</span></p>
+          {/* Card 2: Today's Present - Green */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+            <div className="flex">
+              <div className="w-[72px] lg:w-[80px] bg-green-500 flex items-center justify-center flex-shrink-0">
+                <svg className="w-7 h-7 lg:w-8 lg:h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
               </div>
-              <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center">
-                <Icon path="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" className="w-6 h-6 text-blue-600" />
+              <div className="flex-1 px-4 py-3.5 lg:px-5 lg:py-4 min-w-0">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide truncate">Today's Present</p>
+                <p className="text-2xl lg:text-[28px] font-bold text-gray-800 leading-tight mt-0.5">{summary.presentToday.toLocaleString()}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className={`inline-flex items-center text-xs font-semibold ${summary.presentChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    <svg className="w-3 h-3 mr-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      {summary.presentChange >= 0 ? (
+                        <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                      ) : (
+                        <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                      )}
+                    </svg>
+                    {Math.abs(summary.presentChange)}
+                  </span>
+                  <span className="text-xs text-gray-400 truncate">{summary.presentChange >= 0 ? 'more' : 'less'} vs yesterday</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 3: Today's Late Arrival - Orange */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+            <div className="flex">
+              <div className="w-[72px] lg:w-[80px] bg-orange-500 flex items-center justify-center flex-shrink-0">
+                <svg className="w-7 h-7 lg:w-8 lg:h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <polyline points="12 6 12 12 16 14" />
+                </svg>
+              </div>
+              <div className="flex-1 px-4 py-3.5 lg:px-5 lg:py-4 min-w-0">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide truncate">Today's Late Arrival</p>
+                <p className="text-2xl lg:text-[28px] font-bold text-gray-800 leading-tight mt-0.5">{summary.lateArrivals.toLocaleString()}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className={`inline-flex items-center text-xs font-semibold ${summary.lateChange >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                    <svg className="w-3 h-3 mr-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      {summary.lateChange >= 0 ? (
+                        <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                      ) : (
+                        <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                      )}
+                    </svg>
+                    {Math.abs(summary.lateChange)}
+                  </span>
+                  <span className="text-xs text-gray-400 truncate">{summary.lateChange >= 0 ? 'more' : 'less'} vs yesterday</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Card 4: Today's Access Records - Purple */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
+            <div className="flex">
+              <div className="w-[72px] lg:w-[80px] bg-purple-500 flex items-center justify-center flex-shrink-0">
+                <svg className="w-7 h-7 lg:w-8 lg:h-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4" />
+                  <polyline points="10 17 15 12 10 7" />
+                  <line x1="15" y1="12" x2="3" y2="12" />
+                </svg>
+              </div>
+              <div className="flex-1 px-4 py-3.5 lg:px-5 lg:py-4 min-w-0">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide truncate">Today's Access Records</p>
+                <p className="text-2xl lg:text-[28px] font-bold text-gray-800 leading-tight mt-0.5">{summary.todayAccessRecords.toLocaleString()}</p>
+                <div className="flex items-center gap-1 mt-1">
+                  <span className={`inline-flex items-center text-xs font-semibold ${summary.accessChange >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                    <svg className="w-3 h-3 mr-0.5" viewBox="0 0 24 24" fill="currentColor">
+                      {summary.accessChange >= 0 ? (
+                        <path d="M4 12l1.41 1.41L11 7.83V20h2V7.83l5.58 5.59L20 12l-8-8-8 8z" />
+                      ) : (
+                        <path d="M20 12l-1.41-1.41L13 16.17V4h-2v12.17l-5.58-5.59L4 12l8 8 8-8z" />
+                      )}
+                    </svg>
+                    {Math.abs(summary.accessChange)}
+                  </span>
+                  <span className="text-xs text-gray-400 truncate">{summary.accessChange >= 0 ? 'more' : 'less'} vs yesterday</span>
+                </div>
               </div>
             </div>
           </div>

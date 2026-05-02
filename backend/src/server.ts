@@ -23,6 +23,7 @@ import accessRulesRouter from './routes/access-rules';
 import syncQueueRouter from './routes/sync-queue';
 import databaseSettingsRouter from './routes/database-settings';
 import { autoMigrateOnStartup } from './routes/database-settings';
+import DatabaseConnection from './repositories/DatabaseConnection';
 import settingsRouter from './routes/settings';
 import scannerRouter from './routes/scanner';
 import syncQueueService from './services/syncQueue.service';
@@ -82,12 +83,34 @@ app.use('/api/database', databaseSettingsRouter);
 app.use('/api/settings', settingsRouter);
 app.use('/api/scanner', scannerRouter);
 
-// Health check
-app.get('/api/health', (req: Request, res: Response) => {
-  res.json({
-    status: 'ok',
+// Health check — actively pings the database to return real-time status.
+// Monitoring tools and the frontend banner depend on this.
+app.get('/api/health', async (_req: Request, res: Response) => {
+  const db = DatabaseConnection;
+  const dbConfig = db.getConfig();
+
+  let connected = false;
+  try {
+    connected = await db.checkHealth();
+  } catch {
+    connected = false;
+  }
+
+  const healthy = !dbConfig || connected;
+
+  res.status(healthy ? 200 : 503).json({
+    status: healthy ? 'ok' : 'degraded',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
+    database: dbConfig
+      ? {
+          type: dbConfig.type,
+          host: dbConfig.host,
+          port: dbConfig.port,
+          database: dbConfig.database,
+          connected,
+        }
+      : { connected: false, message: 'No database configured — using JSON file storage' },
   });
 });
 
@@ -99,6 +122,111 @@ app.get('/api/dashboard/devices', async (req: Request, res: Response) => {
   } catch (error: any) {
     logger.error('Error in /api/dashboard/devices:', error);
     res.json([]);
+  }
+});
+
+// Dashboard summary — aggregated stats for the 4 summary cards
+app.get('/api/dashboard/summary', async (req: Request, res: Response) => {
+  try {
+    const [allPersons, allDevices, allRecords] = await Promise.all([
+      personService.getAll(),
+      deviceService.getAll(),
+      accessRecordService.getAllRecords().catch(() => [] as any[]),
+    ]);
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart.getTime() - 86400000);
+    const yesterdayEnd = new Date(todayStart.getTime() - 1);
+    const monthAgoStart = new Date(todayStart.getTime() - 30 * 86400000);
+
+    // Total Employees
+    const totalEmployees = allPersons.length;
+    const employeesLastMonth = allPersons.filter((p: any) => {
+      const created = p.createdAt ? new Date(p.createdAt) : null;
+      return created && created < monthAgoStart;
+    }).length;
+    const employeeChange = totalEmployees - employeesLastMonth;
+
+    // Today's Present — unique persons who accessed today
+    const todayRecords = (allRecords || []).filter((r: any) => {
+      const ts = r.swipeTime || r.timestamp || r.Time || r.eventTime;
+      if (!ts) return false;
+      const d = new Date(ts);
+      return !isNaN(d.getTime()) && d >= todayStart;
+    });
+    const todayUniqueUsers = new Set(todayRecords.map((r: any) => r.userId || r.UserID || r.personId));
+    const presentToday = todayUniqueUsers.size;
+
+    // Yesterday's Present
+    const yesterdayRecords = (allRecords || []).filter((r: any) => {
+      const ts = r.swipeTime || r.timestamp || r.Time || r.eventTime;
+      if (!ts) return false;
+      const d = new Date(ts);
+      return !isNaN(d.getTime()) && d >= yesterdayStart && d <= yesterdayEnd;
+    });
+    const yesterdayUniqueUsers = new Set(yesterdayRecords.map((r: any) => r.userId || r.UserID || r.personId));
+    const presentYesterday = yesterdayUniqueUsers.size;
+    const presentChange = presentToday - presentYesterday;
+
+    // Late Arrivals — records after 9:00 AM today
+    const lateThreshold = new Date(todayStart.getTime() + 9 * 3600000); // 9:00 AM
+    const lateTodayRecords = todayRecords.filter((r: any) => {
+      const ts = r.swipeTime || r.timestamp || r.Time || r.eventTime;
+      const d = new Date(ts);
+      return d >= lateThreshold;
+    });
+    const lateUniqueUsers = new Set(lateTodayRecords.map((r: any) => r.userId || r.UserID || r.personId));
+    const lateArrivals = lateUniqueUsers.size;
+
+    // Yesterday's Late Arrivals
+    const yesterdayLateThreshold = new Date(yesterdayStart.getTime() + 9 * 3600000);
+    const lateYesterdayRecords = yesterdayRecords.filter((r: any) => {
+      const ts = r.swipeTime || r.timestamp || r.Time || r.eventTime;
+      const d = new Date(ts);
+      return d >= yesterdayLateThreshold;
+    });
+    const lateYesterdayUsers = new Set(lateYesterdayRecords.map((r: any) => r.userId || r.UserID || r.personId));
+    const lateChange = lateArrivals - lateYesterdayUsers.size;
+
+    // Today's Access Records
+    const todayAccessRecords = todayRecords.length;
+    const yesterdayAccessRecords = yesterdayRecords.length;
+    const accessChange = todayAccessRecords - yesterdayAccessRecords;
+
+    // Devices Online
+    const bridgeDevices = await netSdkService.getAllDevices().catch(() => [] as any[]);
+    const devicesOnline = allDevices.filter((d: any) => {
+      const bd = bridgeDevices.find((b: any) => (b.DeviceID || b.deviceID) === d.registrationId);
+      const status = bd ? (bd.Status || bd.status || 'Offline') : 'Offline';
+      return status.toLowerCase() === 'online';
+    }).length;
+
+    res.json({
+      totalEmployees,
+      presentToday,
+      lateArrivals,
+      todayAccessRecords,
+      devicesOnline,
+      devicesOffline: allDevices.length - devicesOnline,
+      // Comparison data
+      employeeChange,
+      presentChange,
+      lateChange,
+      accessChange,
+      // Yesterday / last month baselines for the UI
+      presentYesterday,
+      lateYesterday: lateYesterdayUsers.size,
+      accessYesterday: yesterdayAccessRecords,
+    });
+  } catch (error: any) {
+    logger.error('Error in /api/dashboard/summary:', error);
+    // Return zeros rather than failing the whole dashboard
+    res.json({
+      totalEmployees: 0, presentToday: 0, lateArrivals: 0,
+      todayAccessRecords: 0, devicesOnline: 0, devicesOffline: 0,
+      employeeChange: 0, presentChange: 0, lateChange: 0, accessChange: 0,
+    });
   }
 });
 
@@ -185,6 +313,12 @@ eventService.on('access:control:event', (data: any) => {
   io.emit('access:control:event', data);
 
   logger.info(`📡 WebSocket broadcast: access control event for device ${data.deviceId || data.registrationId}`);
+});
+
+// Notify clients when offline records are imported so attendance report can auto-refresh
+eventService.on('attendance:updated', (data: any) => {
+  io.emit('attendance:updated', data);
+  logger.info(`📡 WebSocket broadcast: attendance:updated — ${data.storedCount} records imported, dates: ${(data.affectedDates || []).join(', ')}`);
 });
 
 // Error handling middleware

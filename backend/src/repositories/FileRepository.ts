@@ -60,7 +60,7 @@ class FileRepository extends IAccessRepository {
         this.events = [];
         logger.info('No events file found, starting fresh');
       } else {
-        logger.error('Error loading events:', error.message);
+        logger.error(`Error loading events: ${error.message}`);
         this.events = [];
       }
     }
@@ -80,7 +80,7 @@ class FileRepository extends IAccessRepository {
         this.records = [];
         logger.info('No records file found, starting fresh');
       } else {
-        logger.error('Error loading records:', error.message);
+        logger.error(`Error loading records: ${error.message}`);
         this.records = [];
       }
     }

@@ -56,7 +56,7 @@ export interface AttendanceSchedule {
   shiftId: string;
   shiftName: string;
   startDate: string;
-  endDate: string;
+  endDate: string | null;  // null = unbounded/ongoing schedule
   members: Array<{ id: string; name: string; type: string }>;
   createdAt: string;
   updatedAt: string;

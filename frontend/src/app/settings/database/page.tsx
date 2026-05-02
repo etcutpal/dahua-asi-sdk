@@ -410,7 +410,7 @@ export default function DatabaseSettingsPage() {
                 These tables will be created if they don&apos;t exist. Existing tables are never modified.
               </p>
               <ul className="space-y-1.5">
-                {['persons', 'employees', 'employee_groups', 'devices', 'access_rules', 'sync_queue', 'access_records'].map(t => (
+                {['persons', 'employees', 'employee_groups', 'devices', 'access_rules', 'sync_queue', 'access_records', 'device_groups', 'access_events', 'attendance_periods', 'attendance_breaks', 'attendance_rules_settings', 'attendance_shifts', 'attendance_schedules', 'attendance_holidays', 'attendance_leave_types', 'attendance_leave_records'].map(t => (
                   <li key={t} className="flex items-center gap-2 text-sm text-gray-700">
                     <Icon path="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7" className="w-3.5 h-3.5 text-gray-400" />
                     <span className="font-mono text-xs">{t}</span>

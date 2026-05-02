@@ -33,15 +33,19 @@ router.get('/periods', async (_req: Request, res: Response) => {
 
 router.post('/periods', async (req: Request, res: Response) => {
   try {
-    const { name, mode, startTime, endTime, requiredWorkTime, rules } = req.body;
+    const { name, mode, startTime, endTime, requiredWorkTime, rules, breaks } = req.body;
     if (!name) return res.status(400).json({ success: false, error: 'name is required' });
+    const isFlexible = mode === 'flexible';
     const period = await repo().createPeriod({
       id: makeId('period'), name,
       mode: mode || 'fixed',
-      startTime: startTime || '09:00',
-      endTime: endTime || '18:00',
+      // Flexible: no fixed start/end — only requiredWorkTime matters
+      startTime: isFlexible ? null : (startTime || '09:00'),
+      endTime: isFlexible ? null : (endTime || '18:00'),
       requiredWorkTime: requiredWorkTime ?? 480,
-      breaks: [], rules: rules || {}, status: 'ACTIVE',
+      breaks: breaks || [],
+      rules: rules || {},
+      status: 'ACTIVE',
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     });
     logger.info(`[ATTENDANCE] Created period: ${period.name}`);
@@ -51,7 +55,13 @@ router.post('/periods', async (req: Request, res: Response) => {
 
 router.put('/periods/:id', async (req: Request, res: Response) => {
   try {
-    const period = await repo().updatePeriod(req.params.id, { ...req.body, updatedAt: new Date().toISOString() });
+    const updates: any = { ...req.body, updatedAt: new Date().toISOString() };
+    // When switching to flexible mode, clear fixed start/end times
+    if (req.body.mode === 'flexible') {
+      updates.startTime = null;
+      updates.endTime = null;
+    }
+    const period = await repo().updatePeriod(req.params.id, updates);
     logger.info(`[ATTENDANCE] Updated period: ${req.params.id}`);
     res.json({ success: true, period });
   } catch (e: any) { res.status(500).json({ success: false, error: e.message }); }
@@ -216,8 +226,11 @@ router.post('/schedules', async (req: Request, res: Response) => {
     const body = req.body;
     if (!body.shiftId || !body.startDate)
       return res.status(400).json({ success: false, error: 'shiftId and startDate required' });
+    // Normalize empty endDate to null (unbounded schedule)
+    const endDate = (body.endDate && body.endDate.toString().trim() !== '') ? body.endDate : null;
     const schedule = await repo().createSchedule({
       id: makeId('schedule'), ...body,
+      endDate,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
     });
     logger.info(`[ATTENDANCE] Created schedule for shift: ${body.shiftName}`);
@@ -227,7 +240,12 @@ router.post('/schedules', async (req: Request, res: Response) => {
 
 router.put('/schedules/:id', async (req: Request, res: Response) => {
   try {
-    const schedule = await repo().updateSchedule(req.params.id, { ...req.body, updatedAt: new Date().toISOString() });
+    const body = req.body;
+    // Normalize empty endDate to null (unbounded schedule)
+    if ('endDate' in body && (!body.endDate || body.endDate.toString().trim() === '')) {
+      body.endDate = null;
+    }
+    const schedule = await repo().updateSchedule(req.params.id, { ...body, updatedAt: new Date().toISOString() });
     res.json({ success: true, schedule });
   } catch (e: any) { res.status(500).json({ success: false, error: e.message }); }
 });
@@ -352,18 +370,23 @@ router.delete('/leave-records/:id', async (req: Request, res: Response) => {
 // ─── Attendance Report (Records) ──────────────────────────────────────────────
 router.get('/records', async (req: Request, res: Response) => {
   try {
-    const { startDate, endDate, employeeId, status } = req.query;
+    const { startDate, endDate, employeeId, employeeIds, groupId, status } = req.query;
     const { records, summary } = await attendanceReportService.generateReport({
       startDate: startDate as string | undefined,
       endDate: endDate as string | undefined,
       employeeId: employeeId as string | undefined,
+      employeeIds: employeeIds
+        ? (employeeIds as string).split(',').map(s => s.trim()).filter(Boolean)
+        : undefined,
+      groupId: groupId as string | undefined,
       status: status as string | undefined,
     });
     res.json({ success: true, records, summary });
   } catch (e: any) {
-    logger.error('[ATTENDANCE] Error generating attendance report:', e.message);
+    logger.error(`[ATTENDANCE] Error generating attendance report: ${e.message}`);
     res.status(500).json({ success: false, error: e.message });
   }
 });
 
 export default router;
+

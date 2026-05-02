@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 const Icon = ({ path, className = "w-5 h-5" }: { path: string; className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -46,6 +46,45 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
   ];
 
   const [isOpen, setIsOpen] = useState(false);
+
+  // ── Hover state for dropdown menus (tracked via refs to prevent flicker) ──
+  const [attendanceOpen, setAttendanceOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const attendanceHovering = useRef(false);
+  const settingsHovering = useRef(false);
+  const attendanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const settingsTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleAttendanceEnter = useCallback(() => {
+    attendanceHovering.current = true;
+    if (attendanceTimer.current) { clearTimeout(attendanceTimer.current); attendanceTimer.current = null; }
+    setAttendanceOpen(true);
+  }, []);
+  const handleAttendanceLeave = useCallback(() => {
+    attendanceHovering.current = false;
+    attendanceTimer.current = setTimeout(() => {
+      if (!attendanceHovering.current) setAttendanceOpen(false);
+    }, 200);
+  }, []);
+  const handleSettingsEnter = useCallback(() => {
+    settingsHovering.current = true;
+    if (settingsTimer.current) { clearTimeout(settingsTimer.current); settingsTimer.current = null; }
+    setSettingsOpen(true);
+  }, []);
+  const handleSettingsLeave = useCallback(() => {
+    settingsHovering.current = false;
+    settingsTimer.current = setTimeout(() => {
+      if (!settingsHovering.current) setSettingsOpen(false);
+    }, 200);
+  }, []);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (attendanceTimer.current) clearTimeout(attendanceTimer.current);
+      if (settingsTimer.current) clearTimeout(settingsTimer.current);
+    };
+  }, []);
 
   const handleLogout = () => {
     onLogout();
@@ -106,7 +145,9 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
 
         {/* Attendance — hover dropdown */}
         <div
-          className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors group relative cursor-pointer ${
+          onMouseEnter={handleAttendanceEnter}
+          onMouseLeave={handleAttendanceLeave}
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors relative cursor-pointer ${
             currentPath.startsWith('/attendance')
               ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
               : 'text-slate-300 hover:bg-slate-700 hover:text-white'
@@ -117,7 +158,13 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
           <Icon path="M9 5l7 7-7 7" className="w-4 h-4" />
 
           {/* Hover Dropdown — shows to RIGHT */}
-          <div className="hidden group-hover:block absolute left-full top-0 ml-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+          <div
+            onMouseEnter={handleAttendanceEnter}
+            onMouseLeave={handleAttendanceLeave}
+            className={`absolute left-full top-0 ml-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 ${
+              attendanceOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+          >
             {attendanceItems.map((item) => (
               <Link
                 key={item.path}
@@ -134,7 +181,9 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
         {/* Settings Button */}
         <Link
           href="/settings"
-          className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors group relative ${
+          onMouseEnter={handleSettingsEnter}
+          onMouseLeave={handleSettingsLeave}
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg mb-2 transition-colors relative ${
             currentPath === '/settings' || currentPath.startsWith('/settings/')
               ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white'
               : 'text-slate-300 hover:bg-slate-700 hover:text-white'
@@ -145,7 +194,13 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
           <Icon path="M9 5l7 7-7 7" className="w-4 h-4" />
 
           {/* Hover Dropdown Menu - Shows to RIGHT */}
-          <div className="hidden group-hover:block absolute left-full top-0 ml-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+          <div
+            onMouseEnter={handleSettingsEnter}
+            onMouseLeave={handleSettingsLeave}
+            className={`absolute left-full top-0 ml-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 ${
+              settingsOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+            }`}
+          >
             {settingsItems.map((item) => (
               <Link
                 key={item.path}
