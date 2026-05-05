@@ -1,0 +1,322 @@
+﻿================================================================================
+USER MANAGEMENT — FULL IMPLEMENTATION TODO LIST
+For use by an AI coding agent. Each task describes WHAT to do and WHICH files
+must be created or updated. Complete tasks in order (dependencies noted).
+================================================================================
+
+STATUS LEGEND:  [DONE] = already done   [TODO] = not yet done
+
+--------------------------------------------------------------------------------
+TASK 1  [TODO]  Database: Schema — system_users and roles tables
+--------------------------------------------------------------------------------
+Applies to:  SQL storage backend only (sqlserver / mysql / postgresql)
+What to do:
+  - In DatabaseConnection.ts (or a new migrations file), add table creation
+    queries to run on first connect / migration step.
+
+  Tables to create:
+
+    roles
+      id            NVARCHAR(64)  PRIMARY KEY    -- e.g. 'role_admin'
+      name          NVARCHAR(128) NOT NULL UNIQUE
+      description   NVARCHAR(512)
+      is_default    BIT           NOT NULL DEFAULT 0
+      permissions   NVARCHAR(MAX) NOT NULL        -- JSON array, e.g. '["dashboard:view",...]'
+      created_at    DATETIME      NOT NULL DEFAULT GETDATE()
+
+    system_users
+      id                   NVARCHAR(64)  PRIMARY KEY
+      username             NVARCHAR(64)  NOT NULL UNIQUE
+      full_name            NVARCHAR(256) NOT NULL
+      email                NVARCHAR(256)
+      role_id              NVARCHAR(64)  NOT NULL REFERENCES roles(id)
+      password_hash        NVARCHAR(256) NOT NULL  -- bcrypt hash
+      status               NVARCHAR(16)  NOT NULL DEFAULT 'active'  -- active|locked|inactive
+      is_default           BIT           NOT NULL DEFAULT 0
+      must_change_password BIT           NOT NULL DEFAULT 1
+      last_login           DATETIME      NULL
+      created_at           DATETIME      NOT NULL DEFAULT GETDATE()
+
+  Seed data to insert if tables are empty on first run:
+    - roles: Administrator (all permissions), Manager, Operator, Viewer
+      (exact permission lists mirror the SEED_ROLES array in users/page.tsx)
+    - system_users: { id: 'usr_admin', username: 'admin',
+        full_name: 'System Administrator', role_id: 'role_admin',
+        password_hash: bcrypt('admin', 12), status: 'active', is_default: 1,
+        must_change_password: 0 }
+
+  File:  backend/src/repositories/DatabaseConnection.ts
+         (or backend/src/migrations/001_user_management.ts — new file)
+
+
+--------------------------------------------------------------------------------
+TASK 2  [TODO]  JSON storage: users and roles data files
+--------------------------------------------------------------------------------
+Applies to:  JSON storage backend (default)
+What to do:
+  Create two JSON data files that mirror the SQL tables for the JSON backend.
+
+  File: backend/data/system-users.json
+    Initial content (array of SystemUser objects):
+    [
+      {
+        "id": "usr_admin",
+        "username": "admin",
+        "fullName": "System Administrator",
+        "email": "admin@localhost",
+        "roleId": "role_admin",
+        "passwordHash": "<bcrypt of 'admin'>",
+        "status": "active",
+        "isDefault": true,
+        "mustChangePassword": false,
+        "lastLogin": null,
+        "createdAt": "2024-01-01"
+      }
+    ]
+
+  File: backend/data/roles.json
+    Initial content: the 4 default roles (Administrator, Manager, Operator, Viewer)
+    with their permissions arrays (matching SEED_ROLES in users/page.tsx).
+
+
+--------------------------------------------------------------------------------
+TASK 3  [TODO]  Repository interfaces: IUserRepository, IRoleRepository
+--------------------------------------------------------------------------------
+File:  backend/src/repositories/IUserRepository.ts  (NEW)
+What to do:
+  - Define and export two interfaces:
+
+    interface IUserRepository {
+      getAll(): Promise<SystemUser[]>;
+      getById(id: string): Promise<SystemUser | null>;
+      getByUsername(username: string): Promise<SystemUser | null>;
+      create(user: CreateUserDto): Promise<SystemUser>;
+      update(id: string, patch: UpdateUserDto): Promise<SystemUser>;
+      updateStatus(id: string, status: UserStatus): Promise<void>;
+      updatePassword(id: string, passwordHash: string): Promise<void>;
+      updateLastLogin(id: string): Promise<void>;
+      delete(id: string): Promise<void>;
+    }
+
+    interface IRoleRepository {
+      getAll(): Promise<Role[]>;
+      getById(id: string): Promise<Role | null>;
+      create(role: CreateRoleDto): Promise<Role>;
+      update(id: string, patch: UpdateRoleDto): Promise<Role>;
+      updatePermissions(id: string, permissions: string[]): Promise<void>;
+      delete(id: string): Promise<void>;
+    }
+
+  - Also export DTOs:
+      CreateUserDto: { username, fullName, email, roleId, passwordHash, mustChangePassword }
+      UpdateUserDto: { fullName?, email?, roleId?, mustChangePassword? }
+      CreateRoleDto: { name, description, permissions }
+      UpdateRoleDto: { name?, description? }
+
+  Types SystemUser, UserStatus, Role should live in:
+  File: backend/src/types/userManagement.ts  (NEW)
+
+
+--------------------------------------------------------------------------------
+TASK 4  [TODO]  JSON repository implementations
+--------------------------------------------------------------------------------
+File:  backend/src/repositories/JsonUserRepository.ts  (NEW)
+What to do:
+  - Implement IUserRepository using fs.readFile / fs.writeFile on
+    backend/data/system-users.json
+  - loadUsers() / saveUsers() helpers (same pattern as loadGeneralSettings)
+  - All CRUD methods operate on the in-memory array then write back to disk
+
+File:  backend/src/repositories/JsonRoleRepository.ts  (NEW)
+What to do:
+  - Implement IRoleRepository using backend/data/roles.json
+  - Same load/save pattern as above
+
+
+--------------------------------------------------------------------------------
+TASK 5  [TODO]  SQL repository implementations
+--------------------------------------------------------------------------------
+File:  backend/src/repositories/SqlUserRepository.ts  (NEW)
+What to do:
+  - Implement IUserRepository using this.conn.query(...)
+  - For permissions column in roles: JSON.stringify / JSON.parse
+
+File:  backend/src/repositories/SqlRoleRepository.ts  (NEW)
+What to do:
+  - Implement IRoleRepository using this.conn.query(...)
+
+
+--------------------------------------------------------------------------------
+TASK 6  [TODO]  RepositoryFactory — wire in user and role repositories
+--------------------------------------------------------------------------------
+File:  backend/src/repositories/RepositoryFactory.ts
+What to do:
+  - Import JsonUserRepository, JsonRoleRepository
+  - Import SqlUserRepository, SqlRoleRepository
+  - Add private fields:
+      private _users: IUserRepository
+      private _roles: IRoleRepository
+  - In initialize():
+      json  → new JsonUserRepository()  /  new JsonRoleRepository()
+      sql   → new SqlUserRepository()   /  new SqlRoleRepository()
+  - Add accessor methods:
+      static users(): IUserRepository
+      static roles(): IRoleRepository
+  - On first run / empty tables: run seeding logic (TASK 1 / TASK 2 seed data)
+
+
+--------------------------------------------------------------------------------
+TASK 7  [TODO]  Backend: Auth helper — password hashing
+--------------------------------------------------------------------------------
+File:  backend/src/utils/passwordUtils.ts  (NEW)
+What to do:
+  - Install dependency: npm install bcryptjs  (types: @types/bcryptjs)
+  - Export:
+      hashPassword(plain: string): Promise<string>   // bcrypt.hash(plain, 12)
+      comparePassword(plain: string, hash: string): Promise<boolean>
+  - Use SALT_ROUNDS = 12
+
+
+--------------------------------------------------------------------------------
+TASK 8  [TODO]  Backend: API routes for User Management
+--------------------------------------------------------------------------------
+File:  backend/src/routes/userManagement.ts  (NEW)
+What to do:
+  Create an Express Router and export it. Register at /api/users in server.ts.
+
+  USERS endpoints:
+    GET    /api/users               — list all users (exclude passwordHash in response)
+    POST   /api/users               — create user
+                                      Body: { username, fullName, email, roleId,
+                                              password, mustChangePassword }
+                                      Validates: unique username, password length ≥ 6
+                                      Hashes password with hashPassword()
+    PUT    /api/users/:id           — edit user (fullName, email, roleId,
+                                                  mustChangePassword only)
+                                      Block: cannot edit a user whose roleId is
+                                      'role_admin' if caller's role is 'role_manager'
+    PUT    /api/users/:id/status    — lock / unlock / deactivate
+                                      Body: { status: 'active'|'locked'|'inactive' }
+                                      Block: cannot modify isDefault user
+    PUT    /api/users/:id/password  — reset password
+                                      Body: { newPassword }
+                                      Validates: length ≥ 6, then hashes
+    DELETE /api/users/:id           — delete user
+                                      Block: cannot delete isDefault user
+                                      Block: cannot delete Administrator user if
+                                      caller's role is 'role_manager'
+    PUT    /api/users/:id/last-login — called internally after successful login
+
+  ROLES endpoints:
+    GET    /api/users/roles             — list all roles (with userCount)
+    POST   /api/users/roles             — create role
+                                          Body: { name, description, permissions[] }
+    PUT    /api/users/roles/:id         — rename / update description
+                                          Block: cannot rename isDefault role
+    PUT    /api/users/roles/:id/perms   — update permissions array
+                                          Body: { permissions: string[] }
+                                          Block: cannot modify isDefault role
+    DELETE /api/users/roles/:id         — delete role
+                                          Block: cannot delete isDefault role
+                                          Block: cannot delete if users are assigned
+
+
+--------------------------------------------------------------------------------
+TASK 9  [TODO]  Backend: Register userManagement router in server.ts
+--------------------------------------------------------------------------------
+File:  backend/src/server.ts
+What to do:
+  - import userManagementRouter from './routes/userManagement';
+  - app.use('/api/users', userManagementRouter);
+  (Place after existing route registrations, before the catch-all 404)
+
+
+--------------------------------------------------------------------------------
+TASK 10  [TODO]  Frontend: Replace mock data with real API calls
+--------------------------------------------------------------------------------
+File:  frontend/src/app/settings/users/page.tsx
+What to do:
+  On component mount (useEffect), fetch:
+    GET /api/users         → setUsers(data)
+    GET /api/users/roles   → setRoles(data)
+  Remove SEED_USERS and SEED_ROLES constants (keep type definitions).
+
+  Wire save actions:
+    saveUser (add)     → POST /api/users
+    saveUser (edit)    → PUT  /api/users/:id
+    saveResetPw        → PUT  /api/users/:id/password
+    toggleLock         → PUT  /api/users/:id/status
+    confirmDelete      → DELETE /api/users/:id
+    saveRole (add)     → POST /api/users/roles
+    saveRole (edit)    → PUT  /api/users/roles/:id
+    Save Permissions   → PUT  /api/users/roles/:id/perms
+    confirmDeleteRole  → DELETE /api/users/roles/:id
+
+  Add a loading skeleton state while initial fetch is in progress.
+  On any API error, show the red alert banner with the server error message.
+
+  Remove the `useRef` import if it ends up unused after this change.
+
+
+--------------------------------------------------------------------------------
+TASK 11  [TODO]  Backend: Auth — integrate system_users for login
+--------------------------------------------------------------------------------
+File:  backend/src/routes/auth.ts  (or wherever login is currently handled)
+What to do:
+  Currently login likely uses a hardcoded admin credential or simple check.
+  Replace with:
+    1. Look up user by username via RepositoryFactory.users().getByUsername()
+    2. If not found → 401
+    3. If status === 'locked' → 401 with "Account is locked" message
+    4. comparePassword(plain, user.passwordHash) → if false → 401
+    5. On success:
+       - Call RepositoryFactory.users().updateLastLogin(user.id)
+       - Issue JWT or session as before, but now include:
+           { userId, username, roleId, permissions[] } in the payload
+    6. If mustChangePassword === true → return flag in response so the
+       frontend can redirect to a "change password" screen
+
+
+--------------------------------------------------------------------------------
+TASK 12  [TODO]  Frontend: Auth context — consume permissions from JWT
+--------------------------------------------------------------------------------
+File:  frontend/src/contexts/AuthContext.tsx
+What to do:
+  - After login, decode/store: userId, username, roleId, permissions[]
+  - Export a helper: hasPermission(key: PermissionKey): boolean
+  - This lets any page/component hide buttons or redirect based on permissions
+    (e.g. hide "Database Settings" card for Manager role)
+
+
+--------------------------------------------------------------------------------
+TASK 13  [TODO]  Frontend: Guard pages/buttons with permissions
+--------------------------------------------------------------------------------
+Files to update after TASK 12 is done:
+  - frontend/src/app/settings/page.tsx
+      Hide "System Settings" and "Database Settings" cards if role is not Admin
+  - Any page with delete / edit actions on Administrator users:
+      Disable those actions if current user's role is 'role_manager'
+  - Sidebar.tsx: optionally hide inaccessible settings items
+
+  Pattern to use in each component:
+    const { hasPermission } = useAuth();
+    if (!hasPermission('settings:system')) { /* hide or redirect */ }
+
+
+================================================================================
+IMPLEMENTATION ORDER (recommended)
+================================================================================
+
+Phase 1 — Data layer (no UI changes needed)
+  TASK 1  → TASK 2  → TASK 3  → TASK 4  → TASK 5  → TASK 6
+
+Phase 2 — Utilities + backend API
+  TASK 7  → TASK 8  → TASK 9
+
+Phase 3 — Connect frontend to API
+  TASK 10
+
+Phase 4 — Auth hardening
+  TASK 11  → TASK 12  → TASK 13
+
+================================================================================

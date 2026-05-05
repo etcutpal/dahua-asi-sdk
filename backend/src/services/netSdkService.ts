@@ -533,7 +533,7 @@ class NetSdkService {
       );
       if (response.data.success) {
         logger.info(`Retrieved ${response.data.count} users from device ${deviceId}`);
-        return (response.data.users as any[]).map(u => ({
+        const all = (response.data.users as any[]).map(u => ({
           userId: u.userID,
           name: u.name,
           userType: u.userType,
@@ -542,6 +542,13 @@ class NetSdkService {
           validEnd: u.validEnd,
           firstEnter: u.firstEnter
         }));
+        // Filter out ghost/uninitialized entries that the Dahua SDK occasionally
+        // returns with an empty userID (padding artifacts from buffer stride mismatches).
+        const filtered = all.filter(u => u.userId && String(u.userId).trim() !== '');
+        if (filtered.length < all.length) {
+          logger.warn(`[DeviceUsers] Filtered out ${all.length - filtered.length} ghost entry/entries with empty userID`);
+        }
+        return filtered;
       } else {
         throw new Error(response.data.error || 'Failed to get device users');
       }

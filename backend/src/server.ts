@@ -29,6 +29,7 @@ import scannerRouter from './routes/scanner';
 import syncQueueService from './services/syncQueue.service';
 import RepositoryFactory from './repositories/RepositoryFactory';
 import deviceCache from './services/deviceCache';
+import attendanceReportService from './services/attendanceReportService';
 
 // Load environment variables
 dotenv.config();
@@ -125,11 +126,12 @@ app.get('/api/dashboard/devices', async (req: Request, res: Response) => {
   }
 });
 
-// Dashboard summary — aggregated stats for the 4 summary cards
+// Dashboard summary — aggregated stats for the summary cards
 app.get('/api/dashboard/summary', async (req: Request, res: Response) => {
   try {
-    const [allPersons, allDevices, allRecords] = await Promise.all([
-      personService.getAll(),
+    const empRepo = RepositoryFactory.employees();
+    const [allEmployees, allDevices, allRecords] = await Promise.all([
+      empRepo.findAll(),
       deviceService.getAll(),
       accessRecordService.getAllRecords().catch(() => [] as any[]),
     ]);
@@ -140,61 +142,75 @@ app.get('/api/dashboard/summary', async (req: Request, res: Response) => {
     const yesterdayEnd = new Date(todayStart.getTime() - 1);
     const monthAgoStart = new Date(todayStart.getTime() - 30 * 86400000);
 
-    // Total Employees
-    const totalEmployees = allPersons.length;
-    const employeesLastMonth = allPersons.filter((p: any) => {
-      const created = p.createdAt ? new Date(p.createdAt) : null;
+    // Local-date strings (avoid UTC date shift)
+    const fmtLocal = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+
+    // ── Total Employees ────────────────────────────────────────────────────
+    const totalEmployees = allEmployees.length;
+    const employeesLastMonth = allEmployees.filter((e: any) => {
+      const created = e.createdAt ? new Date(e.createdAt) : null;
       return created && created < monthAgoStart;
     }).length;
     const employeeChange = totalEmployees - employeesLastMonth;
 
-    // Today's Present — unique persons who accessed today
+    // ── Today's attendance (uses configured rules: flexible, late thresholds, etc.) ──
+    const todayStr = fmtLocal(now);
+    const yesterdayStr = fmtLocal(yesterdayStart);
+
+    let presentToday = 0, lateToday = 0, absentToday = 0;
+    let presentYesterday = 0, lateYesterday = 0;
+
+    // Use the attendance report service for accurate per-rule present/late counts
+    try {
+      const [todayReport, yesterdayReport] = await Promise.all([
+        attendanceReportService.generateReport({ startDate: todayStr, endDate: todayStr }),
+        attendanceReportService.generateReport({ startDate: yesterdayStr, endDate: yesterdayStr }),
+      ]);
+      presentToday    = todayReport.summary.present + todayReport.summary.late + todayReport.summary.leave;
+      lateToday       = todayReport.summary.late;
+      absentToday     = todayReport.summary.absent;
+      presentYesterday = yesterdayReport.summary.present + yesterdayReport.summary.late + yesterdayReport.summary.leave;
+      lateYesterday   = yesterdayReport.summary.late;
+    } catch (e: any) {
+      logger.warn(`Dashboard: attendance report failed — falling back to raw swipe counts (${e.message})`);
+      // Fallback: count unique users who swiped today (no late/absent breakdown)
+      const fallbackRecords = (allRecords || []).filter((r: any) => {
+        const ts = r.swipeTime;
+        if (!ts) return false;
+        const d = new Date(ts);
+        return !isNaN(d.getTime()) && d >= todayStart;
+      });
+      presentToday    = new Set(fallbackRecords.map((r: any) => r.userID).filter(Boolean)).size;
+      lateToday       = 0;
+      absentToday     = 0;
+      presentYesterday = 0;
+      lateYesterday   = 0;
+    }
+
+    const presentChange = presentToday - presentYesterday;
+    const lateArrivals = lateToday;
+    const lateChange = lateToday - lateYesterday;
+
+    // ── Today's Access Records ──────────────────────────────────────────────
     const todayRecords = (allRecords || []).filter((r: any) => {
-      const ts = r.swipeTime || r.timestamp || r.Time || r.eventTime;
+      const ts = r.swipeTime;
       if (!ts) return false;
       const d = new Date(ts);
       return !isNaN(d.getTime()) && d >= todayStart;
     });
-    const todayUniqueUsers = new Set(todayRecords.map((r: any) => r.userId || r.UserID || r.personId));
-    const presentToday = todayUniqueUsers.size;
+    const todayAccessRecords = todayRecords.length;
 
-    // Yesterday's Present
-    const yesterdayRecords = (allRecords || []).filter((r: any) => {
-      const ts = r.swipeTime || r.timestamp || r.Time || r.eventTime;
+    const yesterdayRecordsForCount = (allRecords || []).filter((r: any) => {
+      const ts = r.swipeTime;
       if (!ts) return false;
       const d = new Date(ts);
       return !isNaN(d.getTime()) && d >= yesterdayStart && d <= yesterdayEnd;
     });
-    const yesterdayUniqueUsers = new Set(yesterdayRecords.map((r: any) => r.userId || r.UserID || r.personId));
-    const presentYesterday = yesterdayUniqueUsers.size;
-    const presentChange = presentToday - presentYesterday;
-
-    // Late Arrivals — records after 9:00 AM today
-    const lateThreshold = new Date(todayStart.getTime() + 9 * 3600000); // 9:00 AM
-    const lateTodayRecords = todayRecords.filter((r: any) => {
-      const ts = r.swipeTime || r.timestamp || r.Time || r.eventTime;
-      const d = new Date(ts);
-      return d >= lateThreshold;
-    });
-    const lateUniqueUsers = new Set(lateTodayRecords.map((r: any) => r.userId || r.UserID || r.personId));
-    const lateArrivals = lateUniqueUsers.size;
-
-    // Yesterday's Late Arrivals
-    const yesterdayLateThreshold = new Date(yesterdayStart.getTime() + 9 * 3600000);
-    const lateYesterdayRecords = yesterdayRecords.filter((r: any) => {
-      const ts = r.swipeTime || r.timestamp || r.Time || r.eventTime;
-      const d = new Date(ts);
-      return d >= yesterdayLateThreshold;
-    });
-    const lateYesterdayUsers = new Set(lateYesterdayRecords.map((r: any) => r.userId || r.UserID || r.personId));
-    const lateChange = lateArrivals - lateYesterdayUsers.size;
-
-    // Today's Access Records
-    const todayAccessRecords = todayRecords.length;
-    const yesterdayAccessRecords = yesterdayRecords.length;
+    const yesterdayAccessRecords = yesterdayRecordsForCount.length;
     const accessChange = todayAccessRecords - yesterdayAccessRecords;
 
-    // Devices Online
+    // ── Devices Online ──────────────────────────────────────────────────────
     const bridgeDevices = await netSdkService.getAllDevices().catch(() => [] as any[]);
     const devicesOnline = allDevices.filter((d: any) => {
       const bd = bridgeDevices.find((b: any) => (b.DeviceID || b.deviceID) === d.registrationId);
@@ -216,7 +232,7 @@ app.get('/api/dashboard/summary', async (req: Request, res: Response) => {
       accessChange,
       // Yesterday / last month baselines for the UI
       presentYesterday,
-      lateYesterday: lateYesterdayUsers.size,
+      lateYesterday,
       accessYesterday: yesterdayAccessRecords,
     });
   } catch (error: any) {

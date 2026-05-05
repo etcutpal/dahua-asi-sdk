@@ -2534,33 +2534,31 @@ namespace NetSDKBridge
                 int capNum = startOut.nCapNum;
                 _logger.LogInformation($"[ImportUsers] TotalCount={total}, CapNum={capNum}");
 
-                // Match the official Dahua demo: use a small fixed batch size (10)
-                // NOT capNum — using capNum can be too large and trigger firmware bugs
-                int batchSize = 10;
+                // Fetch ONE user at a time to avoid struct-size stride issues.
+                // The C# Marshal.SizeOf(NET_ACCESS_USER_INFO) can differ from the SDK's
+                // actual per-entry size, causing wrong offsets when reading entries at index > 0.
+                // Fetching one user per call means we always read from offset 0, which is safe.
+                int batchSize = 1;
 
-                // Allocate buffer once outside the loop — same pattern as official demo
                 int userInfoSize = Marshal.SizeOf(typeof(NET_ACCESS_USER_INFO));
-                outBuffer = Marshal.AllocHGlobal(userInfoSize * batchSize);
+                outBuffer = Marshal.AllocHGlobal(userInfoSize);
 
-                // CRITICAL: Zero-initialize every slot in the output buffer.
-                // NET_ACCESS_USER_INFO contains IntPtr fields (pstuFloorsEx2, pstuUserInfoEx,
-                // pstuUserInfoEx2). If those are garbage from AllocHGlobal, the SDK will
-                // dereference them when filling in extended data → AccessViolationException.
-                // The official Dahua demo uses Marshal.StructureToPtr on each slot for the same reason.
+                // Zero-initialize the single slot.
+                // NET_ACCESS_USER_INFO contains IntPtr fields (pstuFloorsEx2, pstuUserInfoEx).
+                // If those are garbage, the SDK may AV when writing extended data.
                 var defaultUserInfo = new NET_ACCESS_USER_INFO();
-                for (int idx = 0; idx < batchSize; idx++)
-                    Marshal.StructureToPtr(defaultUserInfo, IntPtr.Add(outBuffer, userInfoSize * idx), false);
+                Marshal.StructureToPtr(defaultUserInfo, outBuffer, false);
 
                 // Build the find-in and find-out structs once, mutate nStartNo in the loop
                 var stuFindIn = new NET_IN_USERINFO_DO_FIND
                 {
                     dwSize = (uint)Marshal.SizeOf(typeof(NET_IN_USERINFO_DO_FIND)),
-                    nCount = batchSize
+                    nCount = 1
                 };
                 var stuFindOut = new NET_OUT_USERINFO_DO_FIND
                 {
                     dwSize = (uint)Marshal.SizeOf(typeof(NET_OUT_USERINFO_DO_FIND)),
-                    nMaxNum = batchSize,
+                    nMaxNum = 1,
                     pstuInfo = outBuffer,
                     byReserved = new byte[4]  // must not be null for ref-struct marshal
                 };
@@ -2572,9 +2570,8 @@ namespace NetSDKBridge
                     stuFindOut.nRetNum = 0;          // reset before each call
                     stuFindOut.pstuInfo = outBuffer; // ensure pointer is always set
 
-                    // Re-initialize buffer slots so IntPtr fields are null (prevents SDK AV on extended fields)
-                    for (int idx = 0; idx < batchSize; idx++)
-                        Marshal.StructureToPtr(defaultUserInfo, IntPtr.Add(outBuffer, userInfoSize * idx), false);
+                    // Re-initialize buffer so IntPtr fields are null before each SDK call
+                    Marshal.StructureToPtr(defaultUserInfo, outBuffer, false);
 
                     bool ok = NETClient.DoFindUserInfo(findHandle, ref stuFindIn, ref stuFindOut, 5000);
 
@@ -2586,12 +2583,12 @@ namespace NetSDKBridge
                         break;
                     }
 
-                    _logger.LogInformation($"[ImportUsers] Batch startNo={startNo}, returned {stuFindOut.nRetNum} users");
+                    _logger.LogInformation($"[ImportUsers] Fetch startNo={startNo}, returned {stuFindOut.nRetNum} user(s)");
 
                     for (int i = 0; i < stuFindOut.nRetNum; i++)
                     {
-                        IntPtr ptr = IntPtr.Add(outBuffer, userInfoSize * i);
-                        var u = (NET_ACCESS_USER_INFO)Marshal.PtrToStructure(ptr, typeof(NET_ACCESS_USER_INFO));
+                        // Always read from offset 0: with batchSize=1, there is only one entry per call
+                        var u = (NET_ACCESS_USER_INFO)Marshal.PtrToStructure(outBuffer, typeof(NET_ACCESS_USER_INFO));
 
                         string userTypeStr = u.emUserType switch
                         {

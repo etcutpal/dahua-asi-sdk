@@ -1,0 +1,234 @@
+================================================================================
+GENERAL SETTINGS — FULL IMPLEMENTATION TODO LIST
+For use by an AI coding agent. Each task describes WHAT to do and WHICH files/
+functions must be created or updated.
+================================================================================
+
+STATUS LEGEND:  [DONE] = already implemented   [TODO] = not yet done
+
+--------------------------------------------------------------------------------
+TASK 1  [DONE]  Backend: API endpoints for General Settings
+--------------------------------------------------------------------------------
+File:    backend/src/routes/settings.ts
+What was done:
+  - Added helper functions: loadGeneralSettings(), saveGeneralSettings()
+  - Persists to: backend/data/general-settings.json
+  - GET  /api/settings/general  — returns current settings (with defaults)
+  - PUT  /api/settings/general  — saves validated patch
+
+Defaults stored:
+  companyName       = ""
+  language          = "en"
+  timeZone          = "Asia/Dhaka"
+  dateFormat        = "DD/MM/YYYY"
+  timeFormat        = "12h"
+  theme             = "light"
+  dbRetentionMonths = 6
+
+
+--------------------------------------------------------------------------------
+TASK 2  [DONE]  Frontend: General Settings Page UI
+--------------------------------------------------------------------------------
+File:    frontend/src/app/settings/general/page.tsx
+What was done:
+  - Created full page with 5 sections: Company, Regional, Date/Time, Appearance,
+    Data Retention
+  - Loads settings from GET /api/settings/general on mount
+  - Saves via PUT /api/settings/general on "Save Settings" button click
+  - Shows success/error alerts
+  - Follows the same design pattern as SystemSettingsPage
+
+
+--------------------------------------------------------------------------------
+TASK 3  [DONE]  Frontend: Settings Index Page — Add General Settings card
+--------------------------------------------------------------------------------
+File:    frontend/src/app/settings/page.tsx
+What was done:
+  - Added General Settings entry to the settingsOptions array (first card)
+  - Added 'rose' color key to getColorClasses()
+
+
+--------------------------------------------------------------------------------
+TASK 4  [DONE]  Frontend: Sidebar — Add General Settings to hover dropdown
+--------------------------------------------------------------------------------
+File:    frontend/src/components/Sidebar.tsx
+What was done:
+  - Prepended General Settings to the settingsItems array so it appears at the
+    top of the Settings hover panel
+
+
+================================================================================
+REMAINING TASKS — NOT YET IMPLEMENTED
+================================================================================
+
+--------------------------------------------------------------------------------
+TASK 5  [TODO]  Apply Language Setting across the application
+--------------------------------------------------------------------------------
+What needs to be done:
+  - Install an i18n library (recommended: next-intl or react-i18next)
+  - Create locale files:
+      frontend/src/locales/en.json
+      frontend/src/locales/bn.json   (and others as needed)
+  - Create a LanguageContext (or use next-intl provider) that:
+      * Reads the language setting from GET /api/settings/general on app startup
+      * Stores the active locale in context
+      * Provides a useTranslation() / t() hook to all pages
+  - Update layout.tsx to wrap the app with the language provider
+  - Replace all hard-coded UI strings with t('key') calls
+  - Which files to update:
+      frontend/src/app/layout.tsx
+      frontend/src/context/  (add LanguageContext.tsx)
+      ALL page.tsx files that show user-visible text
+      frontend/src/components/Sidebar.tsx (navigation labels)
+
+
+--------------------------------------------------------------------------------
+TASK 6  [TODO]  Apply Time Zone Setting to all date/time displays
+--------------------------------------------------------------------------------
+What needs to be done:
+  - Create a utility function: frontend/src/lib/formatDateTime.ts
+      formatDate(isoString, format, timezone)  → string
+      formatTime(isoString, format, timezone)  → string
+      formatDateTime(isoString, dateFormat, timeFormat, timezone) → string
+  - Use the date-fns-tz library (npm install date-fns-tz) for timezone-aware formatting
+  - Create a useGeneralSettings() hook (or extend existing config context) that
+    exposes { dateFormat, timeFormat, timeZone } from the saved settings
+  - Replace all raw `new Date().toLocaleDateString()` and toLocaleTimeString() calls
+    across the app with the new formatDate / formatTime utilities
+  - Which files to update:
+      frontend/src/app/page.tsx             (dashboard clock, event timestamps)
+      frontend/src/app/attendance/**        (all attendance date cells)
+      frontend/src/app/access-records/**   (record timestamps)
+      frontend/src/app/employees/**        (any date fields)
+      frontend/src/lib/formatDateTime.ts   (NEW FILE — create this)
+      frontend/src/context/SettingsContext.tsx  (NEW or extend ConfigContext)
+
+
+--------------------------------------------------------------------------------
+TASK 7  [TODO]  Apply Date Format Setting
+--------------------------------------------------------------------------------
+What needs to be done:
+  - Part of TASK 6. The formatDate() utility must accept the dateFormat string
+    stored in general settings and format accordingly using date-fns format tokens.
+  - Supported formats to implement:
+      "DD/MM/YYYY"  →  format(date, 'dd/MM/yyyy')
+      "MM/DD/YYYY"  →  format(date, 'MM/dd/yyyy')
+      "YYYY-MM-DD"  →  format(date, 'yyyy-MM-dd')
+      "DD-MM-YYYY"  →  format(date, 'dd-MM-yyyy')
+      "DD.MM.YYYY"  →  format(date, 'dd.MM.yyyy')
+      "D MMM YYYY"  →  format(date, 'd MMM yyyy')
+      "MMMM D, YYYY" →  format(date, 'MMMM d, yyyy')
+
+
+--------------------------------------------------------------------------------
+TASK 8  [TODO]  Apply Time Format Setting (12h / 24h)
+--------------------------------------------------------------------------------
+What needs to be done:
+  - Part of TASK 6. The formatTime() utility must respect the timeFormat value.
+  - 12h → use 'hh:mm a'  (date-fns token)
+  - 24h → use 'HH:mm'
+  - The dashboard clock in frontend/src/app/page.tsx uses toLocaleTimeString()
+    and must be updated to use the new formatTime() with the saved setting.
+
+
+--------------------------------------------------------------------------------
+TASK 9  [TODO]  Apply Theme Setting (Light / Dark mode)
+--------------------------------------------------------------------------------
+What needs to be done:
+  - Install tailwindcss dark mode (class strategy — already supported if
+    tailwind.config.js has darkMode: 'class')
+  - On app load, read theme from general settings and add/remove the 'dark' class
+    on document.documentElement
+  - Create or extend frontend/src/context/SettingsContext.tsx:
+      * Fetch GET /api/settings/general on mount
+      * Apply document.documentElement.classList.toggle('dark', theme === 'dark')
+      * Re-apply whenever theme changes
+  - Update tailwind.config.js to confirm: darkMode: 'class'
+  - Add dark: variants to Tailwind classes in:
+      frontend/src/app/layout.tsx
+      frontend/src/components/Sidebar.tsx
+      Key pages: page.tsx, settings/*, employees/*, attendance/*
+  - Which files to update:
+      frontend/tailwind.config.js          (set darkMode: 'class' if not already)
+      frontend/src/context/SettingsContext.tsx   (NEW — reads & applies theme)
+      frontend/src/app/layout.tsx          (wrap with SettingsContext provider)
+      All component/page TSX files         (add dark: Tailwind variants)
+
+
+--------------------------------------------------------------------------------
+TASK 10  [TODO]  Apply Company Name Setting
+--------------------------------------------------------------------------------
+What needs to be done:
+  - Show the company name in:
+      * Browser tab title (update <title> in layout.tsx or generateMetadata)
+      * Login page header (frontend/src/app/login/page.tsx)
+      * Reports / export headers
+      * Settings page description text
+  - Read via the useGeneralSettings() hook (see TASK 6)
+  - Which files to update:
+      frontend/src/app/layout.tsx          (dynamic <title>)
+      frontend/src/app/login/page.tsx      (company logo/name area)
+      Any report or PDF export utilities
+
+
+--------------------------------------------------------------------------------
+TASK 11  [TODO]  Database Retention Cleanup Scheduler (Backend)
+--------------------------------------------------------------------------------
+What needs to be done:
+  - Create: backend/src/services/retentionCleanupService.ts
+      * On startup and on a daily cron (use node-cron: npm install node-cron @types/node-cron)
+      * Load dbRetentionMonths from general-settings.json
+      * If dbRetentionMonths === 0, skip (keep forever)
+      * Calculate cutoff date = now - dbRetentionMonths months
+      * Call accessRecordService to delete records older than cutoff
+      * Call attendance service to delete periods older than cutoff (optional)
+      * Log how many records were deleted
+  - Register the cron job in backend/src/server.ts during startServer()
+  - Which files to create/update:
+      backend/src/services/retentionCleanupService.ts   (NEW)
+      backend/src/server.ts                              (import and start scheduler)
+      backend/src/repositories/IAccessRepository.ts     (add deleteOlderThan method if missing)
+      backend/src/repositories/FileRepository.ts        (implement deleteOlderThan)
+      backend/src/repositories/SqlAccessRecordRepository.ts (implement deleteOlderThan)
+
+
+--------------------------------------------------------------------------------
+TASK 12  [TODO]  Frontend: SettingsContext — Global settings provider
+--------------------------------------------------------------------------------
+What needs to be done:
+  - Create: frontend/src/context/SettingsContext.tsx
+      * Fetches GET /api/settings/general on mount
+      * Exposes: companyName, language, timeZone, dateFormat, timeFormat, theme
+      * Re-fetches when the General Settings page saves (or use a refresh trigger)
+      * Applies document.documentElement.classList for dark mode (Task 9)
+  - Wrap the entire app in this provider:
+      Update frontend/src/app/layout.tsx to include <SettingsProvider>
+  - Export hook: useSettings() for consuming components
+
+
+--------------------------------------------------------------------------------
+TASK 13  [TODO]  Export general settings in system backup / import
+--------------------------------------------------------------------------------
+What needs to be done:
+  - The future "Export Settings" quick action on the Settings page should include
+    general-settings.json in the backup archive.
+  - The "Import Settings" should be able to restore it.
+  - Which files to update (when backup feature is built):
+      backend/src/routes/system.ts   (add general-settings.json to backup zip)
+
+
+================================================================================
+DEPENDENCY ORDER FOR IMPLEMENTATION
+================================================================================
+
+Recommended sequence for an AI agent:
+
+1.  TASK 11  — Backend retention scheduler (standalone, no frontend deps)
+2.  TASK 12  — Frontend SettingsContext provider (needed by tasks 5/6/9/10)
+3.  TASK 6+7+8 — formatDateTime utilities + hook (depends on SettingsContext)
+4.  TASK 10  — Company name display (depends on SettingsContext)
+5.  TASK 9   — Dark mode (depends on SettingsContext + Tailwind config)
+6.  TASK 5   — Language/i18n (largest task; depends on SettingsContext)
+7.  TASK 13  — Backup integration (do last, depends on backup feature)
+
+================================================================================
