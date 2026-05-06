@@ -201,7 +201,7 @@ export default function DashboardPage() {
       userID: mergedData.UserID || mergedData.userId || data.userId || event.deviceId || '',
       cardNo: mergedData.CardNo || mergedData.cardNumber || data.cardNumber || '',
       cardName: mergedData.CardName || mergedData.cardName || data.cardName || '',
-      method: mergedData.Method ?? mergedData.openMethod ?? mergedData.OpenMethod ?? data.openMethod ?? data.Method,
+      method: mergedData.Method ?? mergedData.openMethod ?? mergedData.OpenMethod ?? data.openMethod ?? data.Method ?? mergedData.eventType ?? data.eventType,
       similarity: mergedData.Similarity ?? mergedData.similarity ?? data.similarity,
       door: mergedData.Door ?? mergedData.door ?? data.door,
       status: mergedData.Status ?? data.Status ?? (data.isSuccess === true ? 'Success' : data.isSuccess === false ? 'Failed' : ''),
@@ -211,7 +211,7 @@ export default function DashboardPage() {
   };
 
   const getMethodName = (method?: number | string): string => {
-    if (!method && method !== 0) return 'Unknown';
+    if (!method && method !== 0) return '';
 
     // Handle string values (e.g., "Face", "Card", "Fingerprint", "FaceRecognition")
     if (typeof method === 'string') {
@@ -222,7 +222,8 @@ export default function DashboardPage() {
       if (lowerMethod.includes('pin')) return 'PIN';
       if (lowerMethod.includes('password')) return 'Password';
       if (lowerMethod.includes('qrcode') || lowerMethod.includes('qr')) return 'QR Code';
-      return method; // Return original string if not recognized
+      // Not a recognised auth method (e.g. "ChassisIntrusion") — hide it
+      return '';
     }
     
     // Handle numeric codes
@@ -276,6 +277,31 @@ export default function DashboardPage() {
     return data.userID || data.cardNo || 'N/A';
   };
 
+  const formatEventDate = (timestamp?: string): string => {
+    if (!timestamp) return '—';
+    const d = new Date(timestamp);
+    if (isNaN(d.getTime())) return '—';
+    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  };
+
+  const getDeviceInfo = (deviceId?: string): { name: string; ip: string } => {
+    const device = devices.find((d) => d.id === deviceId);
+    return { name: device?.name || '—', ip: device?.ipAddress || '—' };
+  };
+
+  const getEmployeeName = (event: AccessEvent): string => {
+    const data = getEventData(event);
+    // Only return a real name — not IDs or card numbers
+    return data.cardName || '—';
+  };
+
+  const getEventType = (event: AccessEvent, eventData: ReturnType<typeof getEventData>): string => {
+    if (eventData.isSuccess === true || eventData.status?.toLowerCase().includes('success') || eventData.status === '1') return 'Access Granted';
+    if (eventData.isSuccess === false || eventData.status?.toLowerCase().includes('fail') || eventData.status === '0') return 'Access Denied';
+    if (event.type) return event.type;
+    return 'Access Event';
+  };
+
   const loadDashboardData = async () => {
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -291,8 +317,18 @@ export default function DashboardPage() {
       }
 
       if (devicesRes.ok) {
-        const devicesData = await devicesRes.json();
-        setDevices(devicesData);
+        const raw = await devicesRes.json();
+        setDevices(
+          raw.map((d: any) => ({
+            // Events carry registrationId (e.g. "600I") as deviceId — match on that
+            id: d.registrationId || d.deviceID || d.deviceId || d.id || '',
+            name: d.name || '',
+            ipAddress: d.ip || d.ipAddress || '',
+            status: ((d.status || d.Status || 'offline') as string).toLowerCase() as 'online' | 'offline',
+            lastSeen: d.lastOnlineAt || d.lastSeen || '',
+            location: d.location || '',
+          }))
+        );
       }
       // No fallback to raw socketDevices — unrecognised devices must not appear
     } catch (error) {
@@ -458,102 +494,146 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Content Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-          {/* Recent Attendance - Live Access Events */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-gray-800">Live Access Events</h2>
+        {/* Events + Device Status — 2/3 + 1/3 */}
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
+
+          {/* Live Access Events — 2/3 */}
+          <div className="xl:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-xl">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-800">Live Access Events</h2>
+                <p className="text-xs text-gray-500 mt-0.5">Real-time access control feed</p>
+              </div>
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs text-gray-500">{accessEvents.length} events</span>
+                <span className="text-xs text-gray-500">{Math.min(accessEvents.length, 100)} events</span>
               </div>
             </div>
-            <div className="p-6">
-              {accessEvents.length > 0 ? (
-                <div className="space-y-4 max-h-96 overflow-y-auto">
-                  {accessEvents.slice(0, 10).map((event, index) => {
-                    const eventData = getEventData(event);
-                    return (
-                      <div key={event.id || index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full flex items-center justify-center text-white font-semibold">
-                            {getDisplayName(event).charAt(0).toUpperCase()}
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-800">{getDisplayName(event)}</p>
-                            <p className="text-sm text-gray-500">
-                              ID: {getDisplayId(event)} • {getMethodName(eventData.method)}
-                              {eventData.similarity && eventData.similarity > 0 && (
-                                <span className="ml-1">({eventData.similarity}%)</span>
-                              )}
+
+            {accessEvents.length > 0 ? (
+              /* Single table, sticky thead — columns always aligned */
+              <div className="overflow-auto flex-1" style={{ maxHeight: '290px' }}>
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-gray-50 border-b border-gray-200">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Device</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Event</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-40">Employee</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {accessEvents.slice(0, 100).map((event, index) => {
+                      const eventData = getEventData(event);
+                      const deviceInfo = getDeviceInfo(event.deviceId);
+                      const eventType = getEventType(event, eventData);
+                      const isGranted = eventType === 'Access Granted';
+                      const isDenied  = eventType === 'Access Denied';
+                      const employeeName = getEmployeeName(event);
+                      const hasEmployee = employeeName !== '—';
+                      return (
+                        <tr key={event.id || index} className="hover:bg-gray-50 transition-colors">
+
+                          {/* Date */}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <p className="text-sm font-medium text-gray-800">{formatEventDate(eventData.time)}</p>
+                            <p className="text-xs text-gray-400 mt-0.5">{formatEventTime(eventData.time)}</p>
+                          </td>
+
+                          {/* Device */}
+                          <td className="px-4 py-3">
+                            <p className="text-sm font-medium text-gray-800 truncate">{deviceInfo.name}</p>
+                            <p className="text-xs text-gray-400 font-mono mt-0.5">{deviceInfo.ip}</p>
+                          </td>
+
+                          {/* Event */}
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${
+                              isGranted ? 'bg-green-100 text-green-700' :
+                              isDenied  ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-600'
+                            }`}>
+                              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                                isGranted ? 'bg-green-500' : isDenied ? 'bg-red-500' : 'bg-gray-400'
+                              }`} />
+                              {eventType}
+                            </span>
+                            <p className="text-xs text-gray-400 mt-1 whitespace-nowrap">
+                              {[
+                                getMethodName(eventData.method),
+                                eventData.similarity && eventData.similarity > 0 ? `${eventData.similarity}%` : ''
+                              ].filter(Boolean).join(' · ')}
                             </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-medium text-gray-800">{formatEventTime(eventData.time)}</p>
-                          <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(eventData.status, eventData.isSuccess)}`}>
-                            {eventData.isSuccess || eventData.status?.toLowerCase().includes('success') || eventData.status === '1' ? (
-                              <>
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Success
-                              </>
+                          </td>
+
+                          {/* Employee */}
+                          <td className="px-4 py-3">
+                            {hasEmployee ? (
+                              <div className="flex items-center gap-2">
+                                <div className={`w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0 ${
+                                  isGranted ? 'bg-gradient-to-br from-green-500 to-teal-500' :
+                                  isDenied  ? 'bg-gradient-to-br from-red-500 to-rose-500' :
+                                  'bg-gradient-to-br from-blue-500 to-cyan-500'
+                                }`}>
+                                  {employeeName.charAt(0).toUpperCase()}
+                                </div>
+                                <span className="text-sm font-medium text-gray-800 truncate">{employeeName}</span>
+                              </div>
                             ) : (
-                              <>
-                                <XCircle className="h-3 w-3 mr-1" />
-                                Failed
-                              </>
+                              <span className="text-sm text-gray-400">&mdash;</span>
                             )}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" className="w-12 h-12 mx-auto mb-3 text-gray-400" />
-                  <p>No access events yet</p>
-                  <p className="text-sm mt-1">Events will appear here in real-time</p>
-                </div>
-              )}
-            </div>
+                          </td>
+
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="text-center py-12 text-gray-500 flex-1 flex flex-col items-center justify-center">
+                <Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <p className="font-medium">No access events yet</p>
+                <p className="text-sm mt-1">Events will appear here in real-time</p>
+              </div>
+            )}
           </div>
 
-          {/* Device Status */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100">
-            <div className="px-6 py-4 border-b border-gray-200">
+          {/* Device Status — 1/3 */}
+          <div className="xl:col-span-1 bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col">
+            <div className="px-5 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-slate-50 to-gray-100 rounded-t-xl">
               <h2 className="text-lg font-semibold text-gray-800">Device Status</h2>
+              <span className="text-xs text-gray-500">{devices.length} device{devices.length !== 1 ? 's' : ''}</span>
             </div>
-            <div className="p-6">
+            <div className="px-5 py-4 flex-1">
               {devices.length > 0 ? (
-                <div className="space-y-4">
+                <div className="space-y-2">
                   {devices.map((device) => (
-                    <div key={device.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${
-                          device.status === 'online' ? 'bg-green-500' : 'bg-red-500'
-                        }`}></div>
-                        <div>
-                          <p className="font-medium text-gray-800">{device.name}</p>
-                          <p className="text-sm text-gray-500">{device.ipAddress}</p>
-                        </div>
+                    <div key={device.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                        device.status === 'online' ? 'bg-green-500' : 'bg-red-500'
+                      }`} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-800 truncate">{device.name}</p>
+                        <p className="text-xs text-gray-400 font-mono">{device.ipAddress}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm text-gray-600">{device.location}</p>
-                        <p className="text-xs text-gray-500">Last seen: {device.lastSeen}</p>
-                      </div>
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full flex-shrink-0 ${
+                        device.status === 'online' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                      }`}>
+                        {device.status === 'online' ? 'Online' : 'Offline'}
+                      </span>
                     </div>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Icon path="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" className="w-12 h-12 mx-auto mb-3 text-gray-400" />
+                <div className="text-center py-8 text-gray-500 h-full flex flex-col items-center justify-center">
+                  <Icon path="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" className="w-12 h-12 mx-auto mb-3 text-gray-300" />
                   <p>No devices configured</p>
                 </div>
               )}
             </div>
           </div>
+
         </div>
         {/* Quick Actions */}
         <div className="mt-8">
