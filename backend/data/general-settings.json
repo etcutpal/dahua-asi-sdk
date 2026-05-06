@@ -2,7 +2,7 @@
   "companyName": "Test Comapny",
   "language": "en",
   "timeZone": "Asia/Dhaka",
-  "dateFormat": "DD.MM.YYYY",
+  "dateFormat": "MMMM D, YYYY",
   "timeFormat": "12h",
   "theme": "light",
   "dbRetentionMonths": 6

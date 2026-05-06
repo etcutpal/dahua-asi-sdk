@@ -152,11 +152,15 @@ class AttendanceReportService {
 
     // Group swipes by userId+date → sorted list of HH:MM strings
     const swipeMap = new Map<string, string[]>(); // key: "userId|YYYY-MM-DD"
+    const pad2 = (n: number) => String(n).padStart(2, '0');
     for (const rec of allSwipes as AccessRecord[]) {
-      const d = rec.swipeTime?.slice(0, 10);
-      if (!d || d < startDate || d > endDate) continue;
-      const hhmm = rec.swipeTime?.slice(11, 16);
-      if (!hhmm) continue;
+      if (!rec.swipeTime) continue;
+      // Parse properly so "Z" (UTC) is respected; getHours/getMinutes return server-local time
+      const dt = new Date(rec.swipeTime);
+      if (isNaN(dt.getTime())) continue;
+      const d = `${dt.getFullYear()}-${pad2(dt.getMonth() + 1)}-${pad2(dt.getDate())}`;
+      if (d < startDate || d > endDate) continue;
+      const hhmm = `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
       const key = `${rec.userID}|${d}`;
       if (!swipeMap.has(key)) swipeMap.set(key, []);
       swipeMap.get(key)!.push(hhmm);

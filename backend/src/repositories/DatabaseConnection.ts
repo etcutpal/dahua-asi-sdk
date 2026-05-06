@@ -274,7 +274,7 @@ export class DatabaseConnection {
           const pool = new mssql.ConnectionPool({
             server: cfg.host, port: cfg.port, database: cfg.database,
             user: cfg.user, password: cfg.password,
-            options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true },
+            options: { encrypt: cfg.useSSL ?? false, trustServerCertificate: true, useUTC: false },
           });
           await pool.connect();
           logger.info('[DB] \u2705 SQL Server connected');
