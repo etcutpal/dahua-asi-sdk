@@ -4,6 +4,7 @@ import './globals.css';
 import { SocketProvider } from '@/context/SocketContext';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ConfigProvider } from '@/context/ConfigContext';
+import { SettingsProvider } from '@/context/SettingsContext';
 import DbStatusBanner from '@/components/DbStatusBanner';
 
 const inter = Inter({ subsets: ['latin'] });
@@ -20,13 +21,15 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={inter.className}>
+      <body className={`${inter.className} bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100`}>
         <AuthProvider>
           <ConfigProvider>
-            <DbStatusBanner />
-            <SocketProvider>
-              {children}
-            </SocketProvider>
+            <SettingsProvider>
+              <DbStatusBanner />
+              <SocketProvider>
+                {children}
+              </SocketProvider>
+            </SettingsProvider>
           </ConfigProvider>
         </AuthProvider>
       </body>

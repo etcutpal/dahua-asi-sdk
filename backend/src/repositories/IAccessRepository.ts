@@ -64,6 +64,13 @@ export abstract class IAccessRepository implements IAccessRepo {
   abstract clearRecords(): Promise<void>;
 
   /**
+   * Delete access records older than the given cutoff date.
+   * Returns the number of records deleted.
+   * Used by the retention cleanup service.
+   */
+  abstract deleteOlderThan(cutoff: Date): Promise<number>;
+
+  /**
    * Migrate all access records from oldRegistrationId to newRegistrationId.
    * Called when a device's Registration ID is changed (e.g. broken device replaced).
    * Returns the number of records migrated.

@@ -2,28 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Dark mode — controlled by .dark class on <html> (set by SettingsContext) */
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 17, 24, 39;
+  --background-rgb: 249, 250, 251;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+.dark {
+  --foreground-rgb: 243, 244, 246;
+  --background-rgb: 3, 7, 18;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background-color: rgb(var(--background-rgb));
 }
 
 @layer components {

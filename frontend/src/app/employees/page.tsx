@@ -1792,7 +1792,7 @@ export default function EmployeesPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading employees...</p>
@@ -1802,7 +1802,7 @@ export default function EmployeesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       {/* Success Message */}
       {successMessage && (
         <div className="fixed top-4 right-4 z-50 px-6 py-3 bg-green-50 border border-green-200 rounded-lg shadow-lg flex items-center gap-2">
@@ -2264,7 +2264,7 @@ export default function EmployeesPage() {
       {/* Import Status Modal */}
       {showImportModal && importStatus && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-[600px] max-h-[80vh] overflow-hidden flex flex-col">
             {/* Header */}
             <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
               <h3 className="text-lg font-semibold text-gray-800">Import Results</h3>
@@ -2323,7 +2323,7 @@ export default function EmployeesPage() {
       {/* Import from Device Modal */}
       {showImportFromDeviceModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg flex flex-col"
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg flex flex-col"
             style={{ width: importStep === 'select' ? 640 : 500, maxHeight: '90vh' }}>
 
             {/* Header */}
@@ -2657,7 +2657,7 @@ export default function EmployeesPage() {
       {/* Add Group Modal */}
       {showAddGroupModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-96 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-96 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Person Group</h3>
 
             <div className="space-y-4">
@@ -2704,7 +2704,7 @@ export default function EmployeesPage() {
       {/* Move to Group Modal */}
       {showMoveToModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-96 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-96 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Move to Group</h3>
             <p className="text-sm text-gray-600 mb-4">
               Move {selectedEmployees.size} selected employee(s) to:
@@ -2741,7 +2741,7 @@ export default function EmployeesPage() {
       {/* Send to Device Modal */}
       {showSendToDeviceModal && sendToDeviceEmployee && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-md p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-full max-w-md p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-5">
               <div className="flex items-center gap-3">
@@ -2841,7 +2841,7 @@ export default function EmployeesPage() {
       {/* Delete Confirmation Modal */}
       {deleteConfirmId && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-96 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-96 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                 <Icon className="w-5 h-5 text-red-600" path="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -2872,7 +2872,7 @@ export default function EmployeesPage() {
       {/* Bulk Delete Confirmation Modal */}
       {showBulkDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-96 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-96 p-6">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
                 <Icon className="w-5 h-5 text-red-600" path="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -2918,7 +2918,7 @@ export default function EmployeesPage() {
       {/* Employee Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
             {/* Modal Header */}
             <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-base font-semibold text-gray-900">
@@ -3029,7 +3029,7 @@ export default function EmployeesPage() {
 
                 {/* Authentication Methods */}
                 <div>
-                  <h4 className="text-base font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200">Authentication Methods</h4>
+                  <h4 className="text-base font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-200 dark:border-gray-700">Authentication Methods</h4>
 
                   <div className="space-y-6">
                     {/* Face Picture and Fingerprints - Side by Side */}

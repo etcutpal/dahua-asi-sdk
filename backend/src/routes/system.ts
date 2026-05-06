@@ -144,4 +144,10 @@ router.get('/network-interfaces', (req: Request, res: Response) => {
   res.json(result);
 });
 
+// POST /api/system/backup — TODO (Task 13): Export all data as a downloadable ZIP
+// When implemented, this will zip backend/data/*.json and return it as a download.
+router.post('/backup', (_req: Request, res: Response) => {
+  res.status(501).json({ success: false, error: 'Backup not yet implemented. Please export records from the Access Records and Attendance pages for now.' });
+});
+
 export default router;

@@ -27,6 +27,7 @@ import DatabaseConnection from './repositories/DatabaseConnection';
 import settingsRouter from './routes/settings';
 import scannerRouter from './routes/scanner';
 import syncQueueService from './services/syncQueue.service';
+import retentionCleanupService from './services/retentionCleanupService';
 import RepositoryFactory from './repositories/RepositoryFactory';
 import deviceCache from './services/deviceCache';
 import attendanceReportService from './services/attendanceReportService';
@@ -415,6 +416,9 @@ async function startServer() {
 
     // Initialize Sync Queue Service
     await syncQueueService.initialize();
+
+    // ── Data Retention Cleanup Scheduler ─────────────────────────────────────
+    retentionCleanupService.start();
 
     // Broadcast sync-queue updates to all connected clients
     syncQueueService.on('queue:updated', (summary: any) => {

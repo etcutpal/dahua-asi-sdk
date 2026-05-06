@@ -7,6 +7,8 @@ import { useSocket } from '@/context/SocketContext';
 import { useRouter } from 'next/navigation';
 import { CheckCircle, XCircle } from 'lucide-react';
 import Sidebar from '@/components/Sidebar';
+import { useSettings } from '@/context/SettingsContext';
+import { formatDate, formatTime } from '@/lib/formatDateTime';
 
 const Icon = ({ path, className = "w-5 h-5" }: { path: string; className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -72,6 +74,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { isAuthenticated, logout } = useAuth();
   const { socket, devices: socketDevices } = useSocket();
+  const { settings } = useSettings();
   const [isPending, startTransition] = useTransition();
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [summary, setSummary] = useState<DashboardSummary>({
@@ -262,9 +265,8 @@ export default function DashboardPage() {
 
   const formatEventTime = (timestamp?: string): string => {
     if (!timestamp) return 'Just now';
-    const date = new Date(timestamp);
-    if (isNaN(date.getTime())) return 'Just now';
-    return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    const result = formatTime(timestamp, settings.timeFormat, settings.timeZone);
+    return result === '—' ? 'Just now' : result;
   };
 
   const getDisplayName = (event: AccessEvent): string => {
@@ -278,10 +280,7 @@ export default function DashboardPage() {
   };
 
   const formatEventDate = (timestamp?: string): string => {
-    if (!timestamp) return '—';
-    const d = new Date(timestamp);
-    if (isNaN(d.getTime())) return '—';
-    return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return formatDate(timestamp, settings.dateFormat, settings.timeZone);
   };
 
   const getDeviceInfo = (deviceId?: string): { name: string; ip: string } => {
@@ -339,7 +338,7 @@ export default function DashboardPage() {
   // Show loading only on initial load, not on navigation transitions
   if (isInitialLoading && isPending) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading Dashboard...</p>
@@ -349,7 +348,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/" onLogout={logout} />
 
       {/* Main Content */}
@@ -363,10 +362,10 @@ export default function DashboardPage() {
             </div>
             <div className="text-right">
               <div className="text-lg lg:text-2xl font-bold text-gray-800">
-                {currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                {formatTime(currentTime.toISOString(), settings.timeFormat, settings.timeZone)}
               </div>
               <div className="text-gray-500 text-xs lg:text-sm">
-                {currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                {currentTime.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: settings.timeZone })}
               </div>
             </div>
           </div>
@@ -515,7 +514,7 @@ export default function DashboardPage() {
               <div className="overflow-auto flex-1" style={{ maxHeight: '290px' }}>
                 <table className="w-full border-collapse">
                   <thead className="sticky top-0 z-10">
-                    <tr className="bg-gray-50 border-b border-gray-200">
+                    <tr className="bg-gray-50 dark:bg-gray-700/60 border-b border-gray-200 dark:border-gray-700">
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Date</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider w-36">Device</th>
                       <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Event</th>
@@ -640,7 +639,7 @@ export default function DashboardPage() {
           <h2 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Manual Check In */}
-            <Link href="/access-control" className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-blue-200 transition-all group">
+            <Link href="/access-control" className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-blue-200 transition-all group">
               <div className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 bg-green-50 rounded-lg flex items-center justify-center mb-3 group-hover:bg-green-100 transition-colors">
                   <Icon path="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" className="w-6 h-6 text-green-600" />
@@ -651,7 +650,7 @@ export default function DashboardPage() {
             </Link>
 
             {/* Manual Check Out */}
-            <Link href="/access-control" className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-orange-200 transition-all group">
+            <Link href="/access-control" className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-orange-200 transition-all group">
               <div className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 bg-orange-50 rounded-lg flex items-center justify-center mb-3 group-hover:bg-orange-100 transition-colors">
                   <Icon path="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" className="w-6 h-6 text-orange-600" />
@@ -662,7 +661,7 @@ export default function DashboardPage() {
             </Link>
 
             {/* Add New Employee */}
-            <Link href="/employees" className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-purple-200 transition-all group">
+            <Link href="/employees" className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-purple-200 transition-all group">
               <div className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 bg-purple-50 rounded-lg flex items-center justify-center mb-3 group-hover:bg-purple-100 transition-colors">
                   <Icon path="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" className="w-6 h-6 text-purple-600" />
@@ -673,7 +672,7 @@ export default function DashboardPage() {
             </Link>
 
             {/* Device Card */}
-            <Link href="/devices" className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-blue-200 transition-all group">
+            <Link href="/devices" className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md hover:border-blue-200 transition-all group">
               <div className="flex flex-col items-center text-center">
                 <div className="w-12 h-12 bg-blue-50 rounded-lg flex items-center justify-center mb-3 group-hover:bg-blue-100 transition-colors">
                   <Icon path="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" className="w-6 h-6 text-blue-600" />

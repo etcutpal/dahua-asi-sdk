@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSettings } from '@/context/SettingsContext';
 
 const Icon = ({ path, className = "w-5 h-5" }: { path: string; className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -14,6 +15,7 @@ const Icon = ({ path, className = "w-5 h-5" }: { path: string; className?: strin
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
+  const { settings } = useSettings();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -79,7 +81,7 @@ export default function LoginPage() {
                 <Icon path="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" className="w-6 h-6 text-blue-600" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">AccessPro</h1>
+                <h1 className="text-2xl font-bold text-white">{settings.companyName || 'AccessPro'}</h1>
                 <p className="text-blue-100 text-sm">Access Control System</p>
               </div>
             </div>
@@ -176,7 +178,7 @@ export default function LoginPage() {
             </form>
 
             {/* Demo Login Button */}
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-700">
               <p className="text-center text-sm text-gray-600 mb-3">
                 Don't have credentials?
               </p>
@@ -192,7 +194,7 @@ export default function LoginPage() {
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 px-8 py-4 border-t border-gray-200">
+          <div className="bg-gray-50 px-8 py-4 border-t border-gray-200 dark:border-gray-700">
             <p className="text-center text-xs text-gray-600">
               © 2026 AccessPro. All rights reserved.
             </p>

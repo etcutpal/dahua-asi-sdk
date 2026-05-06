@@ -171,7 +171,7 @@ export default function SyncStatusPage() {
   const successCount = jobs.filter(j => j.status === 'success').length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/access-control" onLogout={logout} />
 
       <div className="lg:ml-64 pt-16 lg:pt-0">
@@ -205,7 +205,7 @@ export default function SyncStatusPage() {
               {[
                 { label: 'Pending',  value: summary.pending,        color: 'text-amber-600',  bg: 'bg-amber-50',  border: 'border-amber-100' },
                 { label: 'Sending',  value: summary.sending,        color: 'text-blue-600',   bg: 'bg-blue-50',   border: 'border-blue-100'  },
-                { label: 'Offline',  value: summary.queued_offline, color: 'text-gray-600',   bg: 'bg-gray-50',   border: 'border-gray-200'  },
+                { label: 'Offline',  value: summary.queued_offline, color: 'text-gray-600',   bg: 'bg-gray-50',   border: 'border-gray-200 dark:border-gray-700'  },
                 { label: 'Success',  value: summary.success,        color: 'text-green-600',  bg: 'bg-green-50',  border: 'border-green-100' },
                 { label: 'Failed',   value: summary.failed,         color: 'text-red-600',    bg: 'bg-red-50',    border: 'border-red-100'   },
               ].map(({ label, value, color, bg, border }) => (
@@ -263,7 +263,7 @@ export default function SyncStatusPage() {
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="text-left text-xs text-gray-500 font-semibold uppercase tracking-wide bg-gray-50 border-b border-gray-200">
+                    <tr className="text-left text-xs text-gray-500 font-semibold uppercase tracking-wide bg-gray-50 border-b border-gray-200 dark:border-gray-700">
                       <th className="px-4 py-3">Person</th>
                       <th className="px-4 py-3">Device</th>
                       <th className="px-4 py-3">Rule</th>

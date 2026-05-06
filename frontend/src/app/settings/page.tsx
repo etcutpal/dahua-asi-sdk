@@ -27,7 +27,7 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading Settings...</p>
@@ -102,7 +102,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/settings" onLogout={logout} />
 
       {/* Main Content - overflow-visible to allow sidebar dropdown to show */}
@@ -160,7 +160,7 @@ export default function SettingsPage() {
         </div>
 
         {/* Quick Actions */}
-        <div className="mt-12 pt-8 border-t border-gray-200">
+        <div className="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <button className="px-4 py-3 bg-white border border-gray-200 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">

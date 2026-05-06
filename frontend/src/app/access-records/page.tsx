@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from '@/components/Sidebar';
+import { useSettings } from '@/context/SettingsContext';
+import { formatDate as fmtDate, formatTime as fmtTime, formatDateTime as fmtDateTime } from '@/lib/formatDateTime';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -271,17 +273,10 @@ export default function AccessRecordsPage() {
     setPage(newPage);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-  };
+  const { settings } = useSettings();
+
+  const formatDate = (dateString: string) =>
+    fmtDateTime(dateString, settings.dateFormat, settings.timeFormat, settings.timeZone);
 
   const getStatusBadge = (status: 'Success' | 'Failed') => {
     if (status === 'Success') {
@@ -366,23 +361,20 @@ export default function AccessRecordsPage() {
     return   { label: '—',     icon: Monitor, color: 'text-gray-400',   bg: 'bg-gray-100 text-gray-500' };
   };
 
-  const formatDateTime = (dateString: string) => {
-    const d = new Date(dateString);
-    return {
-      date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      time: d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }),
-    };
-  };
+  const formatDateTime = (dateString: string) => ({
+    date: fmtDate(dateString, settings.dateFormat, settings.timeZone),
+    time: fmtTime(dateString, settings.timeFormat, settings.timeZone),
+  });
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       {/* Sidebar */}
       <Sidebar currentPath="/access-records" onLogout={() => { logout(); router.push('/login'); }} />
 
       {/* Auto-fetch notification toast */}
       {autoFetchNotif && (
         <div className="fixed top-4 right-4 z-50 max-w-sm w-full animate-in slide-in-from-top-2">
-          <div className="bg-white border border-green-200 rounded-xl shadow-lg p-4 flex items-start gap-3">
+          <div className="bg-white dark:bg-gray-800 border border-green-200 rounded-xl shadow-lg p-4 flex items-start gap-3">
             <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mt-0.5">
               <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

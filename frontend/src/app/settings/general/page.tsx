@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import Link from 'next/link';
+import { useSettings } from '@/context/SettingsContext';
 
 const Icon = ({ path, className = 'w-5 h-5' }: { path: string; className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -19,7 +20,6 @@ interface GeneralSettings {
   dateFormat: string;
   timeFormat: '12h' | '24h';
   theme: 'light' | 'dark';
-  dbRetentionMonths: number;
 }
 
 const DEFAULTS: GeneralSettings = {
@@ -29,7 +29,6 @@ const DEFAULTS: GeneralSettings = {
   dateFormat: 'DD/MM/YYYY',
   timeFormat: '12h',
   theme: 'light',
-  dbRetentionMonths: 6,
 };
 
 const LANGUAGES = [
@@ -92,19 +91,10 @@ const DATE_FORMATS = [
   { value: 'MMMM D, YYYY', label: 'MMMM D, YYYY  (December 31, 2025)' },
 ];
 
-const DB_RETENTION_OPTIONS = [
-  { value: 1,  label: '1 Month' },
-  { value: 3,  label: '3 Months' },
-  { value: 6,  label: '6 Months (Default)' },
-  { value: 12, label: '1 Year' },
-  { value: 24, label: '2 Years' },
-  { value: 36, label: '3 Years' },
-  { value: 0,  label: 'Keep Forever' },
-];
-
 export default function GeneralSettingsPage() {
   const router = useRouter();
   const { isAuthenticated, logout } = useAuth();
+  const { refresh: refreshGlobalSettings } = useSettings();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [settings, setSettings] = useState<GeneralSettings>(DEFAULTS);
@@ -147,6 +137,7 @@ export default function GeneralSettingsPage() {
       const data = await res.json();
       if (res.ok && data.success) {
         setSettings({ ...DEFAULTS, ...data.settings });
+        refreshGlobalSettings(); // push changes to SettingsContext app-wide
         showAlert('success', 'General settings saved successfully.');
       } else {
         showAlert('error', data.error || 'Failed to save settings.');
@@ -167,7 +158,7 @@ export default function GeneralSettingsPage() {
   const h2c = 'text-lg font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-200 flex items-center gap-2';
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto" />
         <p className="mt-4 text-gray-600">Loading...</p>
@@ -176,7 +167,7 @@ export default function GeneralSettingsPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/settings/general" onLogout={logout} />
 
       <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
@@ -197,7 +188,7 @@ export default function GeneralSettingsPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/settings" className="hover:text-blue-600 transition-colors">Settings</Link>
             <span>›</span>
-            <span className="text-gray-900 font-medium">General Settings</span>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">General Settings</span>
           </div>
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">General Settings</h1>
           <p className="text-gray-600 mt-1 text-sm lg:text-base">Configure company details, regional preferences, and application behaviour</p>
@@ -340,32 +331,6 @@ export default function GeneralSettingsPage() {
                 ))}
               </div>
               <p className="text-xs text-gray-500 mt-2">Dark theme support is being rolled out progressively.</p>
-            </div>
-          </div>
-
-          {/* ── Data Retention ──────────────────────────────────────────── */}
-          <div className={sec}>
-            <h2 className={h2c}>
-              <Icon path="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" />
-              Data Retention
-            </h2>
-            <div className="max-w-sm">
-              <label className={lbl}>Database Save Time</label>
-              <select
-                className={inp}
-                value={settings.dbRetentionMonths}
-                onChange={(e) => set('dbRetentionMonths', parseInt(e.target.value))}
-              >
-                {DB_RETENTION_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-500 mt-1">
-                Access records and attendance logs older than this period will be eligible for automatic cleanup.
-              </p>
-            </div>
-            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800 max-w-lg">
-              <strong>Note:</strong> Automatic cleanup runs on a scheduled task. Existing data beyond this period will not be deleted immediately after saving — it will be removed at the next scheduled cleanup cycle.
             </div>
           </div>
 

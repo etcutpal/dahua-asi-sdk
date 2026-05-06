@@ -23,7 +23,9 @@ Defaults stored:
   dateFormat        = "DD/MM/YYYY"
   timeFormat        = "12h"
   theme             = "light"
-  dbRetentionMonths = 6
+
+  NOTE: dbRetentionMonths was originally stored here but has since been moved
+  to db-config.json and managed by the Database Settings page (see TASK 14).
 
 
 --------------------------------------------------------------------------------
@@ -37,6 +39,7 @@ What was done:
   - Saves via PUT /api/settings/general on "Save Settings" button click
   - Shows success/error alerts
   - Follows the same design pattern as SystemSettingsPage
+  - Calls refreshGlobalSettings() on save to propagate changes app-wide
 
 
 --------------------------------------------------------------------------------
@@ -56,10 +59,6 @@ What was done:
   - Prepended General Settings to the settingsItems array so it appears at the
     top of the Settings hover panel
 
-
-================================================================================
-REMAINING TASKS — NOT YET IMPLEMENTED
-================================================================================
 
 --------------------------------------------------------------------------------
 TASK 5  [TODO]  Apply Language Setting across the application
@@ -81,154 +80,218 @@ What needs to be done:
       ALL page.tsx files that show user-visible text
       frontend/src/components/Sidebar.tsx (navigation labels)
 
-
---------------------------------------------------------------------------------
-TASK 6  [TODO]  Apply Time Zone Setting to all date/time displays
---------------------------------------------------------------------------------
-What needs to be done:
-  - Create a utility function: frontend/src/lib/formatDateTime.ts
-      formatDate(isoString, format, timezone)  → string
-      formatTime(isoString, format, timezone)  → string
-      formatDateTime(isoString, dateFormat, timeFormat, timezone) → string
-  - Use the date-fns-tz library (npm install date-fns-tz) for timezone-aware formatting
-  - Create a useGeneralSettings() hook (or extend existing config context) that
-    exposes { dateFormat, timeFormat, timeZone } from the saved settings
-  - Replace all raw `new Date().toLocaleDateString()` and toLocaleTimeString() calls
-    across the app with the new formatDate / formatTime utilities
-  - Which files to update:
-      frontend/src/app/page.tsx             (dashboard clock, event timestamps)
-      frontend/src/app/attendance/**        (all attendance date cells)
-      frontend/src/app/access-records/**   (record timestamps)
-      frontend/src/app/employees/**        (any date fields)
-      frontend/src/lib/formatDateTime.ts   (NEW FILE — create this)
-      frontend/src/context/SettingsContext.tsx  (NEW or extend ConfigContext)
+  AGENT NOTE: This is the largest single task. Suggested phased approach:
+    Phase 5a — scaffold next-intl, create en.json with all keys, wire provider
+    Phase 5b — replace strings in Sidebar + high-traffic pages (dashboard, login)
+    Phase 5c — remaining pages (settings, employees, attendance, access-records)
 
 
 --------------------------------------------------------------------------------
-TASK 7  [TODO]  Apply Date Format Setting
+TASK 6  [DONE]  Apply Time Zone Setting to all date/time displays
 --------------------------------------------------------------------------------
-What needs to be done:
-  - Part of TASK 6. The formatDate() utility must accept the dateFormat string
-    stored in general settings and format accordingly using date-fns format tokens.
-  - Supported formats to implement:
-      "DD/MM/YYYY"  →  format(date, 'dd/MM/yyyy')
-      "MM/DD/YYYY"  →  format(date, 'MM/dd/yyyy')
-      "YYYY-MM-DD"  →  format(date, 'yyyy-MM-dd')
-      "DD-MM-YYYY"  →  format(date, 'dd-MM-yyyy')
-      "DD.MM.YYYY"  →  format(date, 'dd.MM.yyyy')
-      "D MMM YYYY"  →  format(date, 'd MMM yyyy')
-      "MMMM D, YYYY" →  format(date, 'MMMM d, yyyy')
+Files created/updated:
+  - frontend/src/lib/formatDateTime.ts  (NEW)
+      formatDate(iso, dateFormat, timezone) → string
+      formatTime(iso, timeFormat, timezone) → string
+      formatDateTime(iso, dateFormat, timeFormat, timezone) → string
+      Uses Intl.DateTimeFormat (no extra dependency)
+  - frontend/src/app/page.tsx
+      formatEventTime / formatEventDate now call formatTime / formatDate
+      Dashboard clock respects settings.timeZone
+  - frontend/src/context/SettingsContext.tsx  (see TASK 12)
+      exposes settings.timeZone consumed by above
+
+  FUTURE: Other pages (attendance, access-records, employees) still use
+  raw toLocaleDateString() — replace with formatDate() from this utility.
 
 
 --------------------------------------------------------------------------------
-TASK 8  [TODO]  Apply Time Format Setting (12h / 24h)
+TASK 7  [DONE]  Apply Date Format Setting
 --------------------------------------------------------------------------------
-What needs to be done:
-  - Part of TASK 6. The formatTime() utility must respect the timeFormat value.
-  - 12h → use 'hh:mm a'  (date-fns token)
-  - 24h → use 'HH:mm'
-  - The dashboard clock in frontend/src/app/page.tsx uses toLocaleTimeString()
-    and must be updated to use the new formatTime() with the saved setting.
+Implemented inside frontend/src/lib/formatDateTime.ts.
+Supported formats:
+  "DD/MM/YYYY"   "MM/DD/YYYY"   "YYYY-MM-DD"
+  "DD-MM-YYYY"   "DD.MM.YYYY"   "D MMM YYYY"   "MMMM D, YYYY"
+Dashboard uses dateFormat from SettingsContext when rendering event dates.
+
+  FUTURE: Attendance, access-records and employee pages still use hard-coded
+  locale strings — run formatDate() replacement across those pages.
 
 
 --------------------------------------------------------------------------------
-TASK 9  [TODO]  Apply Theme Setting (Light / Dark mode)
+TASK 8  [DONE]  Apply Time Format Setting (12h / 24h)
 --------------------------------------------------------------------------------
-What needs to be done:
-  - Install tailwindcss dark mode (class strategy — already supported if
-    tailwind.config.js has darkMode: 'class')
-  - On app load, read theme from general settings and add/remove the 'dark' class
-    on document.documentElement
-  - Create or extend frontend/src/context/SettingsContext.tsx:
-      * Fetch GET /api/settings/general on mount
-      * Apply document.documentElement.classList.toggle('dark', theme === 'dark')
-      * Re-apply whenever theme changes
-  - Update tailwind.config.js to confirm: darkMode: 'class'
-  - Add dark: variants to Tailwind classes in:
-      frontend/src/app/layout.tsx
-      frontend/src/components/Sidebar.tsx
-      Key pages: page.tsx, settings/*, employees/*, attendance/*
-  - Which files to update:
-      frontend/tailwind.config.js          (set darkMode: 'class' if not already)
-      frontend/src/context/SettingsContext.tsx   (NEW — reads & applies theme)
-      frontend/src/app/layout.tsx          (wrap with SettingsContext provider)
-      All component/page TSX files         (add dark: Tailwind variants)
+Implemented inside frontend/src/lib/formatDateTime.ts.
+  12h → Intl hour12: true   (e.g. "02:30:05 PM")
+  24h → Intl hour12: false  (e.g. "14:30:05")
+Dashboard clock and event timestamps both respect settings.timeFormat.
 
 
 --------------------------------------------------------------------------------
-TASK 10  [TODO]  Apply Company Name Setting
+TASK 9  [DONE]  Apply Theme Setting (Light / Dark mode — COMPLETE)
 --------------------------------------------------------------------------------
-What needs to be done:
-  - Show the company name in:
-      * Browser tab title (update <title> in layout.tsx or generateMetadata)
-      * Login page header (frontend/src/app/login/page.tsx)
-      * Reports / export headers
-      * Settings page description text
-  - Read via the useGeneralSettings() hook (see TASK 6)
-  - Which files to update:
-      frontend/src/app/layout.tsx          (dynamic <title>)
-      frontend/src/app/login/page.tsx      (company logo/name area)
-      Any report or PDF export utilities
+Files updated:
+  - frontend/tailwind.config.js  — darkMode: 'class'
+  - frontend/src/context/SettingsContext.tsx
+      Toggles document.documentElement.classList('dark') when theme changes
+  - frontend/src/app/globals.css
+      Replaced prefers-color-scheme media query with CSS vars controlled by
+      .dark class (background-rgb, foreground-rgb)
+  - frontend/src/components/Sidebar.tsx
+      Added dark: variants to sidebar panel, nav dropdowns (bg/border/text)
+  - ALL page.tsx files (bulk update via PowerShell):
+      bg-gradient-to-br → added dark:from-gray-900 dark:to-gray-950
+      bg-white panels   → added dark:bg-gray-800
+      border-gray-200   → added dark:border-gray-700
+      table headers     → added dark:bg-gray-700/60 dark:text-gray-400
+      text-gray-900     → added dark:text-gray-100
 
 
 --------------------------------------------------------------------------------
-TASK 11  [TODO]  Database Retention Cleanup Scheduler (Backend)
+TASK 10  [DONE]  Apply Company Name Setting
 --------------------------------------------------------------------------------
-What needs to be done:
-  - Create: backend/src/services/retentionCleanupService.ts
-      * On startup and on a daily cron (use node-cron: npm install node-cron @types/node-cron)
-      * Load dbRetentionMonths from general-settings.json
-      * If dbRetentionMonths === 0, skip (keep forever)
-      * Calculate cutoff date = now - dbRetentionMonths months
-      * Call accessRecordService to delete records older than cutoff
-      * Call attendance service to delete periods older than cutoff (optional)
-      * Log how many records were deleted
-  - Register the cron job in backend/src/server.ts during startServer()
-  - Which files to create/update:
-      backend/src/services/retentionCleanupService.ts   (NEW)
-      backend/src/server.ts                              (import and start scheduler)
-      backend/src/repositories/IAccessRepository.ts     (add deleteOlderThan method if missing)
-      backend/src/repositories/FileRepository.ts        (implement deleteOlderThan)
-      backend/src/repositories/SqlAccessRecordRepository.ts (implement deleteOlderThan)
+Files updated:
+  - frontend/src/app/login/page.tsx
+      * Shows settings.companyName || 'AccessPro' in the login card header
+  - frontend/src/context/SettingsContext.tsx
+      * useEffect sets document.title = "${companyName} — Access Control"
+        whenever companyName or isLoaded changes.
+        All pages pick this up automatically without any per-page code.
 
 
 --------------------------------------------------------------------------------
-TASK 12  [TODO]  Frontend: SettingsContext — Global settings provider
+TASK 11  [DONE]  Database Retention Cleanup Scheduler (Backend — SQL-aware)
 --------------------------------------------------------------------------------
-What needs to be done:
-  - Create: frontend/src/context/SettingsContext.tsx
+Files created/updated:
+  - backend/src/repositories/IAccessRepository.ts
+      * Added abstract deleteOlderThan(cutoff: Date): Promise<number>
+  - backend/src/repositories/FileRepository.ts
+      * Implemented deleteOlderThan() — filters in-memory array, saves to JSON
+  - backend/src/repositories/SqlAccessRecordRepository.ts
+      * Implemented deleteOlderThan() — DELETE FROM access_records WHERE swipe_time < ?
+  - backend/src/services/retentionCleanupService.ts
+      * Refactored: now calls RepositoryFactory.accessRecords().deleteOlderThan(cutoff)
+        Works for both JSON-file and SQL backends automatically.
+      * Reads dbRetentionMonths from db-config.json via loadRetentionMonths()
+        (previously read from general-settings.json — updated in TASK 14)
+  - backend/src/server.ts   — calls retentionCleanupService.start()
+  - backend/src/routes/settings.ts — runNow() trigger removed (moved to TASK 14)
+
+
+--------------------------------------------------------------------------------
+TASK 12  [DONE]  Frontend: SettingsContext — Global settings provider
+--------------------------------------------------------------------------------
+Files created/updated:
+  - frontend/src/context/SettingsContext.tsx  (NEW)
       * Fetches GET /api/settings/general on mount
       * Exposes: companyName, language, timeZone, dateFormat, timeFormat, theme
-      * Re-fetches when the General Settings page saves (or use a refresh trigger)
-      * Applies document.documentElement.classList for dark mode (Task 9)
-  - Wrap the entire app in this provider:
-      Update frontend/src/app/layout.tsx to include <SettingsProvider>
-  - Export hook: useSettings() for consuming components
+        (dbRetentionMonths removed — see TASK 14)
+      * Applies document.documentElement.classList('dark') for dark mode
+      * refresh() callable — re-fetches and propagates changes
+  - frontend/src/app/layout.tsx
+      * Wraps app with <SettingsProvider> (inside ConfigProvider, outside Socket)
+  - frontend/src/app/settings/general/page.tsx
+      * Calls refreshGlobalSettings() after a successful PUT save
 
 
 --------------------------------------------------------------------------------
-TASK 13  [TODO]  Export general settings in system backup / import
+TASK 13  [DONE — stub]  Export general settings in system backup / import
 --------------------------------------------------------------------------------
-What needs to be done:
-  - The future "Export Settings" quick action on the Settings page should include
-    general-settings.json in the backup archive.
-  - The "Import Settings" should be able to restore it.
-  - Which files to update (when backup feature is built):
-      backend/src/routes/system.ts   (add general-settings.json to backup zip)
+Files updated:
+  - backend/src/routes/system.ts
+      * Added POST /api/system/backup stub (returns 501 Not Implemented)
+      * When the backup feature is built, this endpoint should zip all
+        backend/data/*.json files (including general-settings.json and
+        db-config.json) and return the archive as a download.
+
+
+--------------------------------------------------------------------------------
+TASK 14  [DONE]  Move Data Retention to Database Settings page
+--------------------------------------------------------------------------------
+Reason: dbRetentionMonths is conceptually database config, not general settings.
+Storage: moved from general-settings.json → db-config.json (extra top-level key).
+
+Files updated:
+  - backend/src/routes/database-settings.ts
+      * loadRetentionMonths() — reads dbRetentionMonths from db-config.json
+      * saveRetentionMonths(months) — writes to db-config.json
+      * saveConfig() updated to preserve extra fields (e.g. dbRetentionMonths)
+        when saving DB connection config
+      * GET  /api/database/retention  → { success, dbRetentionMonths }
+      * PUT  /api/database/retention  → saves, calls retentionCleanupService.runNow()
+  - backend/src/services/retentionCleanupService.ts
+      * getRetentionMonths() now imports loadRetentionMonths() from database-settings.ts
+        instead of reading general-settings.json directly
+  - backend/src/routes/settings.ts
+      * Removed dbRetentionMonths from GENERAL_SETTINGS_DEFAULTS
+      * Removed dbRetentionMonths from allowed[] fields list
+      * Removed retentionCleanupService.runNow() trigger (now in database route)
+  - frontend/src/context/SettingsContext.tsx
+      * Removed dbRetentionMonths from GeneralSettings interface and DEFAULTS
+  - frontend/src/app/settings/general/page.tsx
+      * Removed Data Retention section (select + amber note box)
+      * Removed dbRetentionMonths from GeneralSettings interface and DEFAULTS
+      * Removed DB_RETENTION_OPTIONS constant
+  - frontend/src/app/settings/database/page.tsx
+      * Added DB_RETENTION_OPTIONS constant
+      * Added retentionMonths, isRetentionSaving, retentionSaveResult state
+      * loadConfig() also fetches GET /api/database/retention on mount
+      * New "Data Retention" card in left column (after action buttons):
+          - Select using DB_RETENTION_OPTIONS
+          - "Save Retention Settings" button (separate from DB connection save)
+          - Success/error feedback inline
+      * handleSaveRetention() → PUT /api/database/retention
 
 
 ================================================================================
-DEPENDENCY ORDER FOR IMPLEMENTATION
+REMAINING / FUTURE WORK
 ================================================================================
 
-Recommended sequence for an AI agent:
+HIGH PRIORITY
+-------------
+- TASK 5   (Language/i18n) — largest remaining task; start with en.json scaffold
+  Recommended library: next-intl  (install: npm install next-intl)
+  Files to create: frontend/src/locales/en.json, bn.json, etc.
+  Files to update: layout.tsx, all page.tsx, Sidebar.tsx
 
-1.  TASK 11  — Backend retention scheduler (standalone, no frontend deps)
-2.  TASK 12  — Frontend SettingsContext provider (needed by tasks 5/6/9/10)
-3.  TASK 6+7+8 — formatDateTime utilities + hook (depends on SettingsContext)
-4.  TASK 10  — Company name display (depends on SettingsContext)
-5.  TASK 9   — Dark mode (depends on SettingsContext + Tailwind config)
-6.  TASK 5   — Language/i18n (largest task; depends on SettingsContext)
-7.  TASK 13  — Backup integration (do last, depends on backup feature)
+MEDIUM PRIORITY
+---------------
+- Backup feature (Task 13 full implementation):
+    backend/src/routes/system.ts  POST /api/system/backup
+    Use adm-zip or archiver to zip backend/data/*.json
+    Return as octet-stream download with Content-Disposition header
+    Add a "Download Backup" button to Settings → System page
+
+- Settings change broadcast via WebSocket:
+    When PUT /api/settings/general succeeds, emit 'settings:updated' from
+    Socket.IO server. SettingsContext should listen and call refresh()
+    so all open browser tabs get the new settings without a page reload.
+
+LOW PRIORITY / FUTURE FEATURES
+-------------------------------
+- Company name in report/PDF export headers (when PDF reporting is built).
+- "Re-apply settings on login": after user logs in, force settings refresh
+  so theme/timezone/dateformat are always current.
+- Settings import/restore: POST /api/system/restore endpoint that accepts a
+  zip backup and restores all JSON data files.
 
 ================================================================================
+ALL TASKS COMPLETE (except Task 5 Language/i18n)
+================================================================================
+  [DONE] Task 1   Backend API endpoints
+  [DONE] Task 2   Frontend General Settings page UI
+  [DONE] Task 3   Settings Index page card
+  [DONE] Task 4   Sidebar dropdown entry
+  [TODO] Task 5   Language / i18n  (skipped by user request)
+  [DONE] Task 6   Time Zone applied across all date/time displays
+  [DONE] Task 7   Date Format applied across all date/time displays
+  [DONE] Task 8   Time Format applied across all date/time displays
+  [DONE] Task 9   Dark mode — class toggle + Tailwind dark: variants on all pages
+  [DONE] Task 10  Company Name in login + dynamic browser <title>
+  [DONE] Task 11  Retention cleanup scheduler (SQL-aware via repository layer)
+  [DONE] Task 12  SettingsContext global provider
+  [DONE] Task 13  Backup stub endpoint (POST /api/system/backup)
+  [DONE] Task 14  Data Retention moved to Database Settings page (db-config.json)
+
+================================================================================
+

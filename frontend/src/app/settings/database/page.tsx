@@ -49,6 +49,16 @@ const DB_ICONS: Record<DbType, string> = {
   mongodb: '🍃',
 };
 
+const DB_RETENTION_OPTIONS = [
+  { value: 1,  label: '1 Month' },
+  { value: 3,  label: '3 Months' },
+  { value: 6,  label: '6 Months (Default)' },
+  { value: 12, label: '1 Year' },
+  { value: 24, label: '2 Years' },
+  { value: 36, label: '3 Years' },
+  { value: 0,  label: 'Keep Forever' },
+];
+
 const INITIAL_CONFIG: DbConfig = {
   type: 'sqlserver',
   host: 'localhost',
@@ -88,6 +98,11 @@ export default function DatabaseSettingsPage() {
   // Whether config has changed since last successful test
   const [testedConfig, setTestedConfig] = useState<string | null>(null);
 
+  // Retention state
+  const [retentionMonths, setRetentionMonths] = useState(6);
+  const [isRetentionSaving, setIsRetentionSaving] = useState(false);
+  const [retentionSaveResult, setRetentionSaveResult] = useState<{ success: boolean; message: string } | null>(null);
+
   const configKey = JSON.stringify({ ...config, password: config.password === '••••••••' ? '(masked)' : config.password });
   const isTestFresh = testedConfig === configKey && testResult?.success === true;
 
@@ -99,6 +114,13 @@ export default function DatabaseSettingsPage() {
       if (data.success && data.config) {
         setConfig(data.config);
         setHasExisting(true);
+      }
+    } catch (_) {}
+    try {
+      const res2 = await fetch('/api/database/retention');
+      const data2 = await res2.json();
+      if (data2.success && typeof data2.dbRetentionMonths === 'number') {
+        setRetentionMonths(data2.dbRetentionMonths);
       }
     } catch (_) {}
     setIsLoading(false);
@@ -169,16 +191,35 @@ export default function DatabaseSettingsPage() {
     }
   };
 
+  // ── Save retention settings ────────────────────────────────────────────────
+  const handleSaveRetention = async () => {
+    setIsRetentionSaving(true);
+    setRetentionSaveResult(null);
+    try {
+      const res = await fetch('/api/database/retention', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dbRetentionMonths: retentionMonths }),
+      });
+      const data = await res.json();
+      setRetentionSaveResult({ success: data.success, message: data.success ? 'Retention settings saved.' : (data.error ?? 'Save failed') });
+    } catch (err: any) {
+      setRetentionSaveResult({ success: false, message: err.message });
+    } finally {
+      setIsRetentionSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/settings/database" onLogout={logout} />
 
       <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
@@ -395,6 +436,57 @@ export default function DatabaseSettingsPage() {
                 You must test the connection successfully before saving.
               </p>
             )}
+
+            {/* Data Retention */}
+            <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm p-6">
+              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <Icon path="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4" className="w-5 h-5 text-blue-600" />
+                Data Retention
+              </h2>
+              <div className="max-w-sm">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Auto-Delete Records Older Than</label>
+                <select
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  value={retentionMonths}
+                  onChange={(e) => setRetentionMonths(parseInt(e.target.value))}
+                >
+                  {DB_RETENTION_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Access records and attendance logs older than this period will be eligible for automatic cleanup.
+                </p>
+              </div>
+              <div className="mt-4 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-lg text-xs text-amber-800 dark:text-amber-300 max-w-lg">
+                <strong>Note:</strong> Automatic cleanup runs on a scheduled task. Existing data beyond this period will not be deleted immediately — it will be removed at the next scheduled cleanup cycle.
+              </div>
+              {retentionSaveResult && (
+                <div className={`mt-3 flex items-center gap-2 text-sm ${retentionSaveResult.success ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                  <Icon path={retentionSaveResult.success ? 'M5 13l4 4L19 7' : 'M6 18L18 6M6 6l12 12'} className="w-4 h-4" />
+                  {retentionSaveResult.message}
+                </div>
+              )}
+              <div className="mt-4">
+                <button
+                  onClick={handleSaveRetention}
+                  disabled={isRetentionSaving}
+                  className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isRetentionSaving ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Icon path="M5 13l4 4L19 7" className="w-4 h-4" />
+                      Save Retention Settings
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* ── Right column: info + migration results ───────────────────── */}

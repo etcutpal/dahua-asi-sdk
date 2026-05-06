@@ -161,7 +161,7 @@ function LeaveAssignModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg mx-4">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -516,7 +516,7 @@ export default function LeaveManagementPage() {
   if (!isAuthenticated) return null;
 
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/attendance/leave" onLogout={logout} />
       <div className="flex-1 lg:ml-64 p-6 lg:p-8">
 
@@ -525,7 +525,7 @@ export default function LeaveManagementPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/" className="hover:text-blue-600">Dashboard</Link>
             <Icon path="M9 5l7 7-7 7" className="w-3 h-3" />
-            <span className="text-gray-900 font-medium">Leave Management</span>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">Leave Management</span>
           </div>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
@@ -1008,7 +1008,7 @@ export default function LeaveManagementPage() {
         {showExport && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-              <div className="px-6 py-5 border-b border-gray-200">
+              <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                   <Icon path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" className="w-5 h-5 text-green-600" />
                   Export Leave Report
@@ -1025,7 +1025,7 @@ export default function LeaveManagementPage() {
                     <div className="flex gap-3"><span className="font-bold w-36">Report Range</span><span>{(exportFrom || exportTo) ? `${exportFrom || '...'} - ${exportTo || '...'}` : 'All Dates'}</span></div>
                     <div className="flex gap-3"><span className="font-bold w-36">Total Employee</span><span>{exportPreviewEmps}</span></div>
                     <div className="flex gap-3"><span className="font-bold w-36">Total Leave Taken</span><span>{exportPreviewDays} Days</span></div>
-                    <div className="mt-3 pt-3 border-t border-gray-200">
+                    <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
                       <div className="grid grid-cols-7 gap-1 text-[10px] font-bold text-gray-500 uppercase">
                         <span>EMP ID</span><span className="col-span-2">NAME</span><span>LEAVE TYPE</span><span>START</span><span>END</span><span>DAYS</span>
                       </div>
@@ -1068,7 +1068,7 @@ export default function LeaveManagementPage() {
         {showLtForm && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
-              <div className="px-6 py-5 border-b border-gray-200">
+              <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                 <h2 className="text-lg font-semibold text-gray-900">{editingLt ? 'Edit Leave Type' : 'Add Leave Type'}</h2>
               </div>
               <div className="px-6 py-5 space-y-4">

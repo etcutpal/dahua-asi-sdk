@@ -170,7 +170,7 @@ function AddBreakModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]">
-      <div className="bg-white rounded-lg shadow-2xl w-[700px] max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[700px] max-h-[90vh] overflow-hidden">
         <div className="px-5 py-3 bg-gray-50 border-b flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">{editBreak ? 'Edit Break' : 'Add New Break'}</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icon path="M6 18L18 6M6 6l12 12" className="w-4 h-4" /></button>
@@ -292,7 +292,7 @@ function SelectBreakModal({
   return (
     <>
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60]">
-      <div className="bg-white rounded-lg shadow-2xl w-[620px] max-h-[80vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-[620px] max-h-[80vh] overflow-hidden flex flex-col">
         <div className="px-5 py-3 bg-gray-50 border-b flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">Select Break</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><Icon path="M6 18L18 6M6 6l12 12" className="w-4 h-4" /></button>
@@ -317,7 +317,7 @@ function SelectBreakModal({
                     <input type="checkbox" checked={checked.has(b.id)} onChange={() => toggle(b.id)}
                       className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" onClick={e => e.stopPropagation()} />
                   </td>
-                  <td className="px-3 py-2 text-sm text-gray-900 font-medium">{b.name}</td>
+                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100 font-medium">{b.name}</td>
                   <td className="px-3 py-2 text-sm text-gray-600">{b.startTime}</td>
                   <td className="px-3 py-2 text-sm text-gray-600">{b.endTime}</td>
                   <td className="px-3 py-2">
@@ -449,7 +449,7 @@ function PeriodDetailsModal({
   return (
     <>
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-[95%] max-w-6xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-[95%] max-w-6xl max-h-[90vh] overflow-hidden">
         {/* Modal Header */}
         <div className="px-6 py-4 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">
@@ -467,7 +467,7 @@ function PeriodDetailsModal({
         <div className="overflow-y-auto max-h-[calc(90vh-140px)] p-6">
           {/* Attendance Mode Tabs */}
           <div className="mb-6">
-            <div className="flex border-b border-gray-200">
+            <div className="flex border-b border-gray-200 dark:border-gray-700">
               <button
                 onClick={() => setAttendanceMode('fixed')}
                 className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -548,7 +548,7 @@ function PeriodDetailsModal({
                     className="px-2 py-1.5 border border-gray-300 rounded-md text-sm w-24 bg-gray-100 text-gray-700" />
                   <span className="text-sm text-gray-600">minutes</span>
                 </div>
-                <div className="pt-4 border-t border-gray-200">
+                <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
                   <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-4">Attendance Rule:</h4>
                   <div className="ml-2 space-y-3">
                     {/* Overtime from */}
@@ -790,7 +790,7 @@ function ShiftModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-[560px] max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[560px] max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 bg-gray-50 border-b flex items-center justify-between flex-shrink-0">
           <h3 className="text-base font-semibold text-gray-900">{editShift ? 'Edit Shift' : 'Add New Shift'}</h3>
@@ -1038,7 +1038,7 @@ function ScheduleModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-[620px] max-h-[92vh] overflow-hidden flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-[620px] max-h-[92vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 bg-gray-50 border-b flex items-center justify-between flex-shrink-0">
           <h3 className="text-base font-semibold text-gray-900">{editSchedule ? 'Edit Schedule' : 'Create Schedule'}</h3>
@@ -1212,7 +1212,7 @@ function LeaveAssignModal({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg mx-4">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl w-full max-w-lg mx-4">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-2">
@@ -1764,7 +1764,7 @@ export default function AttendanceConfigPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading Attendance Configuration...</p>
@@ -1774,7 +1774,7 @@ export default function AttendanceConfigPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/settings/attendance" onLogout={logout} />
 
       {/* Main Content */}
@@ -1784,14 +1784,14 @@ export default function AttendanceConfigPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/settings" className="hover:text-blue-600 transition-colors">Settings</Link>
             <Icon path="M9 5l7 7-7 7" className="w-3 h-3" />
-            <span className="text-gray-900 font-medium">Attendance Configuration</span>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">Attendance Configuration</span>
           </div>
           <h1 className="text-xl lg:text-2xl font-semibold text-gray-900 tracking-tight">Attendance Configuration</h1>
           <p className="text-sm text-gray-500 mt-1">Manage attendance rules, periods, shifts, and schedules</p>
         </div>
 
         {/* Tabs */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 overflow-hidden">
           <div className="border-b border-gray-200 overflow-x-auto">
             <nav className="flex min-w-max">
               {tabs.map((tab) => (
@@ -1818,7 +1818,7 @@ export default function AttendanceConfigPage() {
               <div>
                 {/* Calculation Rule Section */}
                 <div className="mb-6">
-                  <h3 className="text-sm font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-200">Calculation Rule</h3>
+                  <h3 className="text-sm font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-200 dark:border-gray-700">Calculation Rule</h3>
                   
                   <div className="mb-6">
                     <h4 className="text-xs font-semibold text-gray-700 uppercase tracking-wide mb-2">Attendance Calculation Accuracy Config</h4>
@@ -1877,7 +1877,7 @@ export default function AttendanceConfigPage() {
                     rulesSettings.roundingRule !== savedRulesSettings.roundingRule ||
                     rulesSettings.mustCheckInOutForLeave !== savedRulesSettings.mustCheckInOutForLeave;
                   return (
-                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                    <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                       {hasChanges && (
                         <span className="text-xs text-amber-600 font-medium">● Unsaved changes</span>
                       )}
@@ -1900,7 +1900,7 @@ export default function AttendanceConfigPage() {
             {/* Attendance Periods Tab */}
             {activeTab === 'periods' && (
               <div>
-                <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-lg overflow-hidden">
                   <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-end">
                     <button 
                       onClick={handleAddPeriod}
@@ -2035,7 +2035,7 @@ export default function AttendanceConfigPage() {
                     {shifts.map(shift => {
                       const workDayCount = ALL_DAYS.filter(d => shift.workDays[d.key]).length;
                       return (
-                        <div key={shift.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow group">
+                        <div key={shift.id} className="bg-white dark:bg-gray-800 border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow group">
                           <div className="flex items-start justify-between mb-4">
                             <div>
                               <h3 className="text-sm font-semibold text-gray-900">{shift.name}</h3>
@@ -2120,7 +2120,7 @@ export default function AttendanceConfigPage() {
                 ) : (
                   <div className="space-y-4">
                     {schedules.map(schedule => (
-                      <div key={schedule.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
+                      <div key={schedule.id} className="bg-white dark:bg-gray-800 border border-gray-200 rounded-xl overflow-hidden hover:shadow-md transition-shadow">
                         <div className="px-5 py-4 flex items-center justify-between border-b border-gray-100 bg-gray-50">
                           <div className="flex items-center gap-3">
                             <span className="text-sm font-semibold text-gray-900">{schedule.shiftName || '—'}</span>
@@ -2266,9 +2266,9 @@ export default function AttendanceConfigPage() {
                     <p className="text-sm">No holidays defined. Click <strong>Add Holiday</strong> to get started.</p>
                   </div>
                 ) : holidays.length > 0 ? (
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                  <div className="bg-white dark:bg-gray-800 border border-gray-200 rounded-xl overflow-hidden">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+                      <thead className="bg-gray-50 dark:bg-gray-700/60 border-b border-gray-200 dark:border-gray-700">
                         <tr>
                           <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Name</th>
                           <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
@@ -2358,7 +2358,7 @@ export default function AttendanceConfigPage() {
                         <div className="flex items-center gap-3">
                           <input type="color" value={leaveForm.color}
                             onChange={e => setLeaveForm(f => ({ ...f, color: e.target.value }))}
-                            className="w-10 h-10 rounded cursor-pointer border border-gray-200" />
+                            className="w-10 h-10 rounded cursor-pointer border border-gray-200 dark:border-gray-700" />
                           <span className="text-sm text-gray-500">{leaveForm.color}</span>
                         </div>
                       </div>
@@ -2413,7 +2413,7 @@ export default function AttendanceConfigPage() {
                   <>
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {leaveTypes.map(lt => (
-                      <div key={lt.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow group">
+                      <div key={lt.id} className="bg-white dark:bg-gray-800 border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow group">
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className="w-4 h-4 rounded-full flex-shrink-0" style={{ backgroundColor: lt.color }} />
@@ -2589,7 +2589,7 @@ export default function AttendanceConfigPage() {
               {showLeaveRecordModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                   <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg">
-                    <div className="px-6 py-5 border-b border-gray-200">
+                    <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700">
                       <h2 className="text-lg font-semibold text-gray-900">{editingLeaveRecord ? 'Edit Leave Record' : 'Add Leave Record'}</h2>
                       <p className="text-xs text-gray-500 mt-0.5">Assign leave to a specific employee for specific dates</p>
                     </div>

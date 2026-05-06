@@ -13,6 +13,7 @@ import path from 'path';
 import fs from 'fs';
 import logger from '../utils/logger';
 import RepositoryFactory from '../repositories/RepositoryFactory';
+import retentionCleanupService from '../services/retentionCleanupService';
 
 const router = express.Router();
 
@@ -413,7 +414,34 @@ function loadConfig(): DbConfig | null {
 }
 
 function saveConfig(cfg: DbConfig): void {
-  fs.writeFileSync(CONFIG_FILE, JSON.stringify(cfg, null, 2), 'utf-8');
+  // Preserve any extra fields (e.g. dbRetentionMonths) already in the file
+  let existing: Record<string, any> = {};
+  try {
+    if (fs.existsSync(CONFIG_FILE)) existing = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+  } catch { /* ignore */ }
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...existing, ...cfg }, null, 2), 'utf-8');
+}
+
+// ── Retention helpers ────────────────────────────────────────────────────────
+
+export function loadRetentionMonths(): number {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      const raw = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+      const v = parseInt(raw.dbRetentionMonths, 10);
+      if (!isNaN(v) && v >= 0) return v;
+    }
+  } catch { /* fall through */ }
+  return 6; // default
+}
+
+function saveRetentionMonths(months: number): void {
+  let data: Record<string, any> = {};
+  try {
+    if (fs.existsSync(CONFIG_FILE)) data = JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf-8'));
+  } catch { /* ignore */ }
+  data.dbRetentionMonths = months;
+  fs.writeFileSync(CONFIG_FILE, JSON.stringify(data, null, 2), 'utf-8');
 }
 
 // ─── Connection tester ────────────────────────────────────────────────────────
@@ -815,6 +843,22 @@ router.get('/status', (_req: Request, res: Response) => {
     host: cfg?.host ?? null,
     database: cfg?.database ?? null,
   });
+});
+
+/** GET /api/database/retention — return current dbRetentionMonths */
+router.get('/retention', (_req: Request, res: Response) => {
+  res.json({ success: true, dbRetentionMonths: loadRetentionMonths() });
+});
+
+/** PUT /api/database/retention — save dbRetentionMonths and re-run cleanup */
+router.put('/retention', (req: Request, res: Response) => {
+  const months = parseInt(req.body.dbRetentionMonths, 10);
+  if (isNaN(months) || months < 0) {
+    return res.status(400).json({ success: false, error: 'dbRetentionMonths must be a non-negative integer' });
+  }
+  saveRetentionMonths(months);
+  retentionCleanupService.runNow().catch(() => {});
+  res.json({ success: true, dbRetentionMonths: months });
 });
 
 export default router;

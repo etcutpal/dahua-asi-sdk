@@ -437,7 +437,7 @@ export default function DeviceManagementPage() {
   const offlineCount = devices.filter(d => getDeviceStatus(d.registrationId) === 'offline').length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100" onClick={() => setShowMoreMenu(false)}>
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950" onClick={() => setShowMoreMenu(false)}>
       <Sidebar currentPath="/devices" onLogout={logout} />
 
       <div className="lg:ml-64">
@@ -628,7 +628,7 @@ export default function DeviceManagementPage() {
 
 
             {/* Device Table */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col">
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 flex-1 flex flex-col">
               <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-800 flex-shrink-0">Devices ({filteredDevices.length})</h2>
                 {/* Right side: Search + More button */}
@@ -843,7 +843,7 @@ export default function DeviceManagementPage() {
       {/* Add Group Modal */}
       {showAddGroupModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-96 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-96 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-4">Add Device Group</h3>
             <div className="space-y-4">
               <div>
@@ -887,7 +887,7 @@ export default function DeviceManagementPage() {
       {/* Move to Group Modal */}
       {showMoveToModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg w-96 p-6">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg w-96 p-6">
             <h3 className="text-lg font-semibold text-gray-800 mb-2">Move to Group</h3>
             <p className="text-sm text-gray-600 mb-4">
               Move {selectedDevices.size} selected device{selectedDevices.size !== 1 ? 's' : ''} to:

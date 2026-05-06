@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -136,7 +136,7 @@ export default function SystemSettingsPage() {
   const h2c = 'text-lg font-semibold text-gray-900 mb-4 pb-3 border-b border-gray-200 flex items-center gap-2';
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto" />
         <p className="mt-4 text-gray-600">Loading...</p>
@@ -151,7 +151,7 @@ export default function SystemSettingsPage() {
   const deviceRegUrl = config.network.deviceRegistrationIp + ":" + config.ports.autoReg;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/settings/system" onLogout={logout} />
 
       {/*  Restart Overlay  */}
@@ -243,7 +243,7 @@ export default function SystemSettingsPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/settings" className="hover:text-blue-600 transition-colors">Settings</Link>
             <span></span>
-            <span className="text-gray-900 font-medium">System Settings</span>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">System Settings</span>
           </div>
           <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">System Settings</h1>
           <p className="text-gray-600 mt-1 text-sm lg:text-base">Configure network access, ports, and bridge credentials</p>
@@ -327,9 +327,9 @@ export default function SystemSettingsPage() {
           <div className={sec}>
             <h2 className={h2c}><Icon path="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />Resolved URLs</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200"><p className="text-xs text-gray-500 mb-1">Local API URL</p><code className="text-blue-700 break-all">{localApiUrl}</code></div>
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200"><p className="text-xs text-gray-500 mb-1">Public API URL</p><code className={"break-all " + (config.network.publicAccessEnabled ? 'text-blue-700' : 'text-gray-400')}>{publicApiUrl}</code></div>
-              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200"><p className="text-xs text-gray-500 mb-1">Device Registration</p><code className="text-blue-700 break-all">{deviceRegUrl}</code></div>
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700"><p className="text-xs text-gray-500 mb-1">Local API URL</p><code className="text-blue-700 break-all">{localApiUrl}</code></div>
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700"><p className="text-xs text-gray-500 mb-1">Public API URL</p><code className={"break-all " + (config.network.publicAccessEnabled ? 'text-blue-700' : 'text-gray-400')}>{publicApiUrl}</code></div>
+              <div className="bg-gray-50 rounded-lg p-3 border border-gray-200 dark:border-gray-700"><p className="text-xs text-gray-500 mb-1">Device Registration</p><code className="text-blue-700 break-all">{deviceRegUrl}</code></div>
             </div>
           </div>
           <div className="flex justify-end gap-3">

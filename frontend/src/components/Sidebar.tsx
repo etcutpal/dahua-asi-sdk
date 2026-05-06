@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSettings } from '@/context/SettingsContext';
 
 const Icon = ({ path, className = "w-5 h-5" }: { path: string; className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -23,6 +24,7 @@ interface SidebarProps {
 
 export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
   const router = useRouter();
+  const { settings } = useSettings();
 
   const navItems: NavItem[] = [
     { name: 'Dashboard', path: '/', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' },
@@ -114,7 +116,7 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
           </div>
           <div>
             <h1 className="text-xl font-bold">AccessPro</h1>
-            <p className="text-xs text-slate-400">Access Control</p>
+            <p className="text-xs text-slate-400">{settings.companyName || 'Access Control'}</p>
           </div>
         </div>
         {/* Close button — mobile only */}
@@ -162,7 +164,7 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
           <div
             onMouseEnter={handleAttendanceEnter}
             onMouseLeave={handleAttendanceLeave}
-            className={`absolute left-full top-0 ml-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 ${
+            className={`absolute left-full top-0 ml-2 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 py-2 z-50 ${
               attendanceOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
           >
@@ -170,7 +172,7 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
               <Link
                 key={item.path}
                 href={item.path}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 <Icon path={item.icon} className="w-4 h-4" />
                 <span className="text-sm font-medium">{item.name}</span>
@@ -198,7 +200,7 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
           <div
             onMouseEnter={handleSettingsEnter}
             onMouseLeave={handleSettingsLeave}
-            className={`absolute left-full top-0 ml-2 w-56 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50 ${
+            className={`absolute left-full top-0 ml-2 w-56 bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-gray-200 dark:border-slate-700 py-2 z-50 ${
               settingsOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
             }`}
           >
@@ -206,7 +208,7 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
               <Link
                 key={item.path}
                 href={item.path}
-                className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                className="flex items-center gap-3 px-4 py-3 text-gray-700 dark:text-slate-200 hover:bg-blue-50 dark:hover:bg-slate-700 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
               >
                 <Icon path={item.icon} className="w-4 h-4" />
                 <span className="text-sm font-medium">{item.name}</span>
@@ -255,7 +257,7 @@ export default function Sidebar({ currentPath, onLogout }: SidebarProps) {
       <div
         className={`
           fixed left-0 top-0 h-full w-64 z-50
-          bg-gradient-to-b from-slate-900 to-slate-800 text-white
+          bg-gradient-to-b from-slate-900 to-slate-800 dark:from-slate-950 dark:to-slate-900 text-white
           transition-transform duration-300 ease-in-out
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0

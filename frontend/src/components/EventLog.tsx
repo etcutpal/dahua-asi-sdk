@@ -48,7 +48,7 @@ export default function EventLog({ events }: EventLogProps) {
     if (eventType.includes('Success') || eventType.includes('Online')) {
       return 'bg-green-50 border-green-200';
     }
-    return 'bg-gray-50 border-gray-200';
+    return 'bg-gray-50 border-gray-200 dark:border-gray-700';
   };
 
   if (events.length === 0) {

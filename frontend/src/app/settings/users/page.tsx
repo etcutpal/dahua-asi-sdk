@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,7 +12,7 @@ const Icon = ({ path, className = 'w-5 h-5' }: { path: string; className?: strin
   </svg>
 );
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// --- Types --------------------------------------------------------------------
 
 type UserStatus = 'active' | 'locked' | 'inactive';
 
@@ -40,7 +40,7 @@ interface Role {
   userCount?: number;
 }
 
-// ─── Permission definitions ───────────────────────────────────────────────────
+// --- Permission definitions ---------------------------------------------------
 
 interface PermissionGroup {
   group: string;
@@ -121,7 +121,7 @@ const PERMISSION_GROUPS: PermissionGroup[] = [
 
 const ALL_PERMISSIONS: PermissionKey[] = PERMISSION_GROUPS.flatMap((g) => g.items.map((i) => i.key));
 
-// ─── Seed data ────────────────────────────────────────────────────────────────
+// --- Seed data ----------------------------------------------------------------
 
 const SEED_ROLES: Role[] = [
   {
@@ -187,7 +187,7 @@ const SEED_USERS: SystemUser[] = [
   },
 ];
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// --- Helpers ------------------------------------------------------------------
 
 const statusConfig: Record<UserStatus, { label: string; classes: string; dot: string }> = {
   active:   { label: 'Active',   classes: 'bg-green-100 text-green-800', dot: 'bg-green-500' },
@@ -213,7 +213,7 @@ const formatDate = (iso: string | null) => {
   return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
-// ─── Page Component ───────────────────────────────────────────────────────────
+// --- Page Component -----------------------------------------------------------
 
 export default function UserManagementPage() {
   const router = useRouter();
@@ -275,7 +275,7 @@ export default function UserManagementPage() {
     admins: users.filter((u) => u.roleId === 'role_admin').length,
   };
 
-  // ── User actions ────────────────────────────────────────────────────────────
+  // -- User actions ------------------------------------------------------------
 
   const openAddUser = () => {
     setUserForm(blankUserForm);
@@ -353,7 +353,7 @@ export default function UserManagementPage() {
     setUserModal('closed');
   };
 
-  // ── Role actions ────────────────────────────────────────────────────────────
+  // -- Role actions ------------------------------------------------------------
 
   const openAddRole = () => { setRoleForm(blankRoleForm); setFormError(''); setTargetRole(null); setRoleModal('add'); };
   const openEditRole = (r: Role) => { setTargetRole(r); setRoleForm({ name: r.name, description: r.description }); setFormError(''); setRoleModal('edit'); };
@@ -419,13 +419,13 @@ export default function UserManagementPage() {
     setRoles((prev) => prev.map((r) => r.id !== selectedRoleId ? r : { ...r, permissions: [] }));
   };
 
-  // ── Styles ──────────────────────────────────────────────────────────────────
+  // -- Styles ------------------------------------------------------------------
   const inp = 'w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm';
   const lbl = 'block text-sm font-medium text-gray-700 mb-1';
-  const sec = 'bg-white rounded-lg shadow-sm border border-gray-200';
+  const sec = 'bg-white rounded-lg shadow-sm border border-gray-200 dark:border-gray-700';
 
   if (isLoading) return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950 flex items-center justify-center">
       <div className="text-center">
         <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto" />
         <p className="mt-4 text-gray-600">Loading User Management...</p>
@@ -434,7 +434,7 @@ export default function UserManagementPage() {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/settings/users" onLogout={logout} />
 
       <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
@@ -452,8 +452,8 @@ export default function UserManagementPage() {
         <div className="mb-6">
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/settings" className="hover:text-blue-600 transition-colors">Settings</Link>
-            <span>›</span>
-            <span className="text-gray-900 font-medium">User Management</span>
+            <span>�</span>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">User Management</span>
           </div>
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
@@ -518,7 +518,7 @@ export default function UserManagementPage() {
           ))}
         </div>
 
-        {/* ═══════ USERS TAB ═══════ */}
+        {/* ------- USERS TAB ------- */}
         {tab === 'users' && (
           <div className={sec}>
             <div className="px-5 py-4 border-b border-gray-100 flex flex-wrap gap-3 items-center">
@@ -526,7 +526,7 @@ export default function UserManagementPage() {
                 <Icon path="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
                 <input
                   type="text"
-                  placeholder="Search by name, username or email…"
+                  placeholder="Search by name, username or email�"
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -574,7 +574,7 @@ export default function UserManagementPage() {
                                 {user.isDefault && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-medium">Default</span>}
                                 {user.mustChangePassword && <span className="text-xs bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded font-medium">Change PW</span>}
                               </div>
-                              <span className="text-xs text-gray-400">@{user.username}&nbsp;·&nbsp;{user.email}</span>
+                              <span className="text-xs text-gray-400">@{user.username}&nbsp;�&nbsp;{user.email}</span>
                             </div>
                           </div>
                         </td>
@@ -631,13 +631,13 @@ export default function UserManagementPage() {
             <div className="px-5 py-3 border-t border-gray-100 bg-gray-50 rounded-b-lg">
               <p className="text-xs text-gray-400">
                 Showing {filteredUsers.length} of {users.length} users
-                {' · '}Default user <code className="font-mono">admin</code> cannot be deleted.
+                {' � '}Default user <code className="font-mono">admin</code> cannot be deleted.
               </p>
             </div>
           </div>
         )}
 
-        {/* ═══════ ROLES TAB ═══════ */}
+        {/* ------- ROLES TAB ------- */}
         {tab === 'roles' && (
           <div className="flex gap-5 flex-col lg:flex-row">
 
@@ -724,7 +724,7 @@ export default function UserManagementPage() {
                     const someOn = keys.some((k) => selectedRole.permissions.includes(k));
                     return (
                       <div key={group.group} className="border border-gray-200 rounded-lg overflow-hidden">
-                        <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200">
+                        <div className="flex items-center gap-3 px-4 py-3 bg-gray-50 border-b border-gray-200 dark:border-gray-700">
                           <Icon path={group.icon} className="w-4 h-4 text-gray-500" />
                           <span className="text-sm font-semibold text-gray-700 flex-1">{group.group}</span>
                           <label className={`flex items-center gap-1.5 text-xs text-gray-500 ${selectedRole.isDefault ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}>
@@ -783,7 +783,7 @@ export default function UserManagementPage() {
         )}
       </div>
 
-      {/* ═══════ ADD / EDIT USER MODAL ═══════ */}
+      {/* ------- ADD / EDIT USER MODAL ------- */}
       {(userModal === 'add' || userModal === 'edit') && (
         <Modal title={userModal === 'add' ? 'Add New User' : 'Edit User'} onClose={() => setUserModal('closed')}>
           <div className="p-6 space-y-4">
@@ -844,7 +844,7 @@ export default function UserManagementPage() {
         </Modal>
       )}
 
-      {/* ═══════ RESET PASSWORD MODAL ═══════ */}
+      {/* ------- RESET PASSWORD MODAL ------- */}
       {userModal === 'resetpw' && targetUser && (
         <Modal title="Reset Password" onClose={() => setUserModal('closed')}>
           <div className="p-6 space-y-4">
@@ -869,7 +869,7 @@ export default function UserManagementPage() {
         </Modal>
       )}
 
-      {/* ═══════ DELETE USER MODAL ═══════ */}
+      {/* ------- DELETE USER MODAL ------- */}
       {userModal === 'delete' && targetUser && (
         <Modal title="Delete User" onClose={() => setUserModal('closed')}>
           <div className="p-6">
@@ -887,7 +887,7 @@ export default function UserManagementPage() {
         </Modal>
       )}
 
-      {/* ═══════ ADD / EDIT ROLE MODAL ═══════ */}
+      {/* ------- ADD / EDIT ROLE MODAL ------- */}
       {(roleModal === 'add' || roleModal === 'edit') && (
         <Modal title={roleModal === 'add' ? 'New Role' : 'Edit Role'} onClose={() => setRoleModal('closed')}>
           <div className="p-6 space-y-4">
@@ -902,14 +902,14 @@ export default function UserManagementPage() {
               <label className={lbl}>Description</label>
               <textarea rows={3} className={`${inp} resize-none`} value={roleForm.description}
                 onChange={(e) => setRoleForm((f) => ({ ...f, description: e.target.value }))}
-                placeholder="Briefly describe what this role is for…" />
+                placeholder="Briefly describe what this role is for�" />
             </div>
           </div>
           <ModalFooter onCancel={() => setRoleModal('closed')} onConfirm={saveRole} confirmLabel={roleModal === 'add' ? 'Create Role' : 'Save'} />
         </Modal>
       )}
 
-      {/* ═══════ DELETE ROLE MODAL ═══════ */}
+      {/* ------- DELETE ROLE MODAL ------- */}
       {roleModal === 'delete' && targetRole && (
         <Modal title="Delete Role" onClose={() => setRoleModal('closed')}>
           <div className="p-6">
@@ -930,12 +930,12 @@ export default function UserManagementPage() {
   );
 }
 
-// ─── Modal shell ──────────────────────────────────────────────────────────────
+// --- Modal shell --------------------------------------------------------------
 
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
           <h2 className="text-base font-semibold text-gray-900">{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">

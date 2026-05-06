@@ -858,7 +858,7 @@ export default function DashboardNewPage() {
       <div className="lg:ml-64 min-h-screen flex flex-col">
 
         {/* ── Top header bar ── */}
-        <header className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
           <div className="pl-8 lg:pl-0">
             <h1 className="text-xl font-bold text-gray-900">Dashboard</h1>
             <p className="text-xs text-gray-400">

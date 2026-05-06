@@ -7,6 +7,8 @@ import Sidebar from '@/components/Sidebar';
 import Link from 'next/link';
 import { useConfig } from '@/context/ConfigContext';
 import { useSocket } from '@/context/SocketContext';
+import { useSettings } from '@/context/SettingsContext';
+import { formatDate as fmtDate, formatTime as fmtTime } from '@/lib/formatDateTime';
 
 const Icon = ({ path, className = 'w-5 h-5' }: { path: string; className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -85,7 +87,7 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 const STATUS_FILTERS = [
-  { value: '', label: 'All', color: 'bg-gray-100 text-gray-600 border-gray-200' },
+  { value: '', label: 'All', color: 'bg-gray-100 text-gray-600 border-gray-200 dark:border-gray-700' },
   { value: 'present', label: 'Present', color: 'bg-green-100 text-green-700 border-green-200' },
   { value: 'absent',  label: 'Absent',  color: 'bg-red-100 text-red-600 border-red-200' },
   { value: 'late',    label: 'Late',    color: 'bg-yellow-100 text-yellow-700 border-yellow-200' },
@@ -147,6 +149,7 @@ export default function AttendanceRecordsPage() {
   const { isAuthenticated, logout } = useAuth();
   const { apiUrl } = useConfig();
   const { socket } = useSocket();
+  const { settings } = useSettings();
 
   // Date range
   const defaults = getDefaultRange();
@@ -306,7 +309,7 @@ export default function AttendanceRecordsPage() {
 
   // ------ Render ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   return (
-    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/attendance/records" onLogout={logout} />
 
       {/* Main area (after sidebar) */}
@@ -317,7 +320,7 @@ export default function AttendanceRecordsPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
             <Link href="/" className="hover:text-blue-600">Dashboard</Link>
             <Icon path="M9 5l7 7-7 7" className="w-3 h-3" />
-            <span className="text-gray-900 font-medium">Attendance Report</span>
+            <span className="text-gray-900 dark:text-gray-100 font-medium">Attendance Report</span>
           </div>
           <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
@@ -370,7 +373,7 @@ export default function AttendanceRecordsPage() {
 
           {/* ------ Left panel: Person Selector ------------------------------------------------------------------------------------------ */}
           <div className="w-64 shrink-0 mr-5 flex flex-col">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden h-full" style={{ maxHeight: 'calc(100vh - 180px)' }}>
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden h-full" style={{ maxHeight: 'calc(100vh - 180px)' }}>
               <div className="px-4 py-3 border-b border-gray-100">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Select People</p>
                 <div className="relative">
@@ -485,7 +488,7 @@ export default function AttendanceRecordsPage() {
           <div className="flex-1 min-w-0 flex flex-col gap-4">
 
             {/* Controls row */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 p-4">
               <div className="flex flex-wrap gap-3 items-end">
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">From</label>
@@ -606,7 +609,7 @@ export default function AttendanceRecordsPage() {
             )}
 
             {/* Table */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex-1">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 flex-1">
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-24 gap-3">
                   <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
@@ -648,14 +651,14 @@ export default function AttendanceRecordsPage() {
                       {filtered.map(r => (
                         <tr key={r.id} className="hover:bg-gray-50/70 transition-colors">
                           <td className="px-4 py-2.5 font-medium text-gray-900 whitespace-nowrap">{r.employeeName}</td>
-                          <td className="px-4 py-2.5 text-gray-600 font-mono text-xs whitespace-nowrap">{r.date}</td>
+                          <td className="px-4 py-2.5 text-gray-600 font-mono text-xs whitespace-nowrap">{fmtDate(r.date, settings.dateFormat, settings.timeZone)}</td>
                           <td className="px-4 py-2.5">
                             <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${STATUS_STYLES[r.status] || 'bg-gray-100 text-gray-600'}`}>
                               {STATUS_LABEL[r.status] || r.status}
                             </span>
                           </td>
-                          <td className="px-4 py-2.5 font-mono text-xs text-gray-700">{r.checkIn || '-'}</td>
-                          <td className="px-4 py-2.5 font-mono text-xs text-gray-700">{r.checkOut || '-'}</td>
+                          <td className="px-4 py-2.5 font-mono text-xs text-gray-700">{r.checkIn ? fmtTime(`${r.date}T${r.checkIn}`, settings.timeFormat, settings.timeZone) : '-'}</td>
+                          <td className="px-4 py-2.5 font-mono text-xs text-gray-700">{r.checkOut ? fmtTime(`${r.date}T${r.checkOut}`, settings.timeFormat, settings.timeZone) : '-'}</td>
                           <td className="px-4 py-2.5 text-gray-600 whitespace-nowrap">{minutesToHM(r.workMinutes)}</td>
                           <td className="px-4 py-2.5 whitespace-nowrap">
                             {r.overtimeMinutes ? <span className="text-indigo-600 font-semibold">{minutesToHM(r.overtimeMinutes)}</span> : '-'}

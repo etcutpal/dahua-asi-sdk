@@ -260,7 +260,7 @@ function RuleEditor({
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className="flex border-b border-gray-200 dark:border-gray-700">
           {(['who', 'where'] as const).map(t => (
             <button
               key={t}
@@ -546,7 +546,7 @@ export default function AccessControlPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       <Sidebar currentPath="/access-control" onLogout={logout} />
 
       <div className="lg:ml-64 pt-16 lg:pt-0">
@@ -609,7 +609,7 @@ export default function AccessControlPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {/* Enable/disable toggle */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-200 dark:border-gray-700">
                   <div>
                     <div className="text-sm font-medium text-gray-700">Enabled</div>
                     <div className="text-xs text-gray-400">Fetch on device reconnect</div>
@@ -627,7 +627,7 @@ export default function AccessControlPage() {
                   </button>
                 </div>
                 {/* Delay before fetching */}
-                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 dark:border-gray-700">
                   <div className="text-sm font-medium text-gray-700 mb-1">Delay before fetch</div>
                   <div className="text-xs text-gray-400 mb-2">Seconds to wait after device comes online</div>
                   <div className="flex items-center gap-2">
@@ -644,7 +644,7 @@ export default function AccessControlPage() {
                   </div>
                 </div>
                 {/* Buffer before offline */}
-                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div className="p-3 bg-gray-50 rounded-xl border border-gray-200 dark:border-gray-700">
                   <div className="text-sm font-medium text-gray-700 mb-1">Buffer before disconnect</div>
                   <div className="text-xs text-gray-400 mb-2">Start fetching from N seconds before device went offline</div>
                   <div className="flex items-center gap-2">
@@ -737,13 +737,13 @@ export default function AccessControlPage() {
                                   <span key={d.deviceId} className={`text-xs px-2 py-0.5 rounded-full border ${
                                     d.status === 'online'
                                       ? 'bg-green-50 text-green-700 border-green-200'
-                                      : 'bg-gray-50 text-gray-500 border-gray-200'
+                                      : 'bg-gray-50 text-gray-500 border-gray-200 dark:border-gray-700'
                                   }`}>
                                     {d.name}
                                   </span>
                                 ))}
                                 {ruleDevices.length > 5 && (
-                                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200">
+                                  <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 border border-gray-200 dark:border-gray-700">
                                     +{ruleDevices.length - 5} more
                                   </span>
                                 )}
@@ -837,7 +837,7 @@ export default function AccessControlPage() {
       {/* Delete confirm modal */}
       {deleteId && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full border border-gray-200">
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full border border-gray-200 dark:border-gray-700">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>

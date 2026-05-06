@@ -14,7 +14,6 @@ const GENERAL_SETTINGS_DEFAULTS = {
   dateFormat: 'DD/MM/YYYY',
   timeFormat: '12h',
   theme: 'light',
-  dbRetentionMonths: 6,
 };
 
 function loadGeneralSettings(): typeof GENERAL_SETTINGS_DEFAULTS {
@@ -53,7 +52,7 @@ router.get('/general', (_req: Request, res: Response) => {
 // PUT /api/settings/general
 router.put('/general', (req: Request, res: Response) => {
   try {
-    const allowed = ['companyName', 'language', 'timeZone', 'dateFormat', 'timeFormat', 'theme', 'dbRetentionMonths'];
+    const allowed = ['companyName', 'language', 'timeZone', 'dateFormat', 'timeFormat', 'theme'];
     const patch: Record<string, any> = {};
     for (const key of allowed) {
       if (key in req.body) patch[key] = req.body[key];

@@ -298,6 +298,23 @@ export class SqlAccessRecordRepository extends IAccessRepository {
     logger.info('[SqlAccessRecordRepository] All records cleared');
   }
 
+  async deleteOlderThan(cutoff: Date): Promise<number> {
+    // COUNT before DELETE — avoids ROW_COUNT()/@@ROWCOUNT dialect differences
+    const countRows = await this.db.query(
+      'SELECT COUNT(*) AS cnt FROM access_records WHERE swipe_time < ?',
+      [cutoff],
+    );
+    const deleted = Number(countRows[0]?.cnt ?? countRows[0]?.['COUNT(*)'] ?? 0);
+    if (deleted > 0) {
+      await this.db.query(
+        'DELETE FROM access_records WHERE swipe_time < ?',
+        [cutoff],
+      );
+    }
+    logger.info(`[SqlAccessRecordRepository] deleteOlderThan(${cutoff.toISOString()}): removed ${deleted} records`);
+    return deleted;
+  }
+
   async renameDevice(oldRegistrationId: string, newRegistrationId: string): Promise<number> {
     // When a device's registrationId changes (e.g. broken device replaced),
     // migrate all historical access_records to the new registrationId so old

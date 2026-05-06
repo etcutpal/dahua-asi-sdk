@@ -347,6 +347,26 @@ class FileRepository extends IAccessRepository {
     logger.info('All records cleared');
   }
 
+  /**
+   * Delete records older than cutoff date (for retention cleanup)
+   */
+  async deleteOlderThan(cutoff: Date): Promise<number> {
+    const cutoffMs = cutoff.getTime();
+    const before = this.records.length;
+    this.records = this.records.filter(r => {
+      const ts = r.swipeTime;
+      if (!ts) return true; // keep records with no timestamp
+      const t = new Date(ts).getTime();
+      return isNaN(t) || t >= cutoffMs;
+    });
+    const deleted = before - this.records.length;
+    if (deleted > 0) {
+      await this.saveRecords();
+      logger.info(`[FileRepository] deleteOlderThan(${cutoff.toISOString()}): removed ${deleted} records`);
+    }
+    return deleted;
+  }
+
   async renameDevice(oldRegistrationId: string, newRegistrationId: string): Promise<number> {
     // Migrate all historical records to the new registrationId
     let count = 0;
