@@ -6,8 +6,8 @@
     "autoReg": 9500
   },
   "network": {
-    "localAccessIp": "192.168.1.12",
-    "deviceRegistrationIp": "192.168.1.12",
+    "localAccessIp": "192.168.1.10",
+    "deviceRegistrationIp": "192.168.1.10",
     "publicAccessEnabled": false,
     "publicAccessIp": "103.234.164.221",
     "bindHost": "0.0.0.0"

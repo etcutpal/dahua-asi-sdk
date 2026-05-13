@@ -43,7 +43,8 @@ router.post('/fetch-and-store', async (req: Request, res: Response) => {
 // Get stored access records with filtering and pagination
 router.get('/stored', async (req: Request, res: Response) => {
   try {
-    const { date, startDate, endDate, deviceId, filter, page = 1, limit = 20 } = req.query;
+    const { date, startDate, endDate, deviceId, filter, userId, userIds: userIdsParam, page = 1, limit = 20 } = req.query;
+    const userIds = userIdsParam ? (userIdsParam as string).split(',').filter(Boolean) : undefined;
 
     logger.info(`Getting stored access records: startDate=${startDate || 'all'}, endDate=${endDate || 'all'}, filter=${filter || 'all'}, page=${page}`);
 
@@ -53,6 +54,8 @@ router.get('/stored', async (req: Request, res: Response) => {
       endDate: endDate as string,
       deviceId: deviceId as string,
       filter: filter as any,
+      userId: userId as string,
+      userIds,
       page: parseInt(page as string),
       limit: parseInt(limit as string)
     });

@@ -1,9 +1,9 @@
 {
-  "type": "sqlserver",
+  "type": "mysql",
   "host": "103.234.164.221",
-  "port": 1433,
+  "port": 3306,
   "database": "acs",
-  "user": "sa",
-  "password": "Admin@12345",
+  "user": "root",
+  "password": "Admin123@",
   "useSSL": false
 }

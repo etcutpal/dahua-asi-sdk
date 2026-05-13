@@ -237,6 +237,13 @@ export class SqlAccessRecordRepository extends IAccessRepository {
     if (deviceId) { conditions.push('registration_id = ?'); params.push(deviceId); }
     if (filter === 'authorized')   { conditions.push("status = 'Success'"); }
     if (filter === 'unauthorized') { conditions.push("status = 'Failed'"); }
+    if (filters.userId) {
+      conditions.push('user_id = ?');
+      params.push(filters.userId);
+    } else if (filters.userIds && filters.userIds.length > 0) {
+      conditions.push(`user_id IN (${filters.userIds.map(() => '?').join(',')})`);
+      params.push(...filters.userIds);
+    }
 
     const where = conditions.length ? 'WHERE ' + conditions.join(' AND ') : '';
 

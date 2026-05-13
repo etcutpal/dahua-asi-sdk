@@ -51,6 +51,8 @@ export interface RecordFilters {
   endDate?: string;
   deviceId?: string;
   filter?: 'all' | 'authorized' | 'unauthorized';
+  userId?: string;
+  userIds?: string[];
   page?: number;
   limit?: number;
 }

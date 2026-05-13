@@ -60,6 +60,24 @@ interface PaginationInfo {
   hasPrevPage: boolean;
 }
 
+interface Employee {
+  id: string;
+  name: string;
+  personId?: string;
+  groups?: string[];
+}
+
+interface EmployeeGroup {
+  id: string;
+  name: string;
+}
+
+interface PersonSelection {
+  type: 'all' | 'group' | 'emp';
+  id?: string;
+  label?: string;
+}
+
 export default function AccessRecordsPage() {
   const router = useRouter();
   const { isAuthenticated, logout } = useAuth();
@@ -102,11 +120,40 @@ export default function AccessRecordsPage() {
     return true;
   });
 
+  // ─── Person selector state ──────────────────────────────────────────────
+  const [personSelection, setPersonSelection] = useState<PersonSelection>({ type: 'all', label: 'All Records' });
+  const [personSearch, setPersonSearch] = useState('');
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [groups, setGroups] = useState<EmployeeGroup[]>([]);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (!isAuthenticated) {
       router.push('/login');
     }
   }, [isAuthenticated, router]);
+
+  // Load employees & groups for person selector
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const [empRes, grpRes] = await Promise.all([
+          fetch(`${API_URL}/api/employees`),
+          fetch(`${API_URL}/api/employees/groups`),
+        ]);
+        const [empData, grpData] = await Promise.all([empRes.json(), grpRes.json()]);
+        if (empData.success) {
+          setEmployees((empData.data || empData.employees || []).map((e: any) => ({
+            ...e,
+            groups: e.groups || (e.groupId ? [e.groupId] : []),
+          })));
+        }
+        if (grpData.success) setGroups(grpData.groups || []);
+      } catch {}
+    };
+    load();
+  }, []);
 
   // Real-time: listen for SDK access control events and prepend to the list
   useEffect(() => {
@@ -171,7 +218,8 @@ export default function AccessRecordsPage() {
   // Fetch records on mount and when filters change
   useEffect(() => {
     fetchRecords();
-  }, [startDate, endDate, filter, page]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, filter, page, personSelection]);
 
   const fetchRecords = async () => {
     setLoading(true);
@@ -191,6 +239,21 @@ export default function AccessRecordsPage() {
       }
       if (filter !== 'all') {
         params.append('filter', filter);
+      }
+      if (personSelection.type === 'emp' && personSelection.id) {
+        const emp = employees.find(e => e.id === personSelection.id);
+        if (emp) params.append('userId', emp.personId || emp.id);
+      } else if (personSelection.type === 'group' && personSelection.id) {
+        const groupEmps = employees.filter(e => e.groups?.includes(personSelection.id!));
+        const deviceIds = groupEmps.map(e => e.personId || e.id).filter(Boolean);
+        if (deviceIds.length === 0) {
+          // Group has no employees — show empty results without querying
+          setRecords([]);
+          setPagination({ currentPage: 1, totalPages: 0, totalRecords: 0, hasNextPage: false, hasPrevPage: false });
+          setLoading(false);
+          return;
+        }
+        params.append('userIds', deviceIds.join(','));
       }
 
       const response = await fetch(`${API_URL}/api/access-records/stored?${params.toString()}`);
@@ -366,8 +429,43 @@ export default function AccessRecordsPage() {
     time: fmtTime(dateString, settings.timeFormat, settings.timeZone),
   });
 
+  // ─── Person selector helpers ──────────────────────────────────────────
+  const lowerSearch = personSearch.toLowerCase();
+  const arMatchedEmps = employees.filter(e =>
+    !lowerSearch ||
+    e.name.toLowerCase().includes(lowerSearch) ||
+    (e.personId || e.id).toLowerCase().includes(lowerSearch)
+  );
+  const arEmpsByGroup = new Map<string, Employee[]>();
+  arEmpsByGroup.set('ungrouped', []);
+  groups.forEach(g => arEmpsByGroup.set(g.id, []));
+  arMatchedEmps.forEach(e => {
+    const grpIds = e.groups || [];
+    if (grpIds.length === 0) {
+      arEmpsByGroup.get('ungrouped')!.push(e);
+    } else {
+      grpIds.forEach(gid => {
+        if (arEmpsByGroup.has(gid)) arEmpsByGroup.get(gid)!.push(e);
+        else arEmpsByGroup.get('ungrouped')!.push(e);
+      });
+    }
+  });
+
+  function toggleGroup(gid: string) {
+    setExpandedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(gid)) next.delete(gid); else next.add(gid);
+      return next;
+    });
+  }
+
+  function selectPerson(sel: PersonSelection) {
+    setPersonSelection(sel);
+    setPage(1);
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
+    <div className="flex min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-950">
       {/* Sidebar */}
       <Sidebar currentPath="/access-records" onLogout={() => { logout(); router.push('/login'); }} />
 
@@ -402,13 +500,16 @@ export default function AccessRecordsPage() {
       )}
 
       {/* Main Content */}
-      <div className="lg:ml-64 p-4 lg:p-8 pt-16 lg:pt-8">
+      <div className="flex-1 lg:ml-64 flex flex-col">
         {/* Header */}
-        <div className="mb-6 lg:mb-8">
+        <div className="px-4 lg:px-8 pt-16 lg:pt-8 pb-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-gray-800">Access Records</h1>
-              <p className="text-gray-500 mt-1 text-sm lg:text-base">View and manage access control logs</p>
+              <p className="text-gray-500 mt-1 text-sm lg:text-base">
+                {personSelection.type === 'all' ? 'All employees' : personSelection.label}
+                {' \u00b7 '}View and manage access control logs
+              </p>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
               {/* Auto-fetch notification toggle */}
@@ -443,6 +544,134 @@ export default function AccessRecordsPage() {
             </div>
           </div>
         </div>
+
+        {/* Two-column body */}
+        <div className="flex flex-1 px-4 lg:px-8 pb-8 gap-5 min-h-0">
+
+          {/* ──── Left panel: Person Selector ───────────────────────────────────────── */}
+          <div className="w-64 shrink-0 flex flex-col">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-100 flex flex-col overflow-hidden" style={{ maxHeight: 'calc(100vh - 200px)' }}>
+              <div className="px-4 py-3 border-b border-gray-100">
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Filter by Person</p>
+                <div className="relative">
+                  <svg className="w-4 h-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <input
+                    type="text"
+                    placeholder="Search name or ID..."
+                    value={personSearch}
+                    onChange={e => setPersonSearch(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="overflow-y-auto flex-1 py-2">
+                {/* All Records */}
+                <button
+                  onClick={() => selectPerson({ type: 'all', label: 'All Records' })}
+                  className={`w-full text-left px-4 py-2 text-sm flex items-center gap-2 transition-colors ${
+                    personSelection.type === 'all' ? 'bg-blue-50 text-blue-700 font-semibold' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <svg className="w-4 h-4 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  All Records
+                  <span className="ml-auto text-xs text-gray-400">{employees.length > 0 ? employees.length : ''}</span>
+                </button>
+
+                <div className="my-1 border-t border-gray-100" />
+
+                {/* Groups */}
+                {groups.map(g => {
+                  const grpEmps = arEmpsByGroup.get(g.id) || [];
+                  if (personSearch && grpEmps.length === 0) return null;
+                  const isExpanded = expandedGroups.has(g.id);
+                  const isSelected = personSelection.type === 'group' && personSelection.id === g.id;
+                  return (
+                    <div key={g.id}>
+                      <div className={`flex items-center gap-1 px-3 py-1.5 transition-colors ${isSelected ? 'bg-blue-50' : 'hover:bg-gray-50'}`}>
+                        <button onClick={() => toggleGroup(g.id)} className="p-0.5 text-gray-400 hover:text-gray-600">
+                          <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d={isExpanded ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'} />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={() => selectPerson({ type: 'group', id: g.id, label: g.name })}
+                          className={`flex-1 text-left text-sm flex items-center gap-1.5 ${isSelected ? 'text-blue-700 font-semibold' : 'text-gray-700'}`}
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                          </svg>
+                          <span className="truncate">{g.name}</span>
+                          <span className="ml-auto text-xs text-gray-400 shrink-0">{grpEmps.length}</span>
+                        </button>
+                      </div>
+                      {isExpanded && grpEmps.map(e => (
+                        <button
+                          key={e.id}
+                          onClick={() => selectPerson({ type: 'emp', id: e.id, label: e.name })}
+                          className={`w-full text-left px-8 py-1.5 text-xs flex items-center gap-2 transition-colors ${
+                            personSelection.type === 'emp' && personSelection.id === e.id
+                              ? 'bg-blue-50 text-blue-700 font-semibold'
+                              : 'text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="truncate">{e.name}</span>
+                          {e.personId && (
+                            <span className="ml-auto text-gray-400 font-mono shrink-0">{e.personId}</span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+
+                {/* Ungrouped employees */}
+                {(() => {
+                  const ungrouped = arEmpsByGroup.get('ungrouped') || [];
+                  if (ungrouped.length === 0) return null;
+                  const isExpanded = expandedGroups.has('ungrouped');
+                  return (
+                    <div>
+                      <div className="flex items-center gap-1 px-3 py-1.5 hover:bg-gray-50">
+                        <button onClick={() => toggleGroup('ungrouped')} className="p-0.5 text-gray-400 hover:text-gray-600">
+                          <svg className="w-3.5 h-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d={isExpanded ? 'M19 9l-7 7-7-7' : 'M9 5l7 7-7 7'} />
+                          </svg>
+                        </button>
+                        <span className="flex-1 text-xs text-gray-400 pl-1">No Group</span>
+                        <span className="text-xs text-gray-400">{ungrouped.length}</span>
+                      </div>
+                      {isExpanded && ungrouped.map(e => (
+                        <button
+                          key={e.id}
+                          onClick={() => selectPerson({ type: 'emp', id: e.id, label: e.name })}
+                          className={`w-full text-left px-8 py-1.5 text-xs flex items-center gap-2 transition-colors ${
+                            personSelection.type === 'emp' && personSelection.id === e.id
+                              ? 'bg-blue-50 text-blue-700 font-semibold'
+                              : 'text-gray-600 hover:bg-gray-50'
+                          }`}
+                        >
+                          <svg className="w-3.5 h-3.5 shrink-0 text-gray-300" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                          <span className="truncate">{e.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+
+          {/* ──── Right panel: Records ─────────────────────────────────────────────── */}
+          <div className="flex-1 min-w-0 flex flex-col gap-4">
 
         <main>
         {/* Filters */}
@@ -743,6 +972,8 @@ export default function AccessRecordsPage() {
           </CardContent>
         </Card>
         </main>
+          </div>
+        </div>
       </div>
     </div>
   );
